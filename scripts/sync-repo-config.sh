@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # Applies the GitHub Repository Rulesets in .github/rulesets/*.json together with the
-# repository settings. For the list of what is applied see "Setup" in the README; for
-# what the rulesets contain see "What branch protection enforces".
+# repository settings. For the list of what is applied and what the rulesets contain,
+# see the README.
 #
 # It also rewrites OWNER/REPO inside .github/ISSUE_TEMPLATE/config.yml to the actual
 # repository name. That only changes the working tree, so a separate commit is needed
@@ -224,7 +224,7 @@ check_settings() {
       if [[ "$endpoint" == vulnerability-alerts ]]; then
         # No body to read .enabled from (see the definition above). A user token without
         # admin read also gets 404 (only app tokens get 403), indistinguishable from
-        # "disabled" — hence the admin check (docs/drift-check.md "About the token").
+        # "disabled" — hence the admin check (docs/drift-check.md).
         if err="$(gh api --silent "repos/${REPO}/${endpoint}" 2>&1)"; then
           echo "  OK      ${endpoint} = true"
         elif grep -q 'HTTP 404' <<<"$err"; then

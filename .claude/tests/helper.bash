@@ -10,10 +10,6 @@ bats_require_minimum_version 1.5.0
 
 HOOKS_DIR="${BATS_TEST_DIRNAME}/../hooks"
 
-# The hooks read the project directory out of the environment, as they do under
-# Claude Code, so the paths a test hands them are rooted here.
-export CLAUDE_PROJECT_DIR=/project
-
 # run_hook <script-name> <stdin-json>
 #
 # The bare round trip; the tests reach it through answer, which adds the
