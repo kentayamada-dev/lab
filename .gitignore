@@ -2,3 +2,5 @@
 .git
 .env
 .gen-check.tmp
+coverage.out
+coverage.html

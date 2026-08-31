@@ -20,7 +20,11 @@ DEVCONTAINERS    := $(patsubst .devcontainer/%-container/devcontainer.json,%,\
                       $(wildcard .devcontainer/*-container/devcontainer.json))
 
 check-service = @list=$$($(1) config --services) \
-                  || { echo "cannot list the services, is docker running? (try: $(1) config --services)" >&2; \
+                  || { if [ -e .env ]; then \
+                         echo "cannot list the services, is docker running? (try: $(1) config --services)" >&2; \
+                       else \
+                         echo ".env is missing, run 'make init' first" >&2; \
+                       fi; \
                        exit 1; }; \
                 for s in $$list; do [ "$$s" = "$*" ] && exit 0; done; \
                 echo "no service '$*' (available: $$(echo $$list))" >&2; exit 1

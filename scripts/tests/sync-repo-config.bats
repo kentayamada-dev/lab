@@ -132,6 +132,13 @@ setup() {
   assert_gh_called '--method PUT repos/owner/repo/actions/permissions/workflow'
 }
 
+@test "stops when the existing rulesets cannot be listed, instead of creating a duplicate" {
+  fail_endpoint 'repos/owner/repo/rulesets?includes_parents=false' 1
+  run -1 run_sync
+  assert_gh_not_called '--method POST repos/owner/repo/rulesets'
+  assert_gh_not_called '--method PUT repos/owner/repo/rulesets/1'
+}
+
 @test "creates the ruleset when none of that name exists" {
   edit_fixture 'repos/owner/repo/rulesets?includes_parents=false' '[]'
   run -0 run_sync
