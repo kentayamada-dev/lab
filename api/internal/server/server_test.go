@@ -66,8 +66,24 @@ func TestNewUnimplementedMethod(t *testing.T) {
 	}
 }
 
+// The stub answers every CreateTodo with a success, so a rejection here can
+// only come from the validate interceptor.
+func TestNewEnforcesProtoValidation(t *testing.T) {
+	srv := newTestServer(t, stubHandler{})
+
+	client := todov1connect.NewTodoServiceClient(srv.Client(), srv.URL)
+
+	_, err := client.CreateTodo(
+		t.Context(),
+		connect.NewRequest(&todov1.CreateTodoRequest{Title: "   "}),
+	)
+	if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
+		t.Errorf("CreateTodo() code = %v, want %v", got, connect.CodeInvalidArgument)
+	}
+}
+
 func TestNewUnknownPath(t *testing.T) {
-	res := get(t, newTestServer(t, stubHandler{}), "/todo.v1.TodoService/DeleteTodo")
+	res := get(t, newTestServer(t, stubHandler{}), "/todo.v1.TodoService/PurgeTodos")
 
 	if res.StatusCode != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", res.StatusCode, http.StatusNotFound)

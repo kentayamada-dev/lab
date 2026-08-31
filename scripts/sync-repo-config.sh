@@ -481,8 +481,13 @@ done < <(jq -r '.conditions.ref_name.include[]?' "${RULESET_FILES[@]}" | sort -u
 
 # See the comment in check_settings for why includes_parents=false. The jq below prints
 # every id whose name matches, so a parent ruleset slipping in would yield two lines and
-# turn the target of the following PUT into a broken string.
-existing_rulesets="$(gh api "repos/${REPO}/rulesets?includes_parents=false" 2>/dev/null || echo '[]')"
+# turn the target of the following PUT into a broken string. A failed listing must stop
+# the run: treating it as "no rulesets" would create a duplicate next to the existing one.
+existing_rulesets="$(gh api "repos/${REPO}/rulesets?includes_parents=false")" ||
+  {
+    echo "cannot list the existing rulesets of ${REPO}" >&2
+    exit 1
+  }
 
 for i in "${!RULESET_FILES[@]}"; do
   ruleset_file="${RULESET_FILES[$i]}"

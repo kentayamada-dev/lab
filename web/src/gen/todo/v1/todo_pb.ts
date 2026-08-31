@@ -4,13 +4,14 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import { file_buf_validate_validate } from "../../buf/validate/validate_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file todo/v1/todo.proto.
  */
 export const file_todo_v1_todo: GenFile = /*@__PURE__*/
-  fileDesc("ChJ0b2RvL3YxL3RvZG8ucHJvdG8SB3RvZG8udjEiLwoEVG9kbxIKCgJpZBgBIAEoAxINCgV0aXRsZRgCIAEoCRIMCgRkb25lGAMgASgIIiIKEUNyZWF0ZVRvZG9SZXF1ZXN0Eg0KBXRpdGxlGAEgASgJIjEKEkNyZWF0ZVRvZG9SZXNwb25zZRIbCgR0b2RvGAEgASgLMg0udG9kby52MS5Ub2RvIhIKEExpc3RUb2Rvc1JlcXVlc3QiMQoRTGlzdFRvZG9zUmVzcG9uc2USHAoFdG9kb3MYASADKAsyDS50b2RvLnYxLlRvZG8iLQoRVXBkYXRlVG9kb1JlcXVlc3QSCgoCaWQYASABKAMSDAoEZG9uZRgCIAEoCCIxChJVcGRhdGVUb2RvUmVzcG9uc2USGwoEdG9kbxgBIAEoCzINLnRvZG8udjEuVG9kbzLfAQoLVG9kb1NlcnZpY2USRQoKQ3JlYXRlVG9kbxIaLnRvZG8udjEuQ3JlYXRlVG9kb1JlcXVlc3QaGy50b2RvLnYxLkNyZWF0ZVRvZG9SZXNwb25zZRJCCglMaXN0VG9kb3MSGS50b2RvLnYxLkxpc3RUb2Rvc1JlcXVlc3QaGi50b2RvLnYxLkxpc3RUb2Rvc1Jlc3BvbnNlEkUKClVwZGF0ZVRvZG8SGi50b2RvLnYxLlVwZGF0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5VcGRhdGVUb2RvUmVzcG9uc2VCI1ohZXhhbXBsZS9hcHAvZ2VuL2dvL3RvZG8vdjE7dG9kb3YxYgZwcm90bzM");
+  fileDesc("ChJ0b2RvL3YxL3RvZG8ucHJvdG8SB3RvZG8udjEiLwoEVG9kbxIKCgJpZBgBIAEoAxINCgV0aXRsZRgCIAEoCRIMCgRkb25lGAMgASgIInIKEUNyZWF0ZVRvZG9SZXF1ZXN0El0KBXRpdGxlGAEgASgJQk66SEu6AUMKD3RpdGxlLm5vdF9ibGFuaxIXdGl0bGUgbXVzdCBub3QgYmUgYmxhbmsaFyF0aGlzLm1hdGNoZXMoJ15cXHMqJCcpcgMY6AciMQoSQ3JlYXRlVG9kb1Jlc3BvbnNlEhsKBHRvZG8YASABKAsyDS50b2RvLnYxLlRvZG8iEgoQTGlzdFRvZG9zUmVxdWVzdCIxChFMaXN0VG9kb3NSZXNwb25zZRIcCgV0b2RvcxgBIAMoCzINLnRvZG8udjEuVG9kbyKbAQoRVXBkYXRlVG9kb1JlcXVlc3QSCgoCaWQYASABKAMSDAoEZG9uZRgCIAEoCBJiCgV0aXRsZRgDIAEoCUJOukhLugFDCg90aXRsZS5ub3RfYmxhbmsSF3RpdGxlIG11c3Qgbm90IGJlIGJsYW5rGhchdGhpcy5tYXRjaGVzKCdeXFxzKiQnKXIDGOgHSACIAQFCCAoGX3RpdGxlIjEKElVwZGF0ZVRvZG9SZXNwb25zZRIbCgR0b2RvGAEgASgLMg0udG9kby52MS5Ub2RvIh8KEURlbGV0ZVRvZG9SZXF1ZXN0EgoKAmlkGAEgASgDIhQKEkRlbGV0ZVRvZG9SZXNwb25zZTKmAgoLVG9kb1NlcnZpY2USRQoKQ3JlYXRlVG9kbxIaLnRvZG8udjEuQ3JlYXRlVG9kb1JlcXVlc3QaGy50b2RvLnYxLkNyZWF0ZVRvZG9SZXNwb25zZRJCCglMaXN0VG9kb3MSGS50b2RvLnYxLkxpc3RUb2Rvc1JlcXVlc3QaGi50b2RvLnYxLkxpc3RUb2Rvc1Jlc3BvbnNlEkUKClVwZGF0ZVRvZG8SGi50b2RvLnYxLlVwZGF0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5VcGRhdGVUb2RvUmVzcG9uc2USRQoKRGVsZXRlVG9kbxIaLnRvZG8udjEuRGVsZXRlVG9kb1JlcXVlc3QaGy50b2RvLnYxLkRlbGV0ZVRvZG9SZXNwb25zZUJ4Cgtjb20udG9kby52MUIJVG9kb1Byb3RvUAFaIWV4YW1wbGUvYXBwL2dlbi9nby90b2RvL3YxO3RvZG92MaICA1RYWKoCB1RvZG8uVjHKAgdUb2RvXFYx4gITVG9kb1xWMVxHUEJNZXRhZGF0YeoCCFRvZG86OlYxYgZwcm90bzM", [file_buf_validate_validate]);
 
 /**
  * A single todo item.
@@ -54,7 +55,8 @@ export const TodoSchema: GenMessage<Todo> = /*@__PURE__*/
  */
 export type CreateTodoRequest = Message<"todo.v1.CreateTodoRequest"> & {
   /**
-   * Title of the todo to create. Must not be blank.
+   * Title of the todo to create. Must not be blank and must be at most 1000
+   * characters. Leading and trailing whitespace is trimmed before storage.
    *
    * @generated from field: string title = 1;
    */
@@ -126,7 +128,7 @@ export const ListTodosResponseSchema: GenMessage<ListTodosResponse> = /*@__PURE_
   messageDesc(file_todo_v1_todo, 4);
 
 /**
- * Request to change the completion state of an existing todo.
+ * Request to update an existing todo.
  *
  * @generated from message todo.v1.UpdateTodoRequest
  */
@@ -144,6 +146,14 @@ export type UpdateTodoRequest = Message<"todo.v1.UpdateTodoRequest"> & {
    * @generated from field: bool done = 2;
    */
   done: boolean;
+
+  /**
+   * New title for the todo. Left unchanged when absent. Subject to the same
+   * rules as CreateTodoRequest.title.
+   *
+   * @generated from field: optional string title = 3;
+   */
+  title?: string | undefined;
 };
 
 /**
@@ -175,6 +185,42 @@ export const UpdateTodoResponseSchema: GenMessage<UpdateTodoResponse> = /*@__PUR
   messageDesc(file_todo_v1_todo, 6);
 
 /**
+ * Request to delete an existing todo.
+ *
+ * @generated from message todo.v1.DeleteTodoRequest
+ */
+export type DeleteTodoRequest = Message<"todo.v1.DeleteTodoRequest"> & {
+  /**
+   * Identifier of the todo to delete.
+   *
+   * @generated from field: int64 id = 1;
+   */
+  id: bigint;
+};
+
+/**
+ * Describes the message todo.v1.DeleteTodoRequest.
+ * Use `create(DeleteTodoRequestSchema)` to create a new message.
+ */
+export const DeleteTodoRequestSchema: GenMessage<DeleteTodoRequest> = /*@__PURE__*/
+  messageDesc(file_todo_v1_todo, 7);
+
+/**
+ * Response to a deletion. It carries no data.
+ *
+ * @generated from message todo.v1.DeleteTodoResponse
+ */
+export type DeleteTodoResponse = Message<"todo.v1.DeleteTodoResponse"> & {
+};
+
+/**
+ * Describes the message todo.v1.DeleteTodoResponse.
+ * Use `create(DeleteTodoResponseSchema)` to create a new message.
+ */
+export const DeleteTodoResponseSchema: GenMessage<DeleteTodoResponse> = /*@__PURE__*/
+  messageDesc(file_todo_v1_todo, 8);
+
+/**
  * Operations on todo items.
  *
  * @generated from service todo.v1.TodoService
@@ -182,7 +228,8 @@ export const UpdateTodoResponseSchema: GenMessage<UpdateTodoResponse> = /*@__PUR
 export const TodoService: GenService<{
   /**
    * Creates a new todo item from the given title and returns the stored
-   * record. Fails with the invalid_argument code when the title is blank.
+   * record. Fails with the invalid_argument code when the title is blank or
+   * longer than 1000 characters.
    *
    * @generated from rpc todo.v1.TodoService.CreateTodo
    */
@@ -202,8 +249,10 @@ export const TodoService: GenService<{
     output: typeof ListTodosResponseSchema;
   },
   /**
-   * Updates the done flag of the todo identified by id and returns the updated
-   * record. Fails with the not_found code when no todo has that id.
+   * Updates the todo identified by id and returns the updated record: done is
+   * always applied, title only when present. Fails with the not_found code
+   * when no todo has that id, and with the invalid_argument code when the
+   * title is present but blank or longer than 1000 characters.
    *
    * @generated from rpc todo.v1.TodoService.UpdateTodo
    */
@@ -211,6 +260,17 @@ export const TodoService: GenService<{
     methodKind: "unary";
     input: typeof UpdateTodoRequestSchema;
     output: typeof UpdateTodoResponseSchema;
+  },
+  /**
+   * Deletes the todo identified by id. Fails with the not_found code when no
+   * todo has that id.
+   *
+   * @generated from rpc todo.v1.TodoService.DeleteTodo
+   */
+  deleteTodo: {
+    methodKind: "unary";
+    input: typeof DeleteTodoRequestSchema;
+    output: typeof DeleteTodoResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_todo_v1_todo, 0);

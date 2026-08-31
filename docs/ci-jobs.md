@@ -72,6 +72,8 @@ jobs:
 
 各ジョブは `USER_UID` / `USER_GID` を runner の uid / gid に合わせてから make を呼びます。bind mount したチェックアウトをコンテナ側が読み書きできるようにするためで、buf が `.git` を読むときの dubious ownership 判定もこれで避けます。`api` ジョブは `API_BUILD_TARGET=base` でイメージを build します（dev target が足す gopls は検査で使わず、コンパイルに時間がかかるためです）。
 
+`api` と `web` は依存物のキャッシュを run をまたいで持ち越します。[docker-compose.yml](../docker-compose.yml) の `GO_MOD_CACHE` / `GO_BUILD_CACHE` / `PNPM_STORE` は named volume を任意のホストディレクトリに差し替えるための変数で、CI はここに actions/cache で restore したディレクトリを渡します（ローカルでは未設定のまま named volume が使われます）。保存は [mise のキャッシュ](#ツールの導入と検証)と同じ理由で main への push のときだけです。`proto` / `gen` / `db` はイメージの pull だけで動くため、キャッシュしていません。
+
 言語やパッケージマネージャを増やしたときは、次も見直してください。
 
 - [CodeQL](#codeql) の `matrix.language` に言語を足す
@@ -176,9 +178,9 @@ git ls-files -z '*Dockerfile' '*Dockerfile.*' '*.dockerfile' \
 
 ルールの一覧、落ちる基準（`-t`。既定は `info` 以上）、指摘の抑止の書き方は [hadolint の Rules](https://github.com/hadolint/hadolint#rules) にあります。`.hadolint.yaml` は初期状態では置いていません。
 
-### Dockerfile が無い間は黙って通ります
+### 対象が 0 件でも黙って通ります
 
-このテンプレートにはまだ Dockerfile が無いため、このジョブは何も検査せずに成功します（`xargs -r` が hadolint を起動せず、ログには何も出ません）。Dockerfile を追加すればその時点から自動で対象になります。「対象が 0 件」と「検査して問題が無かった」がログ上は区別しにくい点に注意してください（[osv-scanner](#osv-scanner) と同じです）。
+いま検査対象になっているのは [.devcontainer](../.devcontainer) 配下の 2 つの Dockerfile です。Dockerfile を追加すればその時点から自動で対象になり、逆に全部消してもジョブは成功します（`xargs -r` が hadolint を起動せず、ログには何も出ません）。「対象が 0 件」と「検査して問題が無かった」がログ上は区別しにくい点に注意してください（[osv-scanner](#osv-scanner) と同じです）。
 
 ## typos
 

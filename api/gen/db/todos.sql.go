@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createTodo = `-- name: CreateTodo :one
@@ -25,6 +27,19 @@ func (q *Queries) CreateTodo(ctx context.Context, title string) (Todo, error) {
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const deleteTodo = `-- name: DeleteTodo :execrows
+DELETE FROM todos
+WHERE id = $1
+`
+
+func (q *Queries) DeleteTodo(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteTodo, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const listTodos = `-- name: ListTodos :many
@@ -59,18 +74,19 @@ func (q *Queries) ListTodos(ctx context.Context) ([]Todo, error) {
 
 const updateTodo = `-- name: UpdateTodo :one
 UPDATE todos
-SET completed = $2
-WHERE id = $1
+SET completed = $1, title = coalesce($2, title)
+WHERE id = $3
 RETURNING id, title, completed, created_at
 `
 
 type UpdateTodoParams struct {
-	ID        int64
 	Completed bool
+	Title     pgtype.Text
+	ID        int64
 }
 
 func (q *Queries) UpdateTodo(ctx context.Context, arg UpdateTodoParams) (Todo, error) {
-	row := q.db.QueryRow(ctx, updateTodo, arg.ID, arg.Completed)
+	row := q.db.QueryRow(ctx, updateTodo, arg.Completed, arg.Title, arg.ID)
 	var i Todo
 	err := row.Scan(
 		&i.ID,

@@ -1,7 +1,7 @@
 syntax = "proto3";
 package todo.v1;
 
-option go_package = "example/app/gen/go/todo/v1;todov1";
+import "buf/validate/validate.proto";
 
 // A single todo item.
 message Todo {
@@ -15,8 +15,16 @@ message Todo {
 
 // Request to create a new todo.
 message CreateTodoRequest {
-  // Title of the todo to create. Must not be blank.
-  string title = 1;
+  // Title of the todo to create. Must not be blank and must be at most 1000
+  // characters. Leading and trailing whitespace is trimmed before storage.
+  string title = 1 [
+    (buf.validate.field).string.max_len = 1000,
+    (buf.validate.field).cel = {
+      id: "title.not_blank"
+      message: "title must not be blank"
+      expression: "!this.matches('^\\\\s*$')"
+    }
+  ];
 }
 
 // Response containing the newly created todo.
@@ -34,12 +42,22 @@ message ListTodosResponse {
   repeated Todo todos = 1;
 }
 
-// Request to change the completion state of an existing todo.
+// Request to update an existing todo.
 message UpdateTodoRequest {
   // Identifier of the todo to update.
   int64 id = 1;
   // Desired completion state.
   bool done = 2;
+  // New title for the todo. Left unchanged when absent. Subject to the same
+  // rules as CreateTodoRequest.title.
+  optional string title = 3 [
+    (buf.validate.field).string.max_len = 1000,
+    (buf.validate.field).cel = {
+      id: "title.not_blank"
+      message: "title must not be blank"
+      expression: "!this.matches('^\\\\s*$')"
+    }
+  ];
 }
 
 // Response containing the updated todo.
@@ -48,16 +66,32 @@ message UpdateTodoResponse {
   Todo todo = 1;
 }
 
+// Request to delete an existing todo.
+message DeleteTodoRequest {
+  // Identifier of the todo to delete.
+  int64 id = 1;
+}
+
+// Response to a deletion. It carries no data.
+message DeleteTodoResponse {}
+
 // Operations on todo items.
 service TodoService {
   // Creates a new todo item from the given title and returns the stored
-  // record. Fails with the invalid_argument code when the title is blank.
+  // record. Fails with the invalid_argument code when the title is blank or
+  // longer than 1000 characters.
   rpc CreateTodo(CreateTodoRequest) returns (CreateTodoResponse);
 
   // Returns all todo items. The list is empty when no todos exist.
   rpc ListTodos(ListTodosRequest) returns (ListTodosResponse);
 
-  // Updates the done flag of the todo identified by id and returns the updated
-  // record. Fails with the not_found code when no todo has that id.
+  // Updates the todo identified by id and returns the updated record: done is
+  // always applied, title only when present. Fails with the not_found code
+  // when no todo has that id, and with the invalid_argument code when the
+  // title is present but blank or longer than 1000 characters.
   rpc UpdateTodo(UpdateTodoRequest) returns (UpdateTodoResponse);
+
+  // Deletes the todo identified by id. Fails with the not_found code when no
+  // todo has that id.
+  rpc DeleteTodo(DeleteTodoRequest) returns (DeleteTodoResponse);
 }

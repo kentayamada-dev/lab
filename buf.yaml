@@ -1,6 +1,8 @@
 version: v2
 modules:
   - path: proto
+deps:
+  - buf.build/bufbuild/protovalidate
 lint:
   use:
     - STANDARD
@@ -8,3 +10,8 @@ lint:
 breaking:
   use:
     - FILE
+  except:
+    # go_package no longer lives in the proto files: buf.gen.yaml's managed
+    # mode injects it at generation time, so the option is absent from the
+    # built image this rule inspects.
+    - FILE_SAME_GO_PACKAGE

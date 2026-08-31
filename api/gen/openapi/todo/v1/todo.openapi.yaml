@@ -9,7 +9,8 @@ paths:
       summary: CreateTodo
       description: |-
         Creates a new todo item from the given title and returns the stored
-         record. Fails with the invalid_argument code when the title is blank.
+         record. Fails with the invalid_argument code when the title is blank or
+         longer than 1000 characters.
       operationId: todo.v1.TodoService.CreateTodo
       parameters:
         - name: Connect-Protocol-Version
@@ -40,6 +41,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/todo.v1.CreateTodoResponse'
+  /todo.v1.TodoService/DeleteTodo:
+    post:
+      tags:
+        - todo.v1.TodoService
+      summary: DeleteTodo
+      description: |-
+        Deletes the todo identified by id. Fails with the not_found code when no
+         todo has that id.
+      operationId: todo.v1.TodoService.DeleteTodo
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/todo.v1.DeleteTodoRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/todo.v1.DeleteTodoResponse'
   /todo.v1.TodoService/ListTodos:
     post:
       tags:
@@ -82,8 +121,10 @@ paths:
         - todo.v1.TodoService
       summary: UpdateTodo
       description: |-
-        Updates the done flag of the todo identified by id and returns the updated
-         record. Fails with the not_found code when no todo has that id.
+        Updates the todo identified by id and returns the updated record: done is
+         always applied, title only when present. Fails with the not_found code
+         when no todo has that id, and with the invalid_argument code when the
+         title is present but blank or longer than 1000 characters.
       operationId: todo.v1.TodoService.UpdateTodo
       parameters:
         - name: Connect-Protocol-Version
@@ -191,7 +232,11 @@ components:
         title:
           type: string
           title: title
-          description: Title of the todo to create. Must not be blank.
+          maxLength: 1000
+          description: |
+            Title of the todo to create. Must not be blank and must be at most 1000
+             characters. Leading and trailing whitespace is trimmed before storage.
+            title.not_blank // title must not be blank
       title: CreateTodoRequest
       additionalProperties: false
       description: Request to create a new todo.
@@ -205,6 +250,24 @@ components:
       title: CreateTodoResponse
       additionalProperties: false
       description: Response containing the newly created todo.
+    todo.v1.DeleteTodoRequest:
+      type: object
+      properties:
+        id:
+          type:
+            - integer
+            - string
+          title: id
+          format: int64
+          description: Identifier of the todo to delete.
+      title: DeleteTodoRequest
+      additionalProperties: false
+      description: Request to delete an existing todo.
+    todo.v1.DeleteTodoResponse:
+      type: object
+      title: DeleteTodoResponse
+      additionalProperties: false
+      description: Response to a deletion. It carries no data.
     todo.v1.ListTodosRequest:
       type: object
       title: ListTodosRequest
@@ -257,9 +320,19 @@ components:
           type: boolean
           title: done
           description: Desired completion state.
+        title:
+          type:
+            - string
+            - "null"
+          title: title
+          maxLength: 1000
+          description: |
+            New title for the todo. Left unchanged when absent. Subject to the same
+             rules as CreateTodoRequest.title.
+            title.not_blank // title must not be blank
       title: UpdateTodoRequest
       additionalProperties: false
-      description: Request to change the completion state of an existing todo.
+      description: Request to update an existing todo.
     todo.v1.UpdateTodoResponse:
       type: object
       properties:

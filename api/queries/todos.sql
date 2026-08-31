@@ -9,6 +9,10 @@ ORDER BY id;
 
 -- name: UpdateTodo :one
 UPDATE todos
-SET completed = $2
-WHERE id = $1
+SET completed = sqlc.arg(completed), title = coalesce(sqlc.narg(title), title)
+WHERE id = sqlc.arg(id)
 RETURNING *;
+
+-- name: DeleteTodo :execrows
+DELETE FROM todos
+WHERE id = $1;

@@ -39,18 +39,26 @@ const (
 	TodoServiceListTodosProcedure = "/todo.v1.TodoService/ListTodos"
 	// TodoServiceUpdateTodoProcedure is the fully-qualified name of the TodoService's UpdateTodo RPC.
 	TodoServiceUpdateTodoProcedure = "/todo.v1.TodoService/UpdateTodo"
+	// TodoServiceDeleteTodoProcedure is the fully-qualified name of the TodoService's DeleteTodo RPC.
+	TodoServiceDeleteTodoProcedure = "/todo.v1.TodoService/DeleteTodo"
 )
 
 // TodoServiceClient is a client for the todo.v1.TodoService service.
 type TodoServiceClient interface {
 	// Creates a new todo item from the given title and returns the stored
-	// record. Fails with the invalid_argument code when the title is blank.
+	// record. Fails with the invalid_argument code when the title is blank or
+	// longer than 1000 characters.
 	CreateTodo(context.Context, *connect.Request[v1.CreateTodoRequest]) (*connect.Response[v1.CreateTodoResponse], error)
 	// Returns all todo items. The list is empty when no todos exist.
 	ListTodos(context.Context, *connect.Request[v1.ListTodosRequest]) (*connect.Response[v1.ListTodosResponse], error)
-	// Updates the done flag of the todo identified by id and returns the updated
-	// record. Fails with the not_found code when no todo has that id.
+	// Updates the todo identified by id and returns the updated record: done is
+	// always applied, title only when present. Fails with the not_found code
+	// when no todo has that id, and with the invalid_argument code when the
+	// title is present but blank or longer than 1000 characters.
 	UpdateTodo(context.Context, *connect.Request[v1.UpdateTodoRequest]) (*connect.Response[v1.UpdateTodoResponse], error)
+	// Deletes the todo identified by id. Fails with the not_found code when no
+	// todo has that id.
+	DeleteTodo(context.Context, *connect.Request[v1.DeleteTodoRequest]) (*connect.Response[v1.DeleteTodoResponse], error)
 }
 
 // NewTodoServiceClient constructs a client for the todo.v1.TodoService service. By default, it uses
@@ -82,6 +90,12 @@ func NewTodoServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(todoServiceMethods.ByName("UpdateTodo")),
 			connect.WithClientOptions(opts...),
 		),
+		deleteTodo: connect.NewClient[v1.DeleteTodoRequest, v1.DeleteTodoResponse](
+			httpClient,
+			baseURL+TodoServiceDeleteTodoProcedure,
+			connect.WithSchema(todoServiceMethods.ByName("DeleteTodo")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -90,6 +104,7 @@ type todoServiceClient struct {
 	createTodo *connect.Client[v1.CreateTodoRequest, v1.CreateTodoResponse]
 	listTodos  *connect.Client[v1.ListTodosRequest, v1.ListTodosResponse]
 	updateTodo *connect.Client[v1.UpdateTodoRequest, v1.UpdateTodoResponse]
+	deleteTodo *connect.Client[v1.DeleteTodoRequest, v1.DeleteTodoResponse]
 }
 
 // CreateTodo calls todo.v1.TodoService.CreateTodo.
@@ -107,16 +122,27 @@ func (c *todoServiceClient) UpdateTodo(ctx context.Context, req *connect.Request
 	return c.updateTodo.CallUnary(ctx, req)
 }
 
+// DeleteTodo calls todo.v1.TodoService.DeleteTodo.
+func (c *todoServiceClient) DeleteTodo(ctx context.Context, req *connect.Request[v1.DeleteTodoRequest]) (*connect.Response[v1.DeleteTodoResponse], error) {
+	return c.deleteTodo.CallUnary(ctx, req)
+}
+
 // TodoServiceHandler is an implementation of the todo.v1.TodoService service.
 type TodoServiceHandler interface {
 	// Creates a new todo item from the given title and returns the stored
-	// record. Fails with the invalid_argument code when the title is blank.
+	// record. Fails with the invalid_argument code when the title is blank or
+	// longer than 1000 characters.
 	CreateTodo(context.Context, *connect.Request[v1.CreateTodoRequest]) (*connect.Response[v1.CreateTodoResponse], error)
 	// Returns all todo items. The list is empty when no todos exist.
 	ListTodos(context.Context, *connect.Request[v1.ListTodosRequest]) (*connect.Response[v1.ListTodosResponse], error)
-	// Updates the done flag of the todo identified by id and returns the updated
-	// record. Fails with the not_found code when no todo has that id.
+	// Updates the todo identified by id and returns the updated record: done is
+	// always applied, title only when present. Fails with the not_found code
+	// when no todo has that id, and with the invalid_argument code when the
+	// title is present but blank or longer than 1000 characters.
 	UpdateTodo(context.Context, *connect.Request[v1.UpdateTodoRequest]) (*connect.Response[v1.UpdateTodoResponse], error)
+	// Deletes the todo identified by id. Fails with the not_found code when no
+	// todo has that id.
+	DeleteTodo(context.Context, *connect.Request[v1.DeleteTodoRequest]) (*connect.Response[v1.DeleteTodoResponse], error)
 }
 
 // NewTodoServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -144,6 +170,12 @@ func NewTodoServiceHandler(svc TodoServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(todoServiceMethods.ByName("UpdateTodo")),
 		connect.WithHandlerOptions(opts...),
 	)
+	todoServiceDeleteTodoHandler := connect.NewUnaryHandler(
+		TodoServiceDeleteTodoProcedure,
+		svc.DeleteTodo,
+		connect.WithSchema(todoServiceMethods.ByName("DeleteTodo")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/todo.v1.TodoService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case TodoServiceCreateTodoProcedure:
@@ -152,6 +184,8 @@ func NewTodoServiceHandler(svc TodoServiceHandler, opts ...connect.HandlerOption
 			todoServiceListTodosHandler.ServeHTTP(w, r)
 		case TodoServiceUpdateTodoProcedure:
 			todoServiceUpdateTodoHandler.ServeHTTP(w, r)
+		case TodoServiceDeleteTodoProcedure:
+			todoServiceDeleteTodoHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -171,4 +205,8 @@ func (UnimplementedTodoServiceHandler) ListTodos(context.Context, *connect.Reque
 
 func (UnimplementedTodoServiceHandler) UpdateTodo(context.Context, *connect.Request[v1.UpdateTodoRequest]) (*connect.Response[v1.UpdateTodoResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("todo.v1.TodoService.UpdateTodo is not implemented"))
+}
+
+func (UnimplementedTodoServiceHandler) DeleteTodo(context.Context, *connect.Request[v1.DeleteTodoRequest]) (*connect.Response[v1.DeleteTodoResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("todo.v1.TodoService.DeleteTodo is not implemented"))
 }

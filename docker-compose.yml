@@ -50,7 +50,7 @@ services:
     volumes:
       - .:/workspace
       - node_modules:/workspace/web/node_modules
-      - pnpm_store:/pnpm/store
+      - "${PNPM_STORE:-pnpm_store}:/pnpm/store"
     command: sleep infinity
 
   buf:
