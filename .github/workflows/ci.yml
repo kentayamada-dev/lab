@@ -27,8 +27,7 @@ jobs:
         include:
           - language: actions
             build-mode: none
-          # Go does not support build-mode none; autobuild compiles it (the
-          # toolchain version in go.mod is fetched automatically).
+          # Go does not support build-mode none (docs/ci-jobs.md).
           - language: go
             build-mode: autobuild
           - language: javascript-typescript
@@ -369,8 +368,7 @@ jobs:
           renovate-config-validator --strict
 
   # The app-code jobs below run make targets inside the same compose services
-  # the local flow uses (docs/ci-jobs.md). USER_UID/USER_GID are matched to the
-  # runner's so the containers can read and write the bind-mounted checkout.
+  # the local flow uses (docs/ci-jobs.md).
   proto:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
@@ -380,8 +378,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # buf breaking compares against origin/main, which a shallow clone
-          # does not have.
+          # buf breaking needs origin/main (docs/ci-jobs.md).
           fetch-depth: 0
       - name: Check the proto files
         run: |
@@ -431,8 +428,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The compose file lets GO_MOD_CACHE / GO_BUILD_CACHE replace the named
-      # volumes with host directories, so both caches survive between runs.
       # The build cache changes on every compile, hence the sha suffix; the
       # restore falls back to the newest cache of the same go.sum, then any.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -446,8 +441,7 @@ jobs:
             api-go-
       - name: Run the api checks
         env:
-          # The dev target only adds gopls, which the checks never call, and
-          # compiling it costs minutes.
+          # base skips the dev target's gopls (docs/ci-jobs.md).
           API_BUILD_TARGET: base
         run: |
           USER_UID="$(id -u)" USER_GID="$(id -g)"
@@ -462,8 +456,7 @@ jobs:
           # schema, so apply the migrations first.
           make db-migrate
           make api-check
-      # Save only on push, for the same reason as the mise cache above: a PR
-      # branch cache is never read again after the merge.
+      # Save only on push (docs/ci-jobs.md).
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: github.event_name == 'push'
         with:
@@ -481,9 +474,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The compose file lets PNPM_STORE replace the named volume with a host
-      # directory, so the store survives between runs. Its content is fully
-      # determined by the lockfile, so the key needs no further suffix.
+      # The store's content is fully determined by the lockfile, so the key
+      # needs no further suffix.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/lab/pnpm-store
@@ -501,8 +493,7 @@ jobs:
           mkdir -p "$PNPM_STORE"
           make init
           make web-check
-      # Save only on push, for the same reason as the mise cache above: a PR
-      # branch cache is never read again after the merge.
+      # Save only on push (docs/ci-jobs.md).
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: github.event_name == 'push'
         with:

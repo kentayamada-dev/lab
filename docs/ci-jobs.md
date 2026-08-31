@@ -186,7 +186,7 @@ git ls-files -z '*Dockerfile' '*Dockerfile.*' '*.dockerfile' \
 
 [ci.yml](../.github/workflows/ci.yml) の `typos` ジョブが、リポジトリ全体の誤字を検査します。コード・コメント・ドキュメント・ファイル名が対象で、`recieve` → `receive` のような**よくある綴り間違いの辞書**に載っている語だけを指摘します。辞書に無い語（固有名詞や略語）は黙って通るので、誤検出だらけにはなりません。日本語は対象外です。
 
-設定は [.typos.toml](../.typos.toml) に書きます。初期状態で入れてあるのは 2 つです。
+設定は [.typos.toml](../.typos.toml) に書きます。入れてある設定は 3 つです。
 
 ```toml
 [files]
@@ -195,7 +195,9 @@ ignore-hidden = false
 
 **typos は既定で `.` 始まりのファイルとディレクトリを飛ばします。** 外さないと `.github/` 配下がまるごと検査対象から外れます。`.git` 自体は [.gitignore](../.gitignore) に書いてあるため、gitignore を尊重する既定の動作で除外されます。
 
-もう 1 つは `extend-ignore-re` で、この節の綴り間違いの例を除外しています（外すと typos 自身がこのファイルを誤字として弾きます）。
+もう 1 つは `extend-exclude` で、生成物と vendored のファイルを除外しています（理由は [.typos.toml](../.typos.toml) のコメントを参照）。
+
+最後の 1 つは `extend-ignore-re` で、この節の綴り間違いの例を除外しています（外すと typos 自身がこのファイルを誤字として弾きます）。
 
 誤検出の抑止も同じファイルに足します（[全項目](https://github.com/crate-ci/typos/blob/master/docs/reference.md)）。
 
