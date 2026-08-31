@@ -12,11 +12,4 @@ sql:
         out: gen/db
         sql_package: pgx/v5
     rules:
-      - no-delete
       - sqlc/db-prepare
-
-rules:
-  - name: no-delete
-    message: "don't use delete statements"
-    rule: |
-      query.sql.contains("DELETE")

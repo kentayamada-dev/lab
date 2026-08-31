@@ -3,15 +3,21 @@ package server
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"time"
+
+	"connectrpc.com/connect"
+	"connectrpc.com/validate"
 
 	"example/app/gen/go/todo/v1/todov1connect"
 )
 
 const (
 	readHeaderTimeout = 10 * time.Second
+	readTimeout       = 30 * time.Second
+	writeTimeout      = 30 * time.Second
 	idleTimeout       = 2 * time.Minute
 	shutdownTimeout   = 10 * time.Second
 )
@@ -21,9 +27,13 @@ type Server struct {
 }
 
 func New(addr string, todoService todov1connect.TodoServiceHandler) *Server {
+	// Rejects requests that break the buf.validate rules declared in the
+	// proto before they reach the handler.
+	validator := validate.NewInterceptor()
+
 	mux := http.NewServeMux()
 
-	path, handler := todov1connect.NewTodoServiceHandler(todoService)
+	path, handler := todov1connect.NewTodoServiceHandler(todoService, connect.WithInterceptors(validator))
 	mux.Handle(path, handler)
 
 	registerDocs(mux)
@@ -33,6 +43,8 @@ func New(addr string, todoService todov1connect.TodoServiceHandler) *Server {
 			Addr:              addr,
 			Handler:           mux,
 			ReadHeaderTimeout: readHeaderTimeout,
+			ReadTimeout:       readTimeout,
+			WriteTimeout:      writeTimeout,
 			IdleTimeout:       idleTimeout,
 		},
 	}
@@ -54,5 +66,14 @@ func (s *Server) Run(ctx context.Context) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
-	return s.httpServer.Shutdown(shutdownCtx)
+	shutdownErr := s.httpServer.Shutdown(shutdownCtx)
+
+	// Shutdown makes ListenAndServe return right away, so this receive cannot
+	// block; anything but ErrServerClosed is a serve failure that raced the
+	// cancellation.
+	if err := <-errCh; !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	return shutdownErr
 }

@@ -45,6 +45,16 @@ cat <<EOF
 # Plugin versions follow the runtime libraries in api/go.mod and web/package.json.
 version: v2
 clean: true
+managed:
+  enabled: true
+  disable:
+    # protovalidate ships its own published Go SDK; rewriting its go_package
+    # would break the references to it.
+    - file_option: go_package
+      module: buf.build/bufbuild/protovalidate
+  override:
+    - file_option: go_package_prefix
+      value: example/app/gen/go
 plugins:
   - remote: buf.build/protocolbuffers/go:$PROTOBUF_GO
     out: $GO_OUT
@@ -55,6 +65,9 @@ plugins:
   - remote: buf.build/bufbuild/es:$BUFBUILD_ES
     out: $ES_OUT
     opt: target=ts
+    # The generated TS imports the descriptors of every proto dependency
+    # (buf/validate) by a relative path, so those must be generated too.
+    include_imports: true
   - remote: buf.build/community/sudorandom-connect-openapi:$CONNECT_OPENAPI
     out: $OPENAPI_OUT
 EOF
