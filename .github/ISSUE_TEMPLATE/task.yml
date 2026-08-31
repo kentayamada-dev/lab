@@ -1,0 +1,26 @@
+name: Task
+description: A feature to add or work that needs doing
+labels: [enhancement]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: What you want to do
+    validations:
+      required: true
+
+  - type: textarea
+    id: background
+    attributes:
+      label: Background / rationale
+      description: Why this is needed, and what problem you are running into now.
+    validations:
+      required: false
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      description: What has to be true before this issue can be closed.
+    validations:
+      required: false

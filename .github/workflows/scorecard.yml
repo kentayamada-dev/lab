@@ -1,0 +1,107 @@
+name: scorecard
+
+on:
+  schedule:
+    - cron: '0 20 * * 1'
+  # The Scorecard API only accepts results produced on the default branch, and the
+  # score follows settings and workflow definitions, so refresh it right after a
+  # merge instead of waiting for the next weekly run.
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Serialized: concurrent runs race on publishing to the Scorecard API and on the
+# Code scanning upload, and cancelling one loses its results before they land.
+concurrency:
+  group: scorecard
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  analysis:
+    # The Scorecard API rejects published results unless this job stays within its
+    # restrictions (see "Scorecard" in docs/ci-jobs.md) — adding a step here breaks
+    # publishing. Put anything extra in a separate job, like notify below.
+    #
+    # scorecard-action is a docker (linux/amd64) action, so use an x64 runner.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Uploading the results to Code scanning.
+      security-events: write
+      # publish_results proves the run's origin to the Scorecard API via OIDC.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        with:
+          sarif_file: results.sarif
+
+  notify:
+    # This job inspects the analysis job's result and behaves accordingly, so it must
+    # run on failure too (without !cancelled() the whole job is skipped on failure
+    # and no issue is opened).
+    if: ${{ !cancelled() }}
+    needs: [analysis]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      # The issue is reported by a script in the repository, so it has to be checked out.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Open an issue on failure
+        if: needs.analysis.result == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: scorecard runs are failing
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/scorecard.yml
+          DOC_URL: ${{ github.server_url }}/${{ github.repository }}/blob/main/docs/ci-jobs.md
+        run: |
+          set -eo pipefail
+          {
+            echo "The [\`scorecard\`](${WORKFLOW_URL}) analysis failed. While it keeps failing, the Scorecard results under Code scanning and the published score stop being updated, so a regression in the repository's security posture goes unnoticed."
+            echo
+            echo "Run log: ${RUN_URL}"
+            echo
+            echo "The run log names the failing step. The usual causes are a temporary outage (at the Scorecard API, or while uploading the results) and an edit to the analysis job that broke the publishing restrictions (see \"Scorecard\" in [\`docs/ci-jobs.md\`](${DOC_URL})). Once fixed, you can re-run manually to confirm."
+            echo
+            echo '```bash'
+            echo 'gh workflow run scorecard.yml'
+            echo '```'
+            echo
+            echo "Once fixed, this issue closes automatically on the next run."
+          } >"${RUNNER_TEMP}/issue.md"
+          ./.github/scripts/upsert-issue.sh \
+            --title "${TITLE}" \
+            --body-file "${RUNNER_TEMP}/issue.md" \
+            --label maintenance \
+            --on-existing skip
+
+      # For results that are neither success nor failure, such as cancelled, neither
+      # open nor close the issue.
+      - name: Close the issue when the analysis passes
+        if: needs.analysis.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: scorecard runs are failing
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          ./.github/scripts/close-issues-by-title.sh "${TITLE}" \
+            "Closing because the run passed: ${RUN_URL}"

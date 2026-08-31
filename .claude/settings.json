@@ -1,0 +1,64 @@
+{
+  "language": "japanese",
+  "autoMemoryEnabled": false,
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(git fetch *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh run view *)",
+      "Bash(gh run list *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/ask-before-commit-push-pr.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/deny-commit-on-main.sh"
+          },
+          {
+            "type": "prompt",
+            "if": "Bash(gh *)",
+            "prompt": "If this command creates a pull request (gh pr create), check that the --title value follows Conventional Commits: type(optional scope): description, where type is one of feat, fix, docs, refactor, test, build, ci, perf, chore, revert (CLAUDE.md: PR titles become the squash-commit title on main verbatim). Block if the title does not conform or if a PR is created without an explicit --title. If the command does not create a pull request, allow. $ARGUMENTS"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/remind-bilingual-pair.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DavidAnson/markdownlint-cli2/main/schema/markdownlint-cli2-config-schema.json",
+  "gitignore": true,
+  "config": {
+    "MD003": { "style": "atx" },
+    "MD004": { "style": "dash" },
+    "MD009": { "strict": true },
+    "MD013": {
+      "line_length": 1000,
+      "code_block_line_length": 120
+    },
+    "MD029": { "style": "ordered" },
+    "MD041": false,
+    "MD046": { "style": "fenced" },
+    "MD048": { "style": "backtick" },
+    "MD049": { "style": "asterisk" },
+    "MD050": { "style": "asterisk" }
+  }
+}

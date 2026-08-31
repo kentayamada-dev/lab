@@ -1,0 +1,47 @@
+name: Bug report
+description: Something behaves incorrectly or raises an error
+labels: [bug]
+body:
+  - type: textarea
+    id: symptom
+    attributes:
+      label: What happened
+      description: You can paste screenshots into this field.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, browser, version, and anything else that may be relevant.
+      placeholder: e.g. macOS 14 / Chrome 126 / v2.3.1
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error message / log
+      description: Paste it as-is; it is formatted as a code block automatically when you submit.
+      render: shell
+    validations:
+      required: false

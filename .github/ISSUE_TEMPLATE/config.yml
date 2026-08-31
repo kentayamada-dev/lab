@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask in Discussions
+    url: https://github.com/OWNER/REPO/discussions/new/choose
+    about: For questions, general discussion, or anything you cannot classify as a bug or a request.

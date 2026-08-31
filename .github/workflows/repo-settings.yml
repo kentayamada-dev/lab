@@ -1,0 +1,94 @@
+name: repo-settings
+
+on:
+  schedule:
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+# Serialized: running two read-only checks at once gains nothing.
+concurrency:
+  group: repo-settings
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check repository settings and rulesets
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.SETTINGS_TOKEN || github.token }}
+        run: |
+          set -eo pipefail
+          # The output goes into the issue body too. pipefail is set above because
+          # otherwise tee's exit code hides a failed check.
+          ./scripts/sync-repo-config.sh --check 2>&1 | tee "${RUNNER_TEMP}/check.log"
+
+      # steps.check.outcome is part of the condition so that a failure in another
+      # step, such as checkout, does not open a bogus "settings have drifted" issue.
+      - name: Report the drift as an issue
+        if: failure() && steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: Repository settings have drifted
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/repo-settings.yml
+          DOC_URL: ${{ github.server_url }}/${{ github.repository }}/blob/main/docs/drift-check.md
+        run: |
+          set -eo pipefail
+          {
+            echo "Run log: ${RUN_URL}"
+            echo
+            echo '```'
+            cat "${RUNNER_TEMP}/check.log"
+            echo '```'
+          } >"${RUNNER_TEMP}/log.md"
+          # What goes on an issue that is already open: the same one would pile up daily,
+          # and only the latest check output is news on it.
+          {
+            echo "The [\`repo-settings\`](${WORKFLOW_URL}) check failed again."
+            echo
+            cat "${RUNNER_TEMP}/log.md"
+          } >"${RUNNER_TEMP}/comment.md"
+          {
+            echo "The [\`repo-settings\`](${WORKFLOW_URL}) check failed."
+            echo
+            cat "${RUNNER_TEMP}/log.md"
+            echo
+            echo "To fix the items reported as **DRIFT**, run the following locally."
+            echo
+            echo '```bash'
+            echo './scripts/sync-repo-config.sh'
+            echo '```'
+            echo
+            echo "Items reported as **UNKNOWN** mean the token lacks permissions. See [\`docs/drift-check.md\`](${DOC_URL})."
+            echo
+            echo "Once fixed, this issue closes automatically on the next run."
+          } >"${RUNNER_TEMP}/issue.md"
+          ./.github/scripts/upsert-issue.sh \
+            --title "${TITLE}" \
+            --body-file "${RUNNER_TEMP}/issue.md" \
+            --comment-file "${RUNNER_TEMP}/comment.md" \
+            --label maintenance \
+            --on-existing comment
+
+      - name: Close the issue when the drift is gone
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: Repository settings have drifted
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          ./.github/scripts/close-issues-by-title.sh "${TITLE}" \
+            "Closing because the check passed: ${RUN_URL}"

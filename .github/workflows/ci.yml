@@ -1,0 +1,423 @@
+name: ci
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    # The CodeQL CLI does not support linux/arm64, so use an x64 runner.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        with:
+          languages: ${{ matrix.language }}
+      - uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        with:
+          # Record results separately per language. Without this, a later
+          # language overwrites the results of an earlier one.
+          category: /language:${{ matrix.language }}
+
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Validate PR title
+        env:
+          # A PR title is attacker-controlled text, so it goes through env, not run.
+          TITLE: ${{ github.event.pull_request.title }}
+          PATTERN: '^(feat|fix|docs|refactor|test|build|ci|perf|chore|revert)(\([^()]+\))?!?: .+'
+        run: |
+          if printf '%s' "${TITLE}" | grep -qE "${PATTERN}"; then
+            echo "OK: ${TITLE}"
+            exit 0
+          fi
+          cat <<'MSG'
+          Write the PR title in Conventional Commits format.
+
+            <type>(<scope>)!: <description>
+
+            type   : feat fix docs refactor test build ci perf chore revert
+            (scope): optional. the area that changed
+            !      : optional. add it for a backward-incompatible change
+
+            e.g.  fix: make the CLI highlight that config.yml must be committed
+                  feat(api): add a user search endpoint
+                  feat!: switch the config file format to TOML
+
+          Fixing the title re-runs the check automatically (no new push needed).
+          MSG
+          echo "::error::The PR title is not in Conventional Commits format: ${TITLE}"
+          exit 1
+
+  format:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          version: 2026.8.8
+          install_args: editorconfig-checker shfmt
+          cache_save: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      # The check commands are mise tasks shared with local runs
+      # (docs/ci-jobs.md#reproducing-the-checks-locally).
+      - name: Check formatting
+        run: mise run --skip-tools check:format
+
+  actionlint:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          version: 2026.8.8
+          install_args: actionlint shellcheck
+          cache_save: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Lint workflow files
+        run: mise run --skip-tools check:actionlint
+
+  shellcheck:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          version: 2026.8.8
+          install_args: shellcheck
+          cache_save: ${{ github.event_name == 'push' }}
+        env:
+          # mise calls the GitHub API to resolve download sources. Unauthenticated
+          # requests can hit rate limits on the runner's shared IP, so pass a
+          # read-only token.
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Lint shell scripts
+        run: mise run --skip-tools check:shellcheck
+
+  hadolint:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          version: 2026.8.8
+          install_args: hadolint
+          cache_save: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Lint Dockerfiles
+        run: mise run --skip-tools check:hadolint
+
+  typos:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          version: 2026.8.8
+          install_args: typos
+          cache_save: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Check for typos
+        run: mise run --skip-tools check:typos
+
+  lychee:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          version: 2026.8.8
+          install_args: lychee
+          cache_save: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Check links
+        run: mise run --skip-tools check:lychee
+
+  markdownlint:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0
+        with:
+          globs: '**/*.md'
+
+  ghalint:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          version: 2026.8.8
+          install_args: ghalint
+          cache_save: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Lint workflow files for security policies
+        run: mise run --skip-tools check:ghalint
+
+  zizmor:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          version: 2026.8.8
+          install_args: zizmor
+          cache_save: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Audit workflow files for security issues
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run --skip-tools check:zizmor
+
+  gitleaks:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          version: 2026.8.8
+          install_args: gitleaks
+          cache_save: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Scan git history for secrets
+        run: mise run --skip-tools check:gitleaks
+
+  setup-script:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check --help output
+        run: test -n "$(./scripts/sync-repo-config.sh --help)"
+      - name: Dry-run the setup script
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/sync-repo-config.sh --dry-run
+
+  hooks:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          version: 2026.8.8
+          install_args: bats
+          cache_save: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Test the Claude Code hooks
+        run: mise run --skip-tools check:hooks
+
+  script-tests:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          version: 2026.8.8
+          install_args: bats
+          cache_save: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Test the scripts the workflows call
+        run: mise run --skip-tools check:script-tests
+
+  issue-forms:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518 # v4.2.5
+        with:
+          version: 2026.8.8
+          install_args: pipx:check-jsonschema
+          cache_save: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Validate issue forms
+        run: mise run --skip-tools check:issue-forms
+
+  renovate-config:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    container:
+      image: renovate/renovate:44.39.3@sha256:27f008cc48b952dff1fdceed42ef91f243f31e64596dc7f5a8754467961243ad
+      options: --user root
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate Renovate config
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f .github/renovate.json5 ]; then
+            echo "::error::.github/renovate.json5 not found. If you moved it, update this job's existence check too."
+            exit 1
+          fi
+          renovate-config-validator --strict
+
+  osv-scanner-diff:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
+    with:
+      scan-args: |-
+        -r
+        --allow-no-lockfiles
+        ./
+      fail-on-vuln: true
+
+  ci:
+    # Always run, even when upstream jobs fail or are skipped, and judge the
+    # results here (without always() this job itself is skipped and the required
+    # check is never reported).
+    if: always()
+    needs: [codeql, pr-title, format, actionlint, shellcheck, hadolint, typos, lychee, markdownlint, ghalint, zizmor, gitleaks, setup-script, hooks, script-tests, issue-forms, renovate-config, osv-scanner-diff]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The reverse direction (listed in needs but no such job) is caught by
+      # actionlint as part of workflow validation.
+      # yq and jq ship with GitHub-hosted runners, so they are not added to mise.
+      - name: Check that needs lists every job
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          jobs="$(yq -o=json '.jobs | keys' .github/workflows/ci.yml)"
+          missing="$(jq -r --argjson jobs "${jobs}" '$jobs - keys - ["ci"] | join(" ")' <<<"${NEEDS_JSON}")"
+          if [ -n "${missing}" ]; then
+            echo "::error file=.github/workflows/ci.yml::Some jobs are missing from ci's needs: ${missing}. A job that is not in needs runs but does not count as a required check, so the PR could still be merged even if it fails. Add it to ci's needs."
+            exit 1
+          fi
+          echo "OK: needs lists every job"
+      - name: Check upstream job results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "upstream results: ${RESULTS}"
+          failed=0
+          for result in ${RESULTS}; do
+            case "${result}" in
+              # A cascading skip caused by a failed dependency is caught by that
+              # failing job's own failure result, so skipped is always intentional.
+              success | skipped) ;;
+              *)
+                echo "::error::upstream job result: ${result}"
+                failed=1
+                ;;
+            esac
+          done
+          exit "${failed}"

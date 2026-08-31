@@ -1,0 +1,70 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: ['config:recommended', 'helpers:pinGitHubActionDigestsToSemver'],
+  dependencyDashboard: false,
+  labels: ['dependencies'],
+  semanticCommits: 'enabled',
+  pinDigests: true,
+  prHourlyLimit: 0,
+  prConcurrentLimit: 0,
+  rebaseWhen: 'behind-base-branch',
+  fetchChangeLogs: 'off',
+  commitMessageAction: '',
+  commitMessageExtra: '',
+  commitMessageTopic: 'update {{{depName}}} to {{#if isPinDigest}}{{{newDigestShort}}}{{else}}{{#if isMajor}}{{{prettyNewMajor}}}{{else}}{{#if isSingleVersion}}{{{prettyNewVersion}}}{{else}}{{#if newValue}}{{{newValue}}}{{else}}{{{newDigestShort}}}{{/if}}{{/if}}{{/if}}{{/if}}',
+  group: {
+    commitMessageTopic: 'update {{{groupName}}} dependencies',
+  },
+  digest: {
+    commitMessageTopic: 'update {{{depName}}} digest to {{{newDigestShort}}}',
+  },
+  pin: {
+    groupName: 'pinned versions',
+    commitMessageAction: '',
+    commitMessageTopic: 'pin {{{depName}}} version',
+    group: {
+      commitMessageTopic: 'pin dependency versions',
+      commitMessageExtra: '',
+    },
+  },
+  pinDigest: {
+    groupName: 'pinned versions',
+    commitMessageAction: '',
+    commitMessageTopic: 'pin {{{depName}}} digest',
+    group: {
+      commitMessageTopic: 'pin dependency versions',
+      commitMessageExtra: '',
+    },
+  },
+  rollback: {
+    commitMessageAction: '',
+    commitMessageTopic: 'roll {{{depName}}} back to {{{newValue}}}',
+  },
+  replacement: {
+    commitMessageAction: '',
+    commitMessageTopic: 'replace {{{depName}}} with {{{newName}}}',
+  },
+  prBodyTemplate: '{{{header}}}{{{table}}}{{{footer}}}',
+  prBodyColumns: ['Package', 'Update', 'Change'],
+  prBodyDefinitions: {
+    Update: '{{#if (equals updateType "pinDigest")}}pin digest{{else}}{{#if (equals updateType "pin")}}pin version{{else}}{{{updateType}}}{{/if}}{{/if}}',
+    Change: '{{#if displayFrom}}`{{{displayFrom}}}` → {{/if}}`{{{displayTo}}}`',
+  },
+  prHeader: 'If `ci` passes, review the changes and merge.\
+{{#if isReplacement}}\n\
+\n\
+`{{{depName}}}` has been deprecated, so it is replaced with the community-recommended successor package.{{/if}}',
+  prFooter: 'A PR that has fallen behind main is rebased on the next Renovate run. To catch it up right away, click Update branch on the PR page.\n\
+\n\
+If you close this PR without merging it, no PR will be created for the same update again.\n\
+\n\
+This PR was created automatically by Renovate (configuration in [`.github/renovate.json5`](https://github.com/{{{repository}}}/blob/{{{baseBranch}}}/.github/renovate.json5), how it works in [`docs/renovate.md`](https://github.com/{{{repository}}}/blob/{{{baseBranch}}}/docs/renovate.md)).',
+  packageRules: [
+    {
+      description: 'Group everything except major updates into a single PR (fewer reviews and merges)',
+      matchUpdateTypes: ['minor', 'patch', 'digest'],
+      groupName: 'non-major',
+      groupSlug: 'non-major',
+    },
+  ],
+}

@@ -1,0 +1,90 @@
+name: osv-scanner
+
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+# Serialized: concurrent uploads leave an undefined final state, and cancelling one
+# loses its results before they reach Code scanning.
+concurrency:
+  group: osv-scanner
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  osv-scanner:
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
+    with:
+      scan-args: |-
+        -r
+        --allow-no-lockfiles
+        ./
+      fail-on-vuln: false
+
+  notify:
+    # This job inspects the scan job's result and behaves accordingly, so it must
+    # run on failure too (without !cancelled() the whole job is skipped on failure
+    # and no issue is opened).
+    if: ${{ !cancelled() }}
+    needs: [osv-scanner]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      # The issue is reported by a script in the repository, so it has to be checked out.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Open an issue on failure
+        if: needs.osv-scanner.result == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: osv-scanner runs are failing
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/osv-scanner.yml
+          DOC_URL: ${{ github.server_url }}/${{ github.repository }}/blob/main/docs/ci-jobs.md
+        run: |
+          set -eo pipefail
+          {
+            echo "The [\`osv-scanner\`](${WORKFLOW_URL}) full scan failed. While it keeps failing, the Code scanning alerts stop being updated, so newly disclosed vulnerabilities in dependencies go unnoticed."
+            echo
+            echo "Run log: ${RUN_URL}"
+            echo
+            echo "The run log names the failing step. The usual causes are a temporary outage (at the OSV API, or while uploading the results) and a broken update of the reusable workflow this calls (see \"osv-scanner\" in [\`docs/ci-jobs.md\`](${DOC_URL})). Once fixed, you can re-run manually to confirm."
+            echo
+            echo '```bash'
+            echo 'gh workflow run osv-scanner.yml'
+            echo '```'
+            echo
+            echo "Once fixed, this issue closes automatically on the next run."
+          } >"${RUNNER_TEMP}/issue.md"
+          ./.github/scripts/upsert-issue.sh \
+            --title "${TITLE}" \
+            --body-file "${RUNNER_TEMP}/issue.md" \
+            --label maintenance \
+            --on-existing skip
+
+      # For results that are neither success nor failure, such as cancelled, neither
+      # open nor close the issue.
+      - name: Close the issue when the scan passes
+        if: needs.osv-scanner.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: osv-scanner runs are failing
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          ./.github/scripts/close-issues-by-title.sh "${TITLE}" \
+            "Closing because the run passed: ${RUN_URL}"

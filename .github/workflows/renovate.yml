@@ -1,0 +1,284 @@
+# Once GitHub disables the schedule (60 days without activity), this workflow stays
+# dormant until re-enabled from the Actions tab: unlike the others it has no push: main,
+# and its pull_request trigger only fires on Renovate's own PRs, which stop arriving.
+name: renovate
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'
+  # Narrowing the target (only merged Renovate PRs) is done in the renovate job's
+  # if. The pull_request trigger has no way to filter on the head branch.
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      log_level:
+        description: Log verbosity
+        type: choice
+        options: [info, debug]
+        default: info
+
+# Serialized: two runs at once would conflict over branch creation and rebasing.
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  renovate:
+    # Fork-initiated events carry no secrets, so a fork PR on a renovate/*
+    # branch would fail the token check and open a bogus failure issue.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.merged &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'renovate/'))
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    container:
+      image: renovate/renovate:44.39.3@sha256:27f008cc48b952dff1fdceed42ef91f243f31e64596dc7f5a8754467961243ad
+      # The image's non-root user cannot write the files the runner creates (docs/renovate.md).
+      options: --user root
+    outputs:
+      lookup_failed: ${{ steps.run.outputs.lookup_failed }}
+      lookup_details: ${{ steps.run.outputs.lookup_details }}
+    steps:
+      - name: Run Renovate
+        id: run
+        shell: bash
+        env:
+          RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_PLATFORM: github
+          RENOVATE_GIT_AUTHOR: ${{ vars.RENOVATE_GIT_AUTHOR || 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>' }}
+          LOG_LEVEL: ${{ inputs.log_level || 'info' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RENOVATE_TOKEN}" ]; then
+            echo "::error::The RENOVATE_TOKEN secret is not set. See docs/renovate.md."
+            exit 1
+          fi
+          log="${HOME}/renovate.log"
+          renovate 2>&1 | tee "${log}"
+          if ! grep -q 'Package lookup failures' "${log}"; then
+            echo 'lookup_failed=false' >>"${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo 'lookup_failed=true' >>"${GITHUB_OUTPUT}"
+          # The details of the warning (dependency and file names) are on the indented
+          # lines that follow it. Stop at the next log line (leading spaces + INFO:,
+          # etc.) and cut off at 40 lines when long (the full text is in the run log).
+          details="$(awk '
+            /WARN: Package lookup failures/ { on = 1; next }
+            on && /^[[:space:]]+[A-Z]+:[[:space:]]/ { exit }
+            on && /^[[:space:]]/ { print; next }
+            on { exit }
+          ' "${log}" | head -40 || true)"
+          # Do not write the output when empty (the value would be just a blank line,
+          # which renders as an empty block in the issue).
+          if [ -n "${details}" ]; then
+            {
+              echo 'lookup_details<<EOF_LOOKUP'
+              printf '%s\n' "${details}"
+              echo 'EOF_LOOKUP'
+            } >>"${GITHUB_OUTPUT}"
+          fi
+
+  notify:
+    # This job inspects the renovate job's result and behaves accordingly, so it must
+    # run on failure too (without !cancelled() the whole job is skipped on failure and
+    # no issue is opened).
+    # When the renovate job itself was skipped (an out-of-scope pull_request) there is
+    # no result to inspect, so do not run.
+    if: ${{ !cancelled() && needs.renovate.result != 'skipped' }}
+    needs: [renovate]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      # The issue is reported by a script in the repository, so it has to be checked out.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Open an issue on failure
+        if: needs.renovate.result == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: Renovate runs are failing
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/renovate.yml
+          DOC_URL: ${{ github.server_url }}/${{ github.repository }}/blob/main/docs/renovate.md
+        run: |
+          set -eo pipefail
+          {
+            echo "The [\`renovate\`](${WORKFLOW_URL}) run failed. While it keeps failing, no dependency update PRs arrive."
+            echo
+            echo "Run log: ${RUN_URL}"
+            echo
+            echo "The usual causes are the \`RENOVATE_TOKEN\` secret being expired, missing, or lacking permissions"
+            echo "(see \"Registering the token\" in [\`docs/renovate.md\`](${DOC_URL})). Once fixed, you can re-run manually to confirm."
+            echo
+            echo '```bash'
+            echo 'gh workflow run renovate.yml'
+            echo '```'
+            echo
+            echo "Once fixed, this issue closes automatically on the next run."
+          } >"${RUNNER_TEMP}/issue.md"
+          ./.github/scripts/upsert-issue.sh \
+            --title "${TITLE}" \
+            --body-file "${RUNNER_TEMP}/issue.md" \
+            --label maintenance \
+            --on-existing skip
+
+      # For results that are neither success nor failure, such as cancelled, neither
+      # open nor close the issue.
+      - name: Close the issue when renovate succeeds
+        if: needs.renovate.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: Renovate runs are failing
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          ./.github/scripts/close-issues-by-title.sh "${TITLE}" \
+            "Closing because the run passed: ${RUN_URL}"
+
+  lookup:
+    needs: [renovate]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Log contents are external text, so they go through env, not run.
+      - name: Open or update the issue
+        if: needs.renovate.outputs.lookup_failed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: Some dependencies cannot be resolved
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DOC_URL: ${{ github.server_url }}/${{ github.repository }}/blob/main/docs/renovate.md
+          DETAILS: ${{ needs.renovate.outputs.lookup_details }}
+        run: |
+          set -eo pipefail
+          # A fence longer than any backtick run inside DETAILS cannot be closed
+          # by the content, so the code block renders intact whatever the log holds.
+          fence='```'
+          while printf '%s\n' "${DETAILS}" | grep -qF "${fence}"; do
+            fence="${fence}\`"
+          done
+          {
+            echo "The latest version of some dependencies could not be fetched. **The run itself succeeded; only these dependencies will not get update PRs.**"
+            echo
+            if [ -n "${DETAILS}" ]; then
+              echo "Here is the warning Renovate emitted."
+              echo
+              echo "${fence}text"
+              printf '%s\n' "${DETAILS}"
+              echo "${fence}"
+            else
+              echo "To see which dependencies are affected, look at the \`Package lookup failures\` line in the run log."
+            fi
+            echo
+            echo "Run log: ${RUN_URL}"
+            echo
+            echo "The usual causes are the \`RENOVATE_TOKEN\` secret lacking permissions or being expired, and a temporary outage at the distribution source"
+            echo "(see \"When a dependency cannot be resolved\" in [\`docs/renovate.md\`](${DOC_URL})). Once fixed, you can re-run manually to confirm."
+            echo
+            echo '```bash'
+            echo 'gh workflow run renovate.yml'
+            echo '```'
+            echo
+            echo "Once every dependency resolves on the next run, this issue closes automatically."
+          } >"${RUNNER_TEMP}/issue.md"
+          ./.github/scripts/upsert-issue.sh \
+            --title "${TITLE}" \
+            --body-file "${RUNNER_TEMP}/issue.md" \
+            --label maintenance \
+            --on-existing edit
+
+      - name: Close the issue when every dependency resolves
+        if: needs.renovate.outputs.lookup_failed == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: Some dependencies cannot be resolved
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          ./.github/scripts/close-issues-by-title.sh "${TITLE}" \
+            "Closing because every dependency resolved: ${RUN_URL}"
+
+  dashboard:
+    needs: [renovate]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # PR titles are external text, so they reach jq through a file, not run.
+      - name: List open update PRs
+        id: list
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -eo pipefail
+          gh pr list --state open --limit 100 --json number,title,headRefName \
+            | jq '[.[] | select(.headRefName | startswith("renovate/"))]' >"${RUNNER_TEMP}/prs.json"
+          echo "count=$(jq 'length' "${RUNNER_TEMP}/prs.json")" >>"${GITHUB_OUTPUT}"
+
+      - name: Open or update the issue
+        if: steps.list.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: Dependency updates are available
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -eo pipefail
+          {
+            echo "There are dependencies that can be updated. Review and merge the following PRs."
+            echo
+            jq -r '.[] | "- #\(.number) \(.title)"' "${RUNNER_TEMP}/prs.json"
+            echo
+            echo "Run log: ${RUN_URL}"
+            echo
+            echo "Once you merge them all, the run triggered by that merge closes this issue automatically"
+            echo "(if newer updates exist at merge time, the PRs for those are created right then instead)."
+            echo
+            echo "To see what Renovate is picking up as update candidates, use the debug log."
+            echo
+            echo '```bash'
+            echo 'gh workflow run renovate.yml --field log_level=debug'
+            echo '```'
+          } >"${RUNNER_TEMP}/issue.md"
+          ./.github/scripts/upsert-issue.sh \
+            --title "${TITLE}" \
+            --body-file "${RUNNER_TEMP}/issue.md" \
+            --label dependencies \
+            --on-existing edit
+
+      - name: Close the issue when there is nothing to update
+        if: steps.list.outputs.count == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: Dependency updates are available
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          ./.github/scripts/close-issues-by-title.sh "${TITLE}" \
+            "Closing because there is nothing left to update: ${RUN_URL}"
