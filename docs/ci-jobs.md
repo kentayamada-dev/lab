@@ -1,112 +1,110 @@
-# CI check jobs
+# CI の検査ジョブ
 
-**English** | [日本語](ci-jobs.ja.md)
+[ci.yml](../.github/workflows/ci.yml) に初期状態で入っている検査ジョブの一覧です。検査が落ちたときや設定を変えるときに、該当する節だけ読んでください。
 
-The list of check jobs present in [ci.yml](../.github/workflows/ci.yml) in the initial state. When a check fails or you change a setting, read only the relevant section.
-
-| Job | What it looks at | Section |
+| ジョブ | 見るもの | 解説 |
 | --- | --- | --- |
-| `codeql` | Static analysis of the code (workflow files only in the initial state) | [CodeQL](#codeql) |
-| `pr-title` | Whether the PR title is in Conventional Commits format | [PR title format](../README.md#pr-title-format) |
-| `format` | Indentation, line endings, trailing whitespace | [Consistent formatting](../README.md#consistent-formatting) |
-| `actionlint` | Syntax and expression errors in workflow definitions | [actionlint](#actionlint) |
-| `shellcheck` | Shell-script patterns that misbehave silently | [shellcheck](#shellcheck) |
-| `hadolint` | Dockerfile patterns that cost you reproducibility, size, or privilege | [hadolint](#hadolint) |
-| `typos` | Typos | [typos](#typos) |
-| `lychee` | Broken links and broken anchors in Markdown | [lychee](#lychee) |
-| `markdownlint` | Markdown formatting | [markdownlint-cli2](#markdownlint-cli2) |
-| `ghalint` | Workflow security (how they are written) | [ghalint](#ghalint) |
-| `zizmor` | Workflow security (attack paths) | [zizmor](#zizmor) |
-| `gitleaks` | Secrets that crept into the commit history | [gitleaks](#gitleaks) |
-| `setup-script` | That the run-once scripts actually run | [setup-script](#setup-script) |
-| `hooks` | That the Claude Code hooks still allow and refuse what CLAUDE.md says | [hooks](#hooks) |
-| `script-tests` | That the scripts the workflows call still decide the same way | [script-tests](#script-tests) |
-| `issue-forms` | Whether the issue forms follow the schema | [Issue templates](../README.md#issue-templates) |
-| `renovate-config` | Validation of the Renovate configuration | [Validating the configuration](renovate.md#validating-the-configuration) |
-| `osv-scanner-diff` | Vulnerabilities in dependencies the PR newly introduces | [osv-scanner](#osv-scanner) |
+| `codeql` | コードの静的解析（初期状態はワークフローファイルのみ） | [CodeQL](#codeql) |
+| `pr-title` | PR タイトルが Conventional Commits 形式か | [PR タイトルの書式](../README.md#pr-タイトルの書式) |
+| `format` | インデント・改行コード・行末空白 | [書式の統一](../README.md#書式の統一) |
+| `actionlint` | ワークフロー定義の構文・式の誤り | [actionlint](#actionlint) |
+| `shellcheck` | シェルスクリプトの、黙って誤動作する書き方 | [shellcheck](#shellcheck) |
+| `hadolint` | Dockerfile の再現性・サイズ・権限で損をする書き方 | [hadolint](#hadolint) |
+| `typos` | 誤字 | [typos](#typos) |
+| `lychee` | Markdown のリンク切れ・アンカー切れ | [lychee](#lychee) |
+| `markdownlint` | Markdown の書式 | [markdownlint-cli2](#markdownlint-cli2) |
+| `ghalint` | ワークフローのセキュリティ（書き方の作法） | [ghalint](#ghalint) |
+| `zizmor` | ワークフローのセキュリティ（攻撃経路） | [zizmor](#zizmor) |
+| `gitleaks` | コミット履歴に混ざった秘密情報 | [gitleaks](#gitleaks) |
+| `setup-script` | 一度だけ実行するスクリプトの実行確認 | [setup-script](#setup-script) |
+| `hooks` | Claude Code のフックが CLAUDE.md どおりに許可・拒否するか | [hooks](#hooks) |
+| `script-tests` | ワークフローが呼ぶスクリプトの判断が変わっていないか | [script-tests](#script-tests) |
+| `issue-forms` | issue フォームがスキーマに沿っているか | [issue のテンプレート](../README.md#issue-のテンプレート) |
+| `renovate-config` | Renovate 設定の検証 | [設定の検証](renovate.md#設定の検証) |
+| `osv-scanner-diff` | PR が新たに持ち込む依存の脆弱性 | [osv-scanner](#osv-scanner) |
 
-Checks whose result can change without any code change (the [settings drift check](drift-check.md#settings-drift-check), the full scan in [osv-scanner](#osv-scanner), the [external link check](#scheduled-external-link-checks), [Scorecard](#scorecard)) would stop unrelated PRs if they were part of `ci`, so they are scheduled runs in separate workflows.
+コードを変えなくても結果が変わる検査（[設定のずれの検査](drift-check.md#設定のずれの検査)、[osv-scanner](#osv-scanner) の全体検査、[外部リンクの検査](#外部リンクの定期検査)、[Scorecard](#scorecard)）は、`ci` に入れると無関係な PR まで止めるため、別ワークフローの定期実行にしてあります。
 
-## Adding a job to CI
+## CI にジョブを追加する
 
-The `ci` job in [ci.yml](../.github/workflows/ci.yml) is a gate job that aggregates the results of all the other jobs. `ci` is the only required status check, so **adding a job just means adding it to `ci`'s `needs`** — no change on the branch protection side is needed.
+[ci.yml](../.github/workflows/ci.yml) の `ci` ジョブは、他の全ジョブの結果を集約するゲートジョブです。必須ステータスチェックはこの `ci` 1 つだけなので、**ジョブを追加したら `ci` の `needs` に足すだけ**で、ブランチ保護側の設定変更は不要です。
 
 ```yaml
 jobs:
-  lint:   # the job you added
+  lint:   # 追加したジョブ
     ...
-  test:   # the job you added
+  test:   # 追加したジョブ
     ...
   ci:
-    needs: [lint, test]   # add it here
+    needs: [lint, test]   # ここに足す
 ```
 
-Forgetting to add it to `needs` is checked by the `ci` job itself (it compares the job list in ci.yml against `needs`) and fails the PR that forgot; the error message explains the risk.
+`needs` への足し忘れは `ci` ジョブ自身が検査し（ci.yml のジョブ一覧と `needs` を突き合わせます）、足し忘れた PR 自体を落とします。なぜ危険かはエラーメッセージが説明します。
 
-Note that `ci` treats `skipped` jobs as successes. Skipping with a job-level `if` does not block the PR, but the flip side is that such a skip can paint a previous failure green.
+なお `ci` は `skipped` のジョブを成功として扱います。ジョブ側の `if` でスキップしても PR は止まりませんが、裏返しに、`if` でのスキップは前回の失敗を緑で上書きし得ます。
 
-Things to note:
+注意点:
 
-- Always write `permissions` and `timeout-minutes` on a job, and add `persist-credentials: false` to `actions/checkout`. [`ghalint`](#ghalint) enforces this. The exception is a job that calls a reusable workflow with `uses`, where `timeout-minutes` cannot be written ([`osv-scanner-diff`](#osv-scanner) is one).
-- Where possible, put the job's command in a `check:<job>` task in [mise.toml](../mise.toml) and have the job run that, so the check stays reproducible locally ([Reproducing the checks locally](#reproducing-the-checks-locally)).
-- Do not add a `paths` filter to the whole workflow. On an out-of-scope PR, `ci` is never reported and the PR stays unmergeable, waiting for the required check. To narrow the scope, use a job-level `if`.
-- When renaming the `ci` job, change `context` in [main.json](../.github/rulesets/main.json) to match.
-- **Do not make CI report from anything other than GitHub Actions.** Alongside `context`, `integration_id` (GitHub Actions' App ID) is specified, and a check of the same name reported by another App or token is ignored. When migrating to an external CI, this value has to change to the new App ID as well, or the PR gets stuck waiting for the required check ([how to check](troubleshooting.md#troubleshooting)).
-- CI runs twice per change (on the PR, and on main after the merge). Each time the base is brought up to date, the PR side runs again. Account for that cost when adding a long-running job. The run on main produces the "analysis result for the default branch" that CodeQL uses as the baseline for alerts.
-- Consecutive pushes to the same PR cancel the older run, but **pushes to main do not** (`cancel-in-progress` under `concurrency` is set to `github.event_name == 'pull_request'`). If consecutive merges cancelled the run for an earlier commit, that commit would be left with `cancelled` and its [CodeQL](#codeql) analysis would be missing.
+- ジョブには `permissions` と `timeout-minutes` を必ず書き、`actions/checkout` には `persist-credentials: false` を付けてください。[`ghalint`](#ghalint) が強制します。例外は再利用可能ワークフローを `uses` で呼ぶジョブで、そこには `timeout-minutes` を書けません（[`osv-scanner-diff`](#osv-scanner) が該当します）。
+- 可能なら、ジョブのコマンドは [mise.toml](../mise.toml) の `check:<ジョブ名>` タスクに置き、ジョブはそれを呼ぶ形にしてください。検査を手元で再現できる状態が保たれます（[検査を手元で再現する](#検査を手元で再現する)）。
+- ワークフロー全体に `paths` フィルタを付けないこと。対象外の PR で `ci` が報告されず、必須チェック待ちのままマージ不能になります。絞るならジョブ側の `if` を使います。
+- `ci` ジョブの名前を変えるときは、[main.json](../.github/rulesets/main.json) の `context` も合わせて変更してください。
+- **CI を GitHub Actions 以外から報告するようにしないこと。** `context` と一緒に `integration_id`（GitHub Actions の App ID）を指定してあり、他の App やトークンが報告した同名のチェックは無視されます。外部 CI へ移行する場合はこの値も移行先の App ID に変えないと、必須チェック待ちで止まります（[確認方法](troubleshooting.md#トラブルシューティング)）。
+- CI は 1 つの変更につき 2 回走ります（PR 上と、マージ後の main）。base を最新化するたびに PR 側はさらに走ります。実行時間の長いジョブを追加するときはこのコストを見込んでください。main 側の run は、CodeQL がアラートの基準として使う「デフォルトブランチの解析結果」を作ります。
+- 同じ PR への連続 push では古い実行を打ち切りますが、**main への push では打ち切りません**（`concurrency` の `cancel-in-progress` を `github.event_name == 'pull_request'` にしてあります）。連続マージで前のコミットの実行がキャンセルされると、そのコミットに `cancelled` が残り、[CodeQL](#codeql) の解析も欠けるためです。
 
-## After adding application code
+## アプリコードを追加したら
 
-Along with adding lint / test / build jobs to `ci`'s `needs` ([Adding a job to CI](#adding-a-job-to-ci)), revisit the three things below that assume "there is no application code yet".
+lint / test / build のジョブを `ci` の `needs` に足す（[CI にジョブを追加する](#ci-にジョブを追加する)）のにあわせて、「アプリコードがまだ無い」前提の次の 3 つを見直してください。
 
-- Add the language to `matrix.language` for [CodeQL](#codeql)
-- Revisit the [CodeQL](#codeql) alert thresholds. Both are `all`, so even a note-level quality alert blocks a merge. That is bearable while the workflow files are the only target, but it turns noisy once a real language is analyzed
-- Drop `--allow-no-lockfiles` from [osv-scanner](#osv-scanner) ([It passes silently when there is nothing to scan](#it-passes-silently-when-there-is-nothing-to-scan))
+- [CodeQL](#codeql) の `matrix.language` に言語を足す
+- [CodeQL](#codeql) のアラートの閾値を見直す。どちらも `all` なので note 級の品質アラートでもマージが止まります。対象がワークフローファイルだけなら許容できますが、実際の言語を解析すると煩わしくなります
+- [osv-scanner](#osv-scanner) の `--allow-no-lockfiles` を外す（[検査対象が無いときは黙って通ります](#検査対象が無いときは黙って通ります)）
 
-A lockfile (`package-lock.json`, `go.mod`, and so on) is detected by osv-scanner and [Renovate](renovate.md#renovate) with no configuration as soon as it is added.
+lockfile（`package-lock.json` や `go.mod` など）は、置いた時点で osv-scanner と [Renovate](renovate.md#renovate) が設定なしで検出します。
 
-## Installing and verifying the tools
+## ツールの導入と検証
 
-The CLI tools used for the checks are installed with [mise](https://mise.jdx.dev/) and run directly, even for tools that have an official action or Docker image. That keeps [mise.toml](../mise.toml) as the single source of truth for versions. Updates are proposed as PRs by [Renovate](renovate.md#renovate) (the mise manager is supported out of the box).
+検査に使う CLI ツールは、本体を [mise](https://mise.jdx.dev/) で入れて実行しています。公式の action や Docker イメージがあるツールでも使いません。バージョンの情報源を [mise.toml](../mise.toml) 1 つにまとめるためです。更新は [Renovate](renovate.md#renovate) が PR で提案します（mise マネージャが標準で対応）。
 
-There are three exceptions, each explained in its own section. [osv-scanner](#osv-scanner) calls the official reusable workflow, [renovate-config](renovate.md#validating-the-configuration) uses the validator bundled with the Renovate image, and [markdownlint-cli2](#markdownlint-cli2) uses the official action.
+例外は 3 つあり、理由は各節にあります。[osv-scanner](#osv-scanner) は公式の再利用可能ワークフローを呼び、[renovate-config](renovate.md#設定の検証) は Renovate のイメージに同梱の validator を使い、[markdownlint-cli2](#markdownlint-cli2) は公式の action を使います。
 
-mise resolves the download source from the [aqua](https://aquaproj.github.io/) registry, and what it downloads is verified against whatever checksums or signatures the distributor provides before use. That plays the same role as [pinning digests](renovate.md#pinning-digests): a swap or tampering fails at install time. How strong the verification is depends on the distributor.
+取得元は mise が [aqua](https://aquaproj.github.io/) のレジストリから解決し、落としたものは配布元が用意しているチェックサムや署名で検証してから使います。[ダイジェストの固定](renovate.md#ダイジェストの固定)と同じ役割で、差し替えや改竄があればインストールの時点で落ちます。検証の強さは配布元次第です。
 
-| Tool | Verification |
+| ツール | 検証 |
 | --- | --- |
-| ghalint | SLSA provenance (an attestation signed by the release workflow) and checksums |
-| actionlint / hadolint / zizmor | GitHub Artifact Attestations (a signed attestation attached to the release) and checksums |
-| editorconfig-checker / gitleaks | Checksums only (the release carries neither provenance nor attestations) |
-| shellcheck / shfmt / typos | None (the release carries neither checksums nor signatures; all that can be pinned is the version) |
-| bats | None (what is installed is the source archive GitHub generates from the tag; the release carries no assets, so nothing beyond the version pins it) |
-| lychee | None (the release does carry a `.sha256`, but the aqua registry has no configuration for it so no verification runs) |
-| check-jsonschema | Only the file hash PyPI returns (it does not go through aqua; see below) |
+| ghalint | SLSA provenance（リリースワークフローが署名した証明）とチェックサム |
+| actionlint / hadolint / zizmor | GitHub Artifact Attestations（リリースに付く署名付きの証明）とチェックサム |
+| editorconfig-checker / gitleaks | チェックサムのみ（リリースに provenance も attestations も付かない） |
+| shellcheck / shfmt / typos | なし（リリースにチェックサムも署名も付かない。固定できるのはバージョンだけ） |
+| bats | なし（タグから GitHub が生成するソースアーカイブを導入する。リリースにアセットが無く、バージョン以外に固定するものが無い） |
+| lychee | なし（リリースに `.sha256` は付くが、aqua レジストリ側に設定が無く検証が走らない） |
+| check-jsonschema | PyPI が返すファイルのハッシュのみ（aqua を経由しない。下記） |
 
-`check-jsonschema` is written in Python and is not in aqua, so [mise.toml](../mise.toml) states the backend explicitly as `"pipx:check-jsonschema"` and installs it from PyPI. PyPI does not allow replacing an already published file, so pinning the version determines the contents. What actually runs it is the Python and pipx in the runner image, so there is no need to add `python` to `mise.toml`. Note, though, that **check-jsonschema requires Python 3.10 or newer** (the system Python on macOS is 3.9). In an environment with only an older Python, this one tool cannot be installed.
+`check-jsonschema` は Python 製で aqua に無いため、[mise.toml](../mise.toml) では `"pipx:check-jsonschema"` とバックエンドを明示し、PyPI から入れています。PyPI は公開済みファイルの差し替えを許さないため、バージョンを固定すれば中身は確定します。実体は runner のイメージに入っている Python と pipx で、`mise.toml` に `python` を足す必要はありません。ただし **check-jsonschema は Python 3.10 以上を要求します**（macOS 標準の Python は 3.9）。古い Python しか無い環境では、このツールだけが入りません。
 
-The version of mise itself is pinned with the `version` input of [mise-action](https://github.com/jdx/mise-action) (Renovate reads that input out of the box). The action itself is pinned to a commit SHA like the others. There is no `mise.lock` (see the comment in [mise.toml](../mise.toml) for why).
+mise 本体のバージョンは [mise-action](https://github.com/jdx/mise-action) の `version` 入力で固定しています（Renovate がこの入力を標準で見ます）。action 自体は他と同じく commit SHA 固定です。`mise.lock` は置いていません（理由は [mise.toml](../mise.toml) のコメントを参照）。
 
-Cache writes are limited to pushes to main with `cache_save: ${{ github.event_name == 'push' }}`. Caches are branch-scoped, and one saved on a PR branch lingers for seven days after the merge without anyone using it. The cache on main is readable from every branch, so PRs that do not touch [mise.toml](../mise.toml) still hit it and lose no speed.
+キャッシュの書き込みは `cache_save: ${{ github.event_name == 'push' }}` として main への push のときだけに限っています。キャッシュはブランチスコープで、PR ブランチに保存したものはマージ後は誰も使わないまま 7 日間残るためです。main のキャッシュは全ブランチから読めるので、[mise.toml](../mise.toml) を変えない PR ではヒットし、速度は落ちません。
 
-### Reproducing the checks locally
+### 検査を手元で再現する
 
-The commands the check jobs run are defined once, as tasks in [mise.toml](../mise.toml) named after the jobs, and each job's `run:` step calls its task with `mise run --skip-tools check:<job>` (the flag keeps mise from installing every tool in mise.toml — the job's mise-action step already installed what its task needs). The same tasks reproduce CI at your desk, with [mise](https://mise.jdx.dev/) as the only prerequisite:
+検査ジョブが実行するコマンドは、ジョブと同名のタスクとして [mise.toml](../mise.toml) に一度だけ定義してあり、各ジョブの `run:` は `mise run --skip-tools check:<ジョブ名>` でそれを呼びます（このフラグは mise が mise.toml の全ツールを入れようとするのを止めます。ジョブが必要とする分は mise-action のステップが入れ終わっています）。同じタスクで CI を手元で再現できます。前提は [mise](https://mise.jdx.dev/) だけです。
 
 ```bash
-mise run check              # every check that works from a local checkout
-mise run check:shellcheck   # one job's check
+mise run check              # 手元のチェックアウトで動く検査すべて
+mise run check:shellcheck   # 1 つのジョブの検査だけ
 ```
 
-The first run installs the pinned tools; the results match CI because both sides read the same commands and versions from the same file. Two caveats: [zizmor](#zizmor) runs offline without a `GITHUB_TOKEN` in the environment, so its online audits are skipped with a warning, and [gitleaks](#gitleaks) needs the full history a shallow clone does not have.
+初回の実行で固定版のツールが入ります。コマンドもバージョンも両側が同じファイルを読むため、結果は CI と一致します。注意は 2 つ。[zizmor](#zizmor) は環境変数 `GITHUB_TOKEN` が無いとオフラインで動き、オンラインの監査は警告付きでスキップされます。[gitleaks](#gitleaks) は shallow clone には無い全履歴を必要とします。
 
-The jobs with no task are those that cannot run from a local checkout alone: [CodeQL](#codeql) and `pr-title` need the GitHub side, [setup-script](#setup-script) needs a token and the API, and [markdownlint-cli2](#markdownlint-cli2), [renovate-config](renovate.md#validating-the-configuration), and [osv-scanner](#osv-scanner) are the three exceptions above that do not run through mise.
+タスクが無いジョブは、手元のチェックアウトだけでは動かないものです。[CodeQL](#codeql) と `pr-title` は GitHub 側を必要とし、[setup-script](#setup-script) はトークンと API を必要とし、[markdownlint-cli2](#markdownlint-cli2)・[renovate-config](renovate.md#設定の検証)・[osv-scanner](#osv-scanner) は前述の、mise を通さない 3 つの例外です。
 
 ## CodeQL
 
-The `codeql` job in [ci.yml](../.github/workflows/ci.yml) performs static analysis, and the results appear under Code scanning on the Security tab. It is in `ci`'s `needs`, so a failed analysis makes the PR unmergeable. However, **the job does not fail merely because an alert was found** (`analyze` only uploads the results). Merges are blocked by branch protection instead: the `code_scanning` rule in [main.json](../.github/rulesets/main.json) stops a merge on any alert, whatever its severity (both `alerts_threshold` and `security_alerts_threshold` are `all`). Adjust those two there to change how strict it is. For an alert you have judged not to be a problem, dismiss it under Code scanning on the Security tab; the merge is no longer blocked.
+[ci.yml](../.github/workflows/ci.yml) の `codeql` ジョブが静的解析を行い、結果は Security タブの Code scanning に出ます。`ci` の `needs` に入っているので、解析に失敗すると PR がマージできません。ただし**アラートの検出そのものではジョブは落ちません**（`analyze` は結果をアップロードするだけです）。マージを止めるのはブランチ保護側の役目で、[main.json](../.github/rulesets/main.json) の `code_scanning` ルールが、重大度を問わずアラートが 1 件でもあればマージを止めます（`alerts_threshold` と `security_alerts_threshold` をどちらも `all` にしてあります）。厳しさを変えるときは同じ場所のこの 2 つを書き換えてください。問題ないと判断したアラートは Security タブの Code scanning で dismiss すれば、マージは止まらなくなります。
 
-In the initial state the only analysis target is `actions` (the workflow files themselves). Once you add application code, add it to `matrix.language`.
+初期状態の解析対象は `actions`（ワークフローファイル自体）だけです。アプリコードを入れたら `matrix.language` に足してください。
 
 ```yaml
     strategy:
@@ -114,158 +112,158 @@ In the initial state the only analysis target is `actions` (the workflow files t
         language: [actions, javascript-typescript]
 ```
 
-Which languages can be specified, and which of them additionally need a `build-mode`, is in [CodeQL's supported languages](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/).
+指定できる言語と、追加で `build-mode` が必要な言語は [CodeQL のサポート言語](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/) にあります。
 
-Things to note:
+注意点:
 
-- **It cannot be combined with default setup.** This template uses the advanced setup style, where you own the workflow. If default setup is enabled on the repository, turn it off first.
+- **default setup と併用できません。** 本テンプレートはワークフローを自分で持つ advanced setup 方式です。リポジトリ側で default setup が有効なら先に切ります。
 
   ```bash
   gh api repos/OWNER/REPO/code-scanning/default-setup --jq .state
   gh api --method PATCH repos/OWNER/REPO/code-scanning/default-setup -f state=not-configured
   ```
 
-- On a PR from a fork, `security-events: write` is not granted and uploading the analysis results may fail (unverified). Check this once you start accepting outside PRs, and if it fails, add an `if` to the job to skip it for fork PRs (`skipped` counts as a success in `ci`). In that case, changes from a fork are first analyzed by the run on main after the merge. Skipping the job also leaves the `code_scanning` rule in [main.json](../.github/rulesets/main.json) with no CodeQL results to judge, so check whether the merge is still allowed, and drop that rule as well if it is not.
+- fork からの PR では `security-events: write` が付与されず、解析結果のアップロードに失敗する可能性があります（未検証）。外部からの PR を受けるようになってから確認し、失敗するならジョブに `if` を付けて fork の PR ではスキップしてください（`skipped` は `ci` で成功扱いになります）。その場合、fork からの変更はマージ後の main の run で初めて解析されます。スキップすると [main.json](../.github/rulesets/main.json) の `code_scanning` ルールが判定する CodeQL の結果も無くなるので、マージできるかを確認し、できなければこのルールも外してください。
 
 ## actionlint
 
-The `actionlint` job in [ci.yml](../.github/workflows/ci.yml) checks the workflow definitions themselves. References to nonexistent contexts, type errors in expressions, wrong action input names — flaws you would not notice until the workflow runs — are caught at PR time. It covers everything under `.github/workflows/` with no arguments needed.
+[ci.yml](../.github/workflows/ci.yml) の `actionlint` ジョブが、ワークフロー定義そのものを検査します。存在しないコンテキストの参照、式の型の誤り、action の入力名の間違いなど、実行してみるまで気付けない不備を PR の時点で落とします。対象は `.github/workflows/` 配下すべてで、引数での指定は不要です。
 
-How the shell checks divide up: **`run:` inside a workflow is covered by actionlint (and the shellcheck it calls), `*.sh` / `*.bash` in the repository by the [shellcheck](#shellcheck) job, and `RUN` in a Dockerfile by [hadolint](#hadolint) (and the ShellCheck bundled with it)**.
+シェルの検査の分担: **ワークフロー内の `run:` は actionlint（が呼ぶ shellcheck）、リポジトリ内の `*.sh` / `*.bash` は [shellcheck](#shellcheck) ジョブ、Dockerfile の `RUN` は [hadolint](#hadolint)（に同梱の ShellCheck）** が見ます。
 
-**This job installs shellcheck alongside actionlint**, because actionlint silently skips checking `run:` when shellcheck is not on PATH. Likewise, once you start writing Python in `run:`, add pyflakes to [mise.toml](../mise.toml) and to `install_args`.
+**このジョブでは actionlint と一緒に shellcheck も入れています。** actionlint は shellcheck が PATH に無いと `run:` の検査を黙って飛ばすためです。同様に、`run:` に Python を書くようになったら pyflakes を [mise.toml](../mise.toml) と `install_args` に足してください。
 
 ## shellcheck
 
-The `shellcheck` job in [ci.yml](../.github/workflows/ci.yml) checks the `*.sh` / `*.bash` files under git. Unquoted variable expansions, unintended word splitting, comparisons that are always true — the kind of flaw that raises no error and misbehaves silently. It does not look at formatting (indentation and so on); that is the job of shfmt in the [`format`](../README.md#consistent-formatting) job.
+[ci.yml](../.github/workflows/ci.yml) の `shellcheck` ジョブが、git 管理下の `*.sh` / `*.bash` を検査します。未クォートの変数展開、意図しない単語分割、常に真になる比較など、実行してもエラーにならず黙って誤動作する類の不備が対象です。整形（インデントなど）は見ません。そちらは [`format`](../README.md#書式の統一) ジョブの shfmt が担当します。
 
 ```bash
 git ls-files -z '*.sh' '*.bash' \
   | xargs -0 -r shellcheck --color=always --external-sources
 ```
 
-| Option | Reason |
+| 指定 | 理由 |
 | --- | --- |
-| `git ls-files` | Do not check untracked files (local throwaway scripts and so on) |
-| `-z` / `-0` | Pass file names NUL-separated so names containing spaces do not break |
-| `-r` | Do not start shellcheck when there is nothing to check |
-| `--external-sources` | Follow files pulled in with `source` |
+| `git ls-files` | 追跡外のファイル（手元の一時スクリプトなど）は検査しない |
+| `-z` / `-0` | ファイル名を NUL 区切りで渡し、空白を含む名前でも壊れないようにする |
+| `-r` | 対象が 1 件も無いときに shellcheck を起動しない |
+| `--external-sources` | `source` で読み込む先のファイルも追跡する |
 
-Scripts without an extension (files identified only by a shebang) are out of scope. If you add one, add a pattern to `git ls-files`.
+拡張子を持たないスクリプト（shebang だけのファイル）は対象外です。追加したら `git ls-files` のパターンを足してください。
 
 ## hadolint
 
-The `hadolint` job in [ci.yml](../.github/workflows/ci.yml) checks the Dockerfiles under git. An unpinned base image tag (`FROM node:latest`), an `apt-get install` without a version, a final `USER` left as root — in short, **constructs that `docker build` accepts but that cost you reproducibility, size, or privilege**. The shell written in `RUN` is covered too, by the bundled ShellCheck, from the same angle as the [shellcheck](#shellcheck) job.
+[ci.yml](../.github/workflows/ci.yml) の `hadolint` ジョブが、git 管理下の Dockerfile を検査します。ベースイメージのタグ未固定（`FROM node:latest`）、バージョン指定の無い `apt-get install`、最後の `USER` が root のままなど、**`docker build` は通るが再現性・サイズ・権限で損をする書き方**が対象です。`RUN` に書いたシェルも、同梱の ShellCheck が [shellcheck](#shellcheck) ジョブと同じ観点で見ます。
 
 ```bash
 git ls-files -z '*Dockerfile' '*Dockerfile.*' '*.dockerfile' \
   | xargs -0 -r hadolint
 ```
 
-The reasons for `git ls-files` / `-z` / `-0` are the same as in [shellcheck](#shellcheck). `-r` is there because hadolint reads stdin as a Dockerfile when it is given no file name, and an empty invocation should be avoided.
+`git ls-files` / `-z` / `-0` の理由は [shellcheck](#shellcheck) と同じです。`-r` は、hadolint がファイル名を渡されないと標準入力を Dockerfile として読むため、空の実行をさせないために付けています。
 
-**hadolint does not walk directories; the files to check must be passed by name.** The patterns above pick up `Dockerfile` / `Dockerfile.dev` / `api.Dockerfile` / `web.dockerfile` and the like, including in subdirectories. If you use another name, such as `Containerfile`, add a pattern.
+**hadolint はディレクトリを辿らず、検査対象はファイル名で渡す必要があります。** 上のパターンで `Dockerfile` / `Dockerfile.dev` / `api.Dockerfile` / `web.dockerfile` などを、サブディレクトリも含めて拾います。`Containerfile` のような別の名前を使う場合はパターンを足してください。
 
-There is no color option because hadolint has no way to force color (CI logs, not being a tty, come out uncolored).
+色の指定が無いのは、hadolint に色を強制するオプションが無いためです（tty でない CI のログには色が付きません）。
 
-The rules, the severity threshold (`-t`, `info` and above by default), and how to suppress a finding are in [hadolint's Rules](https://github.com/hadolint/hadolint#rules). There is no `.hadolint.yaml` in the initial state.
+ルールの一覧、落ちる基準（`-t`。既定は `info` 以上）、指摘の抑止の書き方は [hadolint の Rules](https://github.com/hadolint/hadolint#rules) にあります。`.hadolint.yaml` は初期状態では置いていません。
 
-### It passes silently while there is no Dockerfile
+### Dockerfile が無い間は黙って通ります
 
-This template has no Dockerfile yet, so this job succeeds without checking anything (`xargs -r` never starts hadolint and nothing appears in the log). Adding a Dockerfile brings it into scope automatically from that point. Note that "nothing to check" and "checked and found nothing" are hard to tell apart in the log (the same as [osv-scanner](#osv-scanner)).
+このテンプレートにはまだ Dockerfile が無いため、このジョブは何も検査せずに成功します（`xargs -r` が hadolint を起動せず、ログには何も出ません）。Dockerfile を追加すればその時点から自動で対象になります。「対象が 0 件」と「検査して問題が無かった」がログ上は区別しにくい点に注意してください（[osv-scanner](#osv-scanner) と同じです）。
 
 ## typos
 
-The `typos` job in [ci.yml](../.github/workflows/ci.yml) checks the whole repository for typos. Code, comments, documentation, and file names are covered, and it only flags words that are in its **dictionary of common misspellings**, such as `recieve` → `receive`. A word that is not in the dictionary (a proper noun or an abbreviation) passes silently, so it does not drown you in false positives. Text in other languages is not covered.
+[ci.yml](../.github/workflows/ci.yml) の `typos` ジョブが、リポジトリ全体の誤字を検査します。コード・コメント・ドキュメント・ファイル名が対象で、`recieve` → `receive` のような**よくある綴り間違いの辞書**に載っている語だけを指摘します。辞書に無い語（固有名詞や略語）は黙って通るので、誤検出だらけにはなりません。日本語は対象外です。
 
-The configuration lives in [.typos.toml](../.typos.toml). Two things are set in the initial state.
+設定は [.typos.toml](../.typos.toml) に書きます。初期状態で入れてあるのは 2 つです。
 
 ```toml
 [files]
 ignore-hidden = false
 ```
 
-**typos skips files and directories starting with `.` by default.** Without turning that off, all of `.github/` would be out of scope. `.git` itself is listed in [.gitignore](../.gitignore), so it is excluded by the default behavior of honoring gitignore.
+**typos は既定で `.` 始まりのファイルとディレクトリを飛ばします。** 外さないと `.github/` 配下がまるごと検査対象から外れます。`.git` 自体は [.gitignore](../.gitignore) に書いてあるため、gitignore を尊重する既定の動作で除外されます。
 
-The other is `extend-ignore-re`, which excludes the misspelling example in this section (without it, typos flags this very file).
+もう 1 つは `extend-ignore-re` で、この節の綴り間違いの例を除外しています（外すと typos 自身がこのファイルを誤字として弾きます）。
 
-Suppressions for false positives go in the same file ([all options](https://github.com/crate-ci/typos/blob/master/docs/reference.md)).
+誤検出の抑止も同じファイルに足します（[全項目](https://github.com/crate-ci/typos/blob/master/docs/reference.md)）。
 
 ## lychee
 
-The `lychee` job in [ci.yml](../.github/workflows/ci.yml) checks Markdown for broken links. Most of the links in this repository are anchors to headings and relative paths to files in the repository, and they break silently when a heading is renamed or a file is moved. This job fails the PR for that.
+[ci.yml](../.github/workflows/ci.yml) の `lychee` ジョブが、Markdown のリンク切れを検査します。このリポジトリのリンクの大半は見出しへのアンカーとリポジトリ内ファイルへの相対パスで、見出しの改名やファイルの移動で静かに切れます。このジョブはそれを PR で落とします。
 
 ```bash
 lychee --offline --include-fragments --no-progress .
 ```
 
-| Option | Reason |
+| 指定 | 理由 |
 | --- | --- |
-| `--offline` | Exclude everything but the `file` scheme (= no network access) |
-| `--include-fragments` | Also match the `#anchor` inside the target file |
-| `--no-progress` | Drop the progress bar for non-interactive shells |
-| `.` | Walk the repository root recursively (excluding what is in [.gitignore](../.gitignore)) |
+| `--offline` | `file` スキーム以外を検査対象から外す（= 通信しない） |
+| `--include-fragments` | リンク先ファイルの中の `#アンカー` まで照合する |
+| `--no-progress` | 非対話シェル向けにプログレスバーを消す |
+| `.` | リポジトリのルートを再帰的にたどる（[.gitignore](../.gitignore) のものは除外） |
 
-**This job does not check external URLs.** With `--offline` removed, a temporary outage or a rate limit at the far end would fail CI and turn it red for reasons unrelated to the code. External URLs are covered by a scheduled run in a separate workflow ([Scheduled external link checks](#scheduled-external-link-checks)).
+**このジョブは外部 URL を検査しません。** `--offline` を外すと相手先の一時的な不調やレート制限で CI が落ち、コードと無関係に赤くなるためです。外部 URL は別ワークフローの定期実行で見ます（[外部リンクの定期検査](#外部リンクの定期検査)）。
 
-Anchors are matched against the IDs lychee generates from headings. The generation rules match GitHub's rendering, Japanese headings included — the text becomes the ID as-is (`#### Two exceptions` → `#two-exceptions`, `#### 2 つの例外` → `#2-つの例外`; the second and later headings with the same wording get `-1`, `-2`).
+アンカーの照合は、lychee が見出しから生成する ID で行います。生成規則は GitHub の描画と一致し、日本語の見出しもそのまま ID になります（`### CodeQL` → `#codeql`、`#### 2 つの例外` → `#2-つの例外`。同じ文言の見出しには 2 つ目以降に `-1`、`-2` が付きます）。
 
-### Scheduled external link checks
+### 外部リンクの定期検査
 
-External URLs are checked by [link-check.yml](../.github/workflows/link-check.yml) daily (08:00 JST), on pushes to main, and manually (`workflow_dispatch`). It is the same lychee, in a different role.
+外部 URL は [link-check.yml](../.github/workflows/link-check.yml) が毎日（08:00 JST）と main への push 時、および手動実行（`workflow_dispatch`）で確認します。同じ lychee ですが、役割が違います。
 
-| | The `lychee` job in `ci` | The `link-check` workflow |
+| | `ci` の `lychee` ジョブ | `link-check` ワークフロー |
 | --- | --- | --- |
-| What it looks at | Relative paths and heading anchors inside the repository | External URLs |
-| Network | No (`--offline`) | Yes |
-| Anchor matching | Yes | No |
-| Required check | Yes (part of `ci`) | No (a separate workflow) |
-| On failure | The PR cannot be merged | An issue is opened |
+| 見るもの | リポジトリ内の相対パスと見出しへのアンカー | 外部 URL |
+| 通信 | しない（`--offline`） | する |
+| アンカーの照合 | する | しない |
+| 必須チェック | はい（`ci` の一部） | いいえ（別ワークフロー） |
+| 落ちたとき | PR がマージできない | issue が立つ |
 
 ```bash
 lychee --no-progress --exclude 'OWNER/REPO' .
 ```
 
-In CI, `--mode plain` is added and the output goes through `tee` so it can be put into the issue body without ANSI escapes.
+CI ではこれに `--mode plain` を足し、出力を `tee` で控えます（ANSI エスケープを混ぜずに issue 本文へそのまま載せるため）。
 
-It is not part of `ci` because link targets disappear without anything happening on our side and a temporary outage makes it fail (= the result changes without a code change). Making it a required check would stop unrelated PRs for as long as a link target is down.
+`ci` に入れていないのは、リンク先はこちらが何もしなくても消え、一時的な不調でも落ちる（= コードを変えなくても結果が変わる）ためです。必須チェックにすると、リンク先が落ちている間は無関係な PR まで止まります。
 
-**Anchors are not checked** (`--include-fragments` is not passed). The heading IDs of an external page are decided by whatever renders it (GitHub prefixes README headings with `user-content-`), so it would only produce false positives. Anchors inside the repository are covered on the `ci` side.
+**アンカーは見ません**（`--include-fragments` を付けていません）。外部ページの見出し ID は描画側の都合で決まり（GitHub は README の見出しに `user-content-` を付けます）、誤検出にしかならないためです。リポジトリ内のアンカーは `ci` 側が見ています。
 
-`--exclude 'OWNER/REPO'` (a regular expression) excludes the nonexistent URL used as an example in the documentation. The pattern is not the URL itself because lychee also scans the workflow file, so writing `https://...` there would be picked up as a link. Add any permanently uncheckable URL here in the same way. A temporary outage is absorbed by the default `--max-retries` (3).
+`--exclude 'OWNER/REPO'`（正規表現）は、ドキュメントに説明用として載せている実在しない URL の除外です。パターンに URL そのものを書かないのは、lychee がワークフローファイル自身も走査するため、`https://...` と書くとそれがリンクとして拾われるからです。恒久的に検査できない URL が出たら同じようにここへ足してください。一時的な不調は `--max-retries` の既定（3 回）が吸収します。
 
-`GITHUB_TOKEN` is passed. lychee checks github.com links through the GitHub API, so without it the unauthenticated rate limit makes existing links fail.
+`GITHUB_TOKEN` を渡しています。lychee は github.com のリンクを GitHub API 経由で確認するため、渡さないと未認証のレート制限に当たり、実在するリンクが落ちます。
 
-Failure notification uses [the same mechanism as the settings drift check](drift-check.md#notification-on-failure). An issue titled `External links are broken` is opened with the `maintenance` label, and once fixed it closes automatically on the next run. Being a scheduled run, it also [stops when there is no activity](#when-the-scheduled-run-stops).
+落ちたときの通知は[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)です。`External links are broken` という issue が `maintenance` ラベル付きで立ち、直れば次の実行で自動的に閉じます。定期実行なので[活動が無いと止まる](#定期実行が止まるとき)点も同じです。
 
 ## markdownlint-cli2
 
-The `markdownlint` job in [ci.yml](../.github/workflows/ci.yml) checks Markdown formatting. Skipped heading levels, code blocks without a language — writing that renders fine but is not consistent — are caught (typos are handled by [typos](#typos), broken links by [lychee](#lychee)).
+[ci.yml](../.github/workflows/ci.yml) の `markdownlint` ジョブが、Markdown の書式を検査します。見出しの階層の飛び、言語指定の無いコードブロックなど、表示はできてしまうが揃っていない書き方を落とします（誤字は [typos](#typos)、リンク切れは [lychee](#lychee) の担当です）。
 
-The rules applied live in [.markdownlint-cli2.jsonc](../.markdownlint-cli2.jsonc) ([the list of rules](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md)). **What gets checked is decided by the `globs` the job passes, not by that file.** The action's default only looks at the repository root, so `**/*.md` is stated explicitly. Forgetting to pass it silently leaves out everything under `.github/`.
+適用する規則は [.markdownlint-cli2.jsonc](../.markdownlint-cli2.jsonc) に書きます（[規則の一覧](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md)）。**検査対象はこのファイルではなく、ジョブが渡す `globs` で決まります。** action の既定はルート直下しか見ないため `**/*.md` を明示しています。渡し忘れると `.github/` 配下が黙って漏れます。
 
-Four things differ from the defaults.
+既定から変えているのは 4 つです。
 
-| Rule | Change | Reason |
+| 規則 | 変更 | 理由 |
 | --- | --- | --- |
-| `MD009` (trailing whitespace) | `strict` | Hard line breaks (two trailing spaces) are not used |
-| `MD013` (line length) | 1000 characters for body text (headings and tables inherit the same limit), 120 for code blocks | Body text is written one paragraph per line rather than wrapped (just below). Code blocks cannot be wrapped, and a long one turns into a horizontal scroll |
-| `MD041` (first line is an h1) | Disabled | [pull_request_template.md](../.github/pull_request_template.md) is pasted as part of a PR body, where not starting with an h1 is correct |
-| Notation styles (`MD003` `MD004` `MD029` `MD046` `MD048` `MD049` `MD050`) | Fixed to concrete values instead of `consistent` | `consistent` only aligns things within a single file |
+| `MD009`（行末の空白） | `strict` | 強制改行（行末の半角スペース 2 つ）を使わないため |
+| `MD013`（行の長さ） | 本文 1000 文字（見出しと表も同じ上限を継承）、コードブロック 120 文字 | 本文は折り返さず 1 段落 1 行で書くため（すぐ下）。コードブロックは折り返せず、長いと横スクロールになる |
+| `MD041`（先頭行が h1） | 無効 | [pull_request_template.md](../.github/pull_request_template.md) は PR 本文の一部として貼られるもので、h1 から始まらないのが正しい |
+| 記法のスタイル（`MD003` `MD004` `MD029` `MD046` `MD048` `MD049` `MD050`） | `consistent` から具体値に固定 | `consistent` は 1 ファイルの中でしか揃わないため |
 
-**Body text is written one paragraph per line, with no line breaks inside a paragraph.** Markdown renders a newline inside a paragraph as a space (in Japanese text that surfaces as a stray space in the middle of the rendered sentence), so wrapping is a rendering decision rather than a source one, and keeping a paragraph on one line keeps diffs paragraph-sized — fixing a word does not reflow every line after it. That is why the body limit of `MD013` is raised to 1000 characters.
+**本文は途中で改行せず、1 段落を 1 行で書きます。** Markdown は段落内の改行を半角スペースに変換して表示するため、日本語の文を途中で折り返すと、表示された文の途中に空白が入ります。折り返しはソース側ではなく表示側で決めることでもあり、1 段落 1 行にしておけば差分が段落単位になって、語句を直しただけで以降の折り返し位置がずれる、といったことも起きません。`MD013` の本文の上限を 1000 文字まで上げているのはこのためです。
 
-Trailing whitespace is covered by `MD009`. What [.editorconfig](../.editorconfig) leaves out by excluding `*.md` ([the exceptions](../README.md#two-exceptions)) is filled in here.
+行末の空白は `MD009` が見ます。[.editorconfig](../.editorconfig) が `*.md` を検査から外している分（[例外](../README.md#2-つの例外)）はここで埋まります。
 
-**This job alone uses the official [action](https://github.com/DavidAnson/markdownlint-cli2-action) rather than going through mise**, because markdownlint-cli2 is only distributed on npm and installing it with mise would also require a separate node to run it. The version used for the check is the one bundled with the action, and the action is pinned to a commit SHA.
+**このジョブだけは公式の [action](https://github.com/DavidAnson/markdownlint-cli2-action) を使い、mise を経由しません。** markdownlint-cli2 は npm でしか配布されておらず、mise で入れると実行用の node も別に要るためです。検査に使われるバージョンは action に同梱されたもので、action は commit SHA で固定してあります。
 
 ## ghalint
 
-The `ghalint` job in [ci.yml](../.github/workflows/ci.yml) checks workflow definitions **from a security angle**. Over-broad permissions, leftover tokens — configurations that work but are dangerous — fail the check. Even within that same security angle it covers different ground than [zizmor](#zizmor), so both are included.
+[ci.yml](../.github/workflows/ci.yml) の `ghalint` ジョブが、ワークフロー定義を**セキュリティの観点**で検査します。権限の与えすぎやトークンの残留といった、動いてしまうけれども危ない書き方を落とします。同じセキュリティ観点でも [zizmor](#zizmor) とは拾う範囲が違うため、両方入れてあります。
 
-The policies are listed in [ghalint's documentation](https://github.com/suzuki-shunsuke/ghalint#policies). The ones you will hit when adding a job — `permissions` and `timeout-minutes` on every job, `persist-credentials: false` on `actions/checkout` — are covered in [Adding a job to CI](#adding-a-job-to-ci). Action references must also be 40-character commit SHAs, and `secrets: inherit` and workflow-level or job-level secret envs are forbidden.
+ポリシーの一覧は [ghalint のドキュメント](https://github.com/suzuki-shunsuke/ghalint#policies)にあります。ジョブを追加するときに引っかかるもの — 全ジョブへの `permissions` と `timeout-minutes`、`actions/checkout` への `persist-credentials: false` — は [CI にジョブを追加する](#ci-にジョブを追加する)で説明済みです。ほかに、action の参照は 40 桁の commit SHA であることが求められ、`secrets: inherit` とワークフロー / ジョブの env への secret の設定は禁じられます。
 
-`persist-credentials: false` is what removes the token checkout leaves in `.git/config`. Leaving it there makes it readable from every later step, including any Docker image that runs in one. If you add a job that needs to push, make an exception for just that job in `ghalint.yaml`.
+`persist-credentials: false` は、checkout が `.git/config` に残すトークンを消す指定です。残すと後続のすべてのステップ（そこで動く Docker イメージも含む）から読めてしまいます。push が必要なジョブを足す場合は、そのジョブだけ `ghalint.yaml` で例外にしてください。
 
 ```yaml
 excludes:
@@ -274,115 +272,115 @@ excludes:
     job_name: format
 ```
 
-It covers everything under `.github/workflows/`. Once you add a composite action (`action.yaml`), make sure `ghalint run-action` is run as well (`run` alone does not check it).
+検査対象は `.github/workflows/` 配下です。composite action（`action.yaml`）を置いたら `ghalint run-action` も実行するようにしてください（`run` だけでは検査されません）。
 
 ## zizmor
 
-The `zizmor` job in [ci.yml](../.github/workflows/ci.yml) checks workflow definitions **from an attacker's point of view**. Where [ghalint](#ghalint) looks at how they are written, this looks at the attack paths that arise from combinations of expressions and triggers.
+[ci.yml](../.github/workflows/ci.yml) の `zizmor` ジョブが、ワークフロー定義を**攻撃者の視点** で検査します。[ghalint](#ghalint) が書き方の作法を見るのに対し、こちらは式や trigger の組み合わせから生まれる攻撃経路そのものを見ます。
 
-The audits are listed in [zizmor's documentation](https://docs.zizmor.sh/audits/): template injection (`${{ }}` embedded directly in `run:`), dangerous triggers such as `pull_request_target`, excessive permissions, unpinned actions and images, and more.
+監査項目の一覧は [zizmor のドキュメント](https://docs.zizmor.sh/audits/)にあります。`run:` への `${{ }}` の直接埋め込み（template injection）、`pull_request_target` のような危険な trigger、必要以上の `permissions`、ダイジェストで固定されていない action / イメージ、などです。
 
-Two audits that check pinned SHAs and used actions against the GitHub API (`impostor-commit`, `known-vulnerable-actions`) are silently skipped without a token. The job passes `github.token` as `GITHUB_TOKEN` to enable them (`contents: read` is enough, since only public information is referenced).
+固定した SHA や使用中の action を GitHub API と照合する 2 つの監査（`impostor-commit`、`known-vulnerable-actions`）は、トークンが無いと黙ってスキップされます。ジョブでは `GITHUB_TOKEN` に `github.token` を渡して有効にしています（公開情報しか参照しないので `contents: read` で足ります）。
 
-It covers the repository root (`.`) and automatically collects composite actions and the Dependabot configuration as well. `--strict-collection` is set, so a file it cannot parse becomes a failure rather than a warning it passes over.
+検査対象はリポジトリのルート（`.`）で、composite action や Dependabot の設定も自動で集めます。`--strict-collection` を付けてあるので、解析できないファイルがあれば警告で流さず失敗します。
 
-Suppressing a finding, and the pedantic persona that adds stylistic suggestions to the findings with real impact reported by default, are covered in [zizmor's documentation](https://docs.zizmor.sh/).
+指摘の抑止の書き方と、既定で報告される実害のある指摘に書き方の改善提案を加える pedantic persona は、[zizmor のドキュメント](https://docs.zizmor.sh/)にあります。
 
 ## gitleaks
 
-The `gitleaks` job in [ci.yml](../.github/workflows/ci.yml) looks for secrets that crept into the commit history (API keys, access tokens, private keys, and so on). A secret that has been pushed once can be recovered from the history even after a later commit removes it, so **it has to be stopped before it lands**. The first line of defense is secret scanning push protection, which the setup script enables ([Setup](../README.md#setup)): GitHub rejects the push itself. This job is the second line, covering what push protection does not recognize and any history that predates it, and it stops such a commit before the merge. It is in `ci`'s `needs`, so a detection makes the PR unmergeable.
+[ci.yml](../.github/workflows/ci.yml) の `gitleaks` ジョブが、コミット履歴に混ざった秘密情報（API キー、アクセストークン、秘密鍵など）を探します。一度 push した秘密情報は、後のコミットで消しても履歴から取り出せるため、**入る前に止めるしかありません**。1 枚目の防御はセットアップスクリプトが有効にする secret scanning の push protection で（[セットアップ](../README.md#セットアップ)）、そもそも push が拒否されます。このジョブは 2 枚目で、push protection が知らないパターンと、それ以前から履歴にあるものを、マージ前に止めます。`ci` の `needs` に入っているので、検出されると PR がマージできません。
 
-Detection uses the 200-plus rules built into the tool (per-provider regular expressions plus entropy analysis of the value) ([the default configuration](https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml)).
+検出は本体に組み込まれた 200 以上のルール（プロバイダごとの正規表現と、値のエントロピー判定）で行います（[既定の設定](https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml)）。
 
-It scans the entire history. `gitleaks git` uses `git log -p` internally, so `fetch-depth: 0` is added to `actions/checkout` to avoid a shallow clone (at the default depth of 1, a value in an older commit would be missed).
+走査対象は履歴全体です。`gitleaks git` は内部で `git log -p` を使うため、`actions/checkout` に `fetch-depth: 0` を付けて浅いクローンを避けています（既定の深さ 1 では過去のコミットに入った値を見落とします）。
 
 ```bash
 gitleaks git --redact --verbose --no-banner
 ```
 
-`--redact` keeps the detected value itself out of the log. Run logs are public on a public repository, so without it the check itself would become a leak path. `--verbose` prints where it was found (commit / file / line / rule ID / fingerprint).
+`--redact` は検出した値そのものをログに出さないための指定です。public リポジトリでは実行ログも公開されるため、これが無いと検査自体が漏洩経路になります。`--verbose` は検出箇所（コミット / ファイル / 行 / ルール ID / fingerprint）を出します。
 
-### When something is detected
+### 検出されたとき
 
-**Revoke the value first** (reissue the key, revoke the token). Treat it as something others could already have obtained the moment it was pushed; rewriting history can wait. Then remove the value from the repository and change it to be passed through an environment variable or GitHub Secrets.
+まず**その値を失効させます**（キーの再発行、トークンの revoke）。push した時点で他者が取得できたものとして扱い、履歴の書き換えは後回しで構いません。そのうえでリポジトリから値を消し、環境変数や GitHub Secrets 経由で渡す形に直してください。
 
-Excluding a false positive (a dummy value used in a test, for example) is done with a `# gitleaks:allow` comment, a `.gitleaksignore`, or a `.gitleaks.toml`, all covered in [gitleaks' documentation](https://github.com/gitleaks/gitleaks).
+誤検知（テスト用のダミー値など）を外すには `# gitleaks:allow` コメント、`.gitleaksignore`、`.gitleaks.toml` の 3 通りがあり、いずれも [gitleaks のドキュメント](https://github.com/gitleaks/gitleaks)にあります。
 
 ## setup-script
 
-The `setup-script` job in [ci.yml](../.github/workflows/ci.yml) actually runs the script from [Setup](../README.md#setup) with `--dry-run`. [shellcheck](#shellcheck) is a static check, so a mistyped variable name passes it. The script is run exactly once, right after the repository is created, and if it is broken the person who finds out is whoever created a repository from the template. Its one and only execution path is exercised in CI.
+[ci.yml](../.github/workflows/ci.yml) の `setup-script` ジョブが、[セットアップ](../README.md#セットアップ)のスクリプトを `--dry-run` で実際に実行します。[shellcheck](#shellcheck) は静的な検査なので、変数名の取り違えなどは通ってしまいます。動かすのはリポジトリを作った直後の 1 回だけで、壊れていても気づくのはテンプレートからリポジトリを作った人です。唯一の実行経路を CI で通しておきます。
 
-`--dry-run` is read-only and changes nothing: the script only prints what it would send. A broken `.github/rulesets/*.json` fails here, so a JSON syntax error in a ruleset is caught on the PR as well. The job also confirms that the `--help` output is not empty (the help is carved out of the comment at the top of the script with awk, so removing the comment silently empties it).
+`--dry-run` は読み取りだけで完結し、何も変更しません。スクリプトは送信内容を表示するだけです。`.github/rulesets/*.json` が壊れていればここで落ちるため、ruleset の JSON の構文ミスも PR で捕まります。あわせて `--help` の出力が空でないことも確かめています（ヘルプはスクリプト冒頭のコメントを awk で切り出しているため、コメントを消すと黙って空になります）。
 
-`gh` and `jq` ship with GitHub-hosted runners, so they are not added to [mise.toml](../mise.toml). The workflow's `GITHUB_TOKEN` is enough for authentication.
+`gh` と `jq` は GitHub ホストの runner に最初から入っているため、[mise.toml](../mise.toml) には足していません。認証はワークフローの `GITHUB_TOKEN` で足ります。
 
-This job does not run on a private repository (the setup script refuses anything but public, so running it would always fail). A skip counts as a success in `ci`, so PRs are not blocked on a private repository either.
+private リポジトリではこのジョブを走らせません（セットアップスクリプトが public 以外を拒否するため、回せば必ず落ちます）。スキップは `ci` 側で成功扱いになるので、private でも PR は止まりません。
 
 ## hooks
 
-The `hooks` job in [ci.yml](../.github/workflows/ci.yml) runs the [bats](https://bats-core.readthedocs.io/) tests in [.claude/tests/](../.claude/tests) against the hook scripts next to them in [.claude/hooks/](../.claude/hooks). A hook is a filter — the tool call arrives as JSON on stdin, the verdict leaves as JSON on stdout — so one test feeds one command and reads the verdict back.
+[ci.yml](../.github/workflows/ci.yml) の `hooks` ジョブが、[.claude/tests/](../.claude/tests) にある [bats](https://bats-core.readthedocs.io/) のテストで、隣の [.claude/hooks/](../.claude/hooks) にあるフックスクリプトを検査します。フックは標準入力に JSON でツール呼び出しを受け取り、標準出力に JSON で判定を返すフィルタなので、テストはコマンドを 1 つ流し込んで判定を読むだけです。
 
 ```bash
 git ls-files -z '.claude/tests/*.bats' \
   | xargs -0 -r bats --print-output-on-failure
 ```
 
-What the tests are for is the borders, not the obvious cases: a commit that creates its branch first is allowed while the same commit without the branch is denied, and `git log | grep push` is not a push. Those borders are matched textually rather than by parsing the shell, so the false positives that come with it (a quoted `echo "git commit"` is denied all the same) are asserted too — a failure there means the behaviour moved, not that it improved.
+テストが押さえるのは当たり前の場合ではなく境目です。先にブランチを作るコミットは通し、ブランチを作らない同じコミットは拒否する。`git log | grep push` は push ではない。この境目はシェルを解析せず文字列で判定しているので、その代償である誤検知（引用しただけの `echo "git commit"` も拒否される）もあわせて固定してあります。そこが落ちたときは、挙動が良くなったのではなく変わったということです。
 
-The wiring is tested too, because a hook is only ever reached through [.claude/settings.json](../.claude/settings.json): a script renamed without the setting, a hook registered under an event it does not answer with, and a hook script with no test file of its own each fail the job — none of them would fail a test of the scripts alone.
+結線もテストの対象です。フックは [.claude/settings.json](../.claude/settings.json) を通してしか呼ばれないため、設定を直さずにスクリプトの名前を変えた場合、答えるイベントと違うイベントに登録した場合、テストファイルのないフックスクリプトを足した場合は、いずれもこのジョブが落ちます。スクリプトだけを見るテストでは、どれも素通りします。
 
-So is the content of the prompt hook. The Conventional Commits type list is written out in [ci.yml](../.github/workflows/ci.yml) (the `PATTERN` and the failure message beside it), in the tables of both READMEs, and in the prompt hook, and nothing derives one copy from another, so the tests compare each copy against the `PATTERN` — the one the `pr-title` job actually enforces.
+prompt フックは中身も対象です。Conventional Commits の type 一覧は [ci.yml](../.github/workflows/ci.yml)（`PATTERN` とその隣の失敗メッセージ）、README の表、prompt フックに書き出されていて、どのコピーも他から導出されないため、テストが各コピーを `PATTERN`（`pr-title` ジョブが実際に強制するもの）と突き合わせます。
 
-The tests for the branch rule create a throwaway repository under the bats temporary directory, so their verdict never depends on the branch the runner happens to be on. `jq` ships with GitHub-hosted runners and is what the hooks themselves call, so bats is the only addition to [mise.toml](../mise.toml).
+ブランチ規則のテストは bats の一時ディレクトリに使い捨てのリポジトリを作るため、判定が runner のいるブランチに左右されることはありません。`jq` は GitHub ホストの runner に最初から入っていて、そもそも呼ぶのはフック自身なので、[mise.toml](../mise.toml) に足すのは bats だけです。
 
-The tests live under `.claude/` rather than in a `tests/` directory of their own, so that deleting the hooks takes their tests out with them, and so that the repository built from the template keeps the obvious place for its own tests free. `-r` is what keeps this job green afterwards: with no `.bats` file left, bats is never started. Delete the job along with the hooks if you drop them.
+テストを独立した `tests/` ではなく `.claude/` の下に置いてあるのは、フックを削除すればテストも一緒に消えるようにするためと、テンプレートから作ったリポジトリが自分のテストに一番自然な置き場を空けておくためです。その後もこのジョブが緑のままなのは `-r` のおかげで、`.bats` が 1 つも残らなければ bats は起動しません。フックを手放すなら、ジョブ自体もフックと一緒に削除してください。
 
 ## script-tests
 
-The `script-tests` job in [ci.yml](../.github/workflows/ci.yml) runs the [bats](https://bats-core.readthedocs.io/) tests in two directories, each against the scripts next to them. [.github/scripts/tests/](../.github/scripts/tests) covers [.github/scripts/](../.github/scripts) — the two the scheduled workflows call to report a failing check as an issue and to retract it once the check passes. [scripts/tests/](../scripts/tests) covers [sync-repo-config.sh](../scripts/sync-repo-config.sh) in [scripts/](../scripts) — the script whose OK / DRIFT / UNKNOWN verdicts the [settings drift check](drift-check.md#settings-drift-check) relies on.
+[ci.yml](../.github/workflows/ci.yml) の `script-tests` ジョブが、2 つの置き場にある [bats](https://bats-core.readthedocs.io/) のテストで、それぞれ隣にあるスクリプトを検査します。[.github/scripts/tests/](../.github/scripts/tests) は 1 つ上の [.github/scripts/](../.github/scripts) を検査します。定期実行のワークフローが、落ちた検査を issue として報告し、通ったら取り下げるために呼ぶ 2 つです。[scripts/tests/](../scripts/tests) は [scripts/](../scripts) にある [sync-repo-config.sh](../scripts/sync-repo-config.sh) を検査します。[設定のずれの検査](drift-check.md#設定のずれの検査)が OK / DRIFT / UNKNOWN の判定を頼っているスクリプトです。
 
 ```bash
 git ls-files -z '.github/scripts/tests/*.bats' 'scripts/tests/*.bats' \
   | xargs -0 -r bats --print-output-on-failure
 ```
 
-The tests replace `gh` with a stub (the `helper.bash` next to them explains how), so nothing reaches GitHub and no token is needed — which is what makes the decisions around those calls (the ones each script's `--help` describes) testable at all. This job reaches what [setup-script](#setup-script) cannot: a dry run stops before any verdict or write, so the OK / DRIFT / UNKNOWN classification of `--check` and the apply path are only exercised here.
+テストは `gh` をスタブに差し替えるので（仕組みは隣の `helper.bash` にあります）、GitHub には何も届かずトークンも要りません。だからこそ、その呼び出しの周りにある判断（各スクリプトの `--help` が説明している内容）をそもそも検査できます。このジョブが動かすのは [setup-script](#setup-script) が届かない部分です。dry run は判定にも書き込みにも進まないため、`--check` の OK / DRIFT / UNKNOWN の判定と適用の経路が動くのはここだけです。
 
-Being reachable by a test is the reason this logic sits in `.github/scripts/` rather than inline in the workflows. A `run:` block can only be exercised by triggering the workflow around it, and for these that means waiting for a scheduled check to fail.
+このロジックをワークフローに直接書かず `.github/scripts/` に置いてあるのは、テストから触れるようにするためです。`run:` の中身は囲んでいるワークフローを起動しないと動かせず、この 2 つの場合それは定期実行の検査が落ちるのを待つことを意味します。
 
-As with [hooks](#hooks), bats is the only addition to [mise.toml](../mise.toml). [shellcheck](#shellcheck) and [format](../README.md#consistent-formatting) pick the scripts up without being told, because both walk `git ls-files` over `*.sh` and `*.bash`.
+[hooks](#hooks) と同じく、[mise.toml](../mise.toml) に足すのは bats だけです。[shellcheck](#shellcheck) と [format](../README.md#書式の統一) はどちらも `git ls-files` で `*.sh` と `*.bash` を辿るため、何もしなくてもこのスクリプトを拾います。
 
 ## osv-scanner
 
-osv-scanner checks for **known vulnerabilities in dependency packages**. It queries the packages and versions written in lockfiles against [OSV](https://osv.dev), a vulnerability database. Where [CodeQL](#codeql) looks at defects in the code you wrote, this looks at known defects in dependencies other people wrote.
+**依存パッケージの既知の脆弱性**を osv-scanner で検査します。lockfile に書かれたパッケージとバージョンを [OSV](https://osv.dev)（脆弱性データベース）に問い合わせます。[CodeQL](#codeql) が自分で書いたコードの欠陥を見るのに対し、こちらは他人が書いた依存の既知の欠陥を見ます。
 
-The same tool is split into two layers with different roles.
+同じツールを、役割の違う 2 層に分けてあります。
 
-| | What it looks at | Where | On a detection |
+| | 何を見るか | どこで | 検出したら |
 | --- | --- | --- | --- |
-| Diff scan | Only the vulnerabilities **the PR newly introduces** | The `osv-scanner-diff` job in [ci.yml](../.github/workflows/ci.yml) (per PR) | The job fails (it is in `ci`'s `needs`, so the PR cannot be merged) |
-| Full scan | Known vulnerabilities across all dependencies | [osv-scanner.yml](../.github/workflows/osv-scanner.yml) (daily + pushes to main + manual) | An alert under Code scanning on the Security tab (the job does not fail) |
+| 差分検査 | **その PR が新たに持ち込む**脆弱性だけ | [ci.yml](../.github/workflows/ci.yml) の `osv-scanner-diff` ジョブ（PR ごと） | ジョブが落ちる（`ci` の `needs` にあるのでマージ不可） |
+| 全体検査 | 依存全体の既知の脆弱性 | [osv-scanner.yml](../.github/workflows/osv-scanner.yml)（毎日 + main への push + 手動） | Security タブの Code scanning にアラート（ジョブは落ちない） |
 
-The reason for the split is that this check's result changes without any code change. Vulnerabilities are disclosed later, so the full picture is tracked by a scheduled run. Making that a required check on PRs would stop unrelated PRs over a vulnerability already on main, so the PR side looks only at the diff and fails on that. This two-layer arrangement is the setup [the official action](https://github.com/google/osv-scanner-action) recommends.
+分ける理由は、この検査が「コードを変えていなくても結果が変わる」ことです。脆弱性は後から公開されるので、全体は定期実行で追いかけます。それを PR の必須チェックにすると既に main にある脆弱性で無関係な PR まで止まるため、PR 側は差分だけを見て落とします。この 2 本立ては [公式](https://github.com/google/osv-scanner-action)が推奨している構成です。
 
-### It is handled differently from the other CLI tools
+### 他の CLI ツールと扱いが違います
 
-Both layers call the officially distributed reusable workflow as-is. The tool is not installed with mise and is not listed in [mise.toml](../mise.toml). The diff comparison is done by a separate tool (osv-reporter) rather than osv-scanner itself, so installing just the main tool cannot reproduce it, and aligning only one layer with the official workflow would leave two version streams, so something that passed on the PR could get flagged by the scheduled run.
+どちらの層も、公式が配布している再利用可能ワークフローをそのまま呼んでいます。本体を mise で入れる形にはしておらず、[mise.toml](../mise.toml) にも書いていません。差分の突き合わせは osv-scanner 本体ではなく別のツール（osv-reporter）が行うため、本体だけを入れる形では組めず、片方だけ公式に寄せるとバージョンが 2 系統になって「PR で通ったものが定期実行で引っかかる」ことになるためです。
 
-Two costs are accepted:
+受け入れている代償は 2 つです。
 
-- The version is not pinned in this repository. Keeping up happens as updates to `@<commit sha>`, which [Renovate](renovate.md#renovate) picks up.
-- The same check cannot be reproduced locally.
+- バージョンをこのリポジトリで固定していません。追随は `@<commit sha>` の更新として [Renovate](renovate.md#renovate) が拾います。
+- 手元で同じ検査を再現できません。
 
-### Full scan (scheduled)
+### 全体検査（定期実行）
 
-[osv-scanner.yml](../.github/workflows/osv-scanner.yml) has three triggers.
+[osv-scanner.yml](../.github/workflows/osv-scanner.yml) の実行のきっかけは 3 つです。
 
-| | Trigger | Purpose |
+| | 実行のきっかけ | 用途 |
 | --- | --- | --- |
-| `schedule` | Daily 06:00 JST | Notice newly disclosed vulnerabilities |
-| `push` (main) | Merging a PR that touched dependencies | Produce results without waiting for the next scheduled run. Creates the "analysis result for the default branch" that Code scanning alerts are measured against |
-| `workflow_dispatch` | Manual | Confirming things right after a configuration change |
+| `schedule` | 毎日 06:00 JST | 新しく公開された脆弱性に気付く |
+| `push`（main） | 依存を触った PR のマージ | 次の定期実行を待たずに結果を出す。Code scanning のアラートの基準となる「デフォルトブランチの解析結果」を作る |
+| `workflow_dispatch` | 手動 | 設定を変えた直後の確認 |
 
 ```yaml
   osv-scanner:
@@ -390,7 +388,7 @@ Two costs are accepted:
       contents: read
       actions: read
       security-events: write
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@<commit sha> # v<tag>
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@<commit sha> # v<タグ>
     with:
       scan-args: |-
         -r
@@ -399,86 +397,86 @@ Two costs are accepted:
       fail-on-vuln: false
 ```
 
-`fail-on-vuln: false` is set (the default is `true`). Detections show up as Code scanning alerts, so the job is not failed. Failing it would turn things red every day over the same vulnerability, with no way to record "handled" or "watching" individually. Alerts are updated on every run, and the alert for a fixed vulnerability closes automatically. To be notified, watch the repository and enable Code scanning alert notifications.
+`fail-on-vuln: false` にしてあります（既定は `true`）。検出は Code scanning にアラートとして出るので、ジョブは落としません。落とすと同じ脆弱性で毎日赤くなり、「対応済み」「様子見」を個別に記録できないためです。アラートは毎回の実行で更新され、直った脆弱性のアラートは自動で閉じます。通知を受け取るにはリポジトリを watch して Code scanning のアラート通知を有効にしておきます。
 
-When the run itself fails — as opposed to finding vulnerabilities — the `notify` job opens an issue titled `osv-scanner runs are failing` with the `maintenance` label, using [the same mechanism as the settings drift check](drift-check.md#notification-on-failure), and once a run passes it closes automatically. Without the issue the failure would be invisible: a scan that found nothing and a scan that never ran look the same from the Security tab.
+実行そのものが落ちたとき（脆弱性が見つかったときではなく）は、`notify` ジョブが[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)で `osv-scanner runs are failing` という issue を `maintenance` ラベル付きで立て、実行が通れば自動的に閉じます。issue なしではこの失敗は見えません。何も見つからなかった走査と走らなかった走査は、Security タブからは同じに見えます。
 
-### Diff scan (on PRs)
+### 差分検査（PR 側）
 
-The `osv-scanner-diff` job in [ci.yml](../.github/workflows/ci.yml) scans both the base and the PR, takes the difference, and fails on vulnerabilities present only on the PR side (`fail-on-vuln: true`). A vulnerability already on main does not fail it. Detections appear both as annotations in the run log and in Code scanning. Fixing them works [the same way as for the full scan](#how-to-fix-it-and-how-to-write-an-exception).
+[ci.yml](../.github/workflows/ci.yml) の `osv-scanner-diff` ジョブが、base と PR の両方を走査して差分を取り、PR 側にだけある脆弱性で落とします（`fail-on-vuln: true`）。既に main にある脆弱性では落ちません。検出は実行ログの注釈と Code scanning の両方に出ます。直し方は [全体検査と同じ](#直し方と例外の書き方)です。
 
-Things to note:
+注意点:
 
-- **`timeout-minutes` cannot be written** (the exception covered in [Adding a job to CI](#adding-a-job-to-ci)). The limit becomes GitHub's default of six hours. The same applies to the full scan.
-- On a PR from a fork, `security-events: write` is not granted and the SARIF upload may fail (the same story as [CodeQL](#codeql)). Once you start accepting outside PRs, pass `upload-sarif: false` (the diff determination and the job's pass/fail keep working).
-- On `push` (= a merge) there is no base to compare against, so it is skipped (`skipped` counts as a success in `ci`).
+- **`timeout-minutes` を書けません**（[CI にジョブを追加する](#ci-にジョブを追加する)で説明した例外です）。上限は GitHub 既定の 6 時間になり、全体検査も同じです。
+- fork からの PR では `security-events: write` が付与されず、SARIF のアップロードに失敗する可能性があります（[CodeQL](#codeql) と同じ話です）。外部からの PR を受けるようになったら `upload-sarif: false` を渡してください（差分の判定とジョブの成否はそのまま働きます）。
+- `push`（= マージ）では比較対象の base が無いのでスキップされます（`skipped` は `ci` で成功扱いです）。
 
-### The "1 configuration not found" shown on PRs
+### PR に出る「1 configuration not found」
 
-An entry named **`osv-scanner` (GitHub Advanced Security)** appears in the PR's check list, greyed out (`neutral`) with a `1 configuration not found` warning. **This state is normal and does not block the merge** (the only required check is the gate job `ci`).
+PR のチェック一覧に **`osv-scanner`（GitHub Advanced Security）** という項目が並び、`1 configuration not found` の警告とともに灰色（`neutral`）になります。**この状態が正常で、マージも止まりません**（必須チェックはゲートジョブ `ci` だけです）。
 
-To report "the alerts this PR newly introduces", Code scanning matches the base-side and head-side analysis results for each configuration present on the base (identified as "workflow file : job name"). The full scan (`osv-scanner.yml:osv-scan`) does not run on PRs, so there is no head-side result and it says it cannot judge that configuration. It is the natural consequence of the two-layer arrangement, and it does not go away once a lockfile is added.
+Code scanning は「その PR が新たに持ち込んだアラート」を出すために、base に存在する configuration（識別は「ワークフローファイル : ジョブ名」）ごとに base 側と head 側の解析結果を突き合わせます。全体検査（`osv-scanner.yml:osv-scan`）は PR では走らないため head 側に結果が無く、「この configuration については判定できない」と言われます。2 層に分けた構成の当然の帰結で、lockfile を置いても消えません。
 
-Removing it would mean adding `pull_request` to the `on` of [osv-scanner.yml](../.github/workflows/osv-scanner.yml), which is deliberately not done. All it buys is turning the grey entry green, at the price of scanning all dependencies twice on every PR and undermining [the reason for the two layers](#osv-scanner). Aligning the SARIF category so the two look like one configuration is not possible either, because the official reusable workflow has no category input.
+消すには [osv-scanner.yml](../.github/workflows/osv-scanner.yml) の `on` に `pull_request` を足すことになりますが、入れていません。得られるのは灰色の項目が緑になることだけで、代わりに毎 PR で依存全体を二重に走査し、[2 層に分ける理由](#osv-scanner)を崩すためです。SARIF の category を揃えて 1 つの configuration に見せる手も、公式の再利用可能ワークフローに category の入力が無いため取れません。
 
-For what it is worth, no official GitHub documentation explaining this warning could be found. The above was confirmed from the check's actual conclusion (`neutral`) and the run conditions of the two configurations. The conclusion can be inspected with:
+なお、この警告文そのものを説明した GitHub の公式ドキュメントは見当たりません。上記はチェックの実際の判定（`neutral`）と 2 つの configuration の実行条件から確かめた内容です。判定は次で確認できます。
 
 ```bash
 gh api repos/OWNER/REPO/commits/<sha>/check-runs \
   --jq '.check_runs[] | select(.name == "osv-scanner") | {conclusion, title: .output.title}'
 ```
 
-### How to fix it and how to write an exception
+### 直し方と例外の書き方
 
-**Bump to the fixed version first.** The report names the version that contains the fix, so upgrading to that version makes the finding disappear (bumping by hand is sometimes faster than waiting for a [Renovate](renovate.md#renovate) update PR).
+**まず修正版のバージョンへ上げます。** 報告には修正が入ったバージョンが出るので、そこまで上げれば消えます（[Renovate](renovate.md#renovate) の更新 PR を待つより手で上げる方が速いことがあります）。
 
-When you cannot bump right away, or on a false positive, exclude it individually in an `osv-scanner.toml` ([the configuration format](https://google.github.io/osv-scanner/configuration/)). **Always give the exception a deadline** (`ignoreUntil`, or `effectiveUntil` when excluding a whole package). Without one the exception is permanent, and nobody notices when a fixed version ships.
+すぐに上げられない場合や誤検知の場合は、`osv-scanner.toml` を置いて個別に外します（[設定の書式](https://google.github.io/osv-scanner/configuration/)）。**例外には必ず期限を切ってください**（`ignoreUntil`。パッケージ単位で外すなら `effectiveUntil`）。省略すると無期限の例外になり、修正版が出ても誰も気付きません。
 
-Only a configuration file in the same directory as the file being scanned takes effect; it does not propagate into subdirectories. In a layout with lockfiles in subdirectories where you want one file at the root to apply to everything, add `--config=osv-scanner.toml` to `scan-args`.
+設定ファイルは検査対象ファイルと同じディレクトリに置いたものだけが効き、サブディレクトリには伝播しません。サブディレクトリへ lockfile を置く構成でルートの 1 つを全体に効かせたい場合は、`scan-args` に `--config=osv-scanner.toml` を足してください。
 
-### It passes silently when there is nothing to scan
+### 検査対象が無いときは黙って通ります
 
-What it reads is the lockfiles and manifests committed to the repository ([the list of supported formats](https://google.github.io/osv-scanner/supported-languages-and-lockfiles/)). `-r` is set, so it walks subdirectories too.
+見るのはリポジトリにコミットされた lockfile / マニフェストです（[対応形式の一覧](https://google.github.io/osv-scanner/supported-languages-and-lockfiles/)）。`-r` を付けてあるのでサブディレクトリも辿ります。
 
-This template has no readable lockfile at all, so nothing is being checked yet. Checking begins the moment a lockfile is added, with no configuration to add.
+このテンプレートには読める lockfile が 1 件も無いため、現時点ではまだ何も検査していません。lockfile を置いた時点で、設定を足さずに検査が始まります。
 
-When there is nothing to scan, osv-scanner fails with exit code 128 rather than silently succeeding having scanned nothing. Both invocations therefore pass **`--allow-no-lockfiles`** to allow that state explicitly (without it the callee emits a deprecation warning, which will eventually turn CI red).
+osv-scanner は検査対象が 1 件も無いとき、「スキャンしたつもりで何もスキャンしていない」状態を黙って成功にしないよう終了コード 128 で失敗します。そのため両方の呼び出しに **`--allow-no-lockfiles`** を渡してこの状態を明示的に許可しています（付けないと呼び出し先が deprecation warning を出し、いずれ CI が赤くなります）。
 
-The cost is that "nothing was checked" no longer surfaces as a warning. **Drop this flag once you add dependencies.** With it dropped, "no readable lockfile at all" becomes a job failure, catching an oversight such as putting the lockfile in `.gitignore` on the spot.
+代償として、何も検査していないことが警告として出なくなります。**依存を入れたらこのフラグを外してください。** 外せば「読める lockfile が 1 件も無い」状態がジョブの失敗になり、lockfile を `.gitignore` に入れてしまったといった取りこぼしをその場で捕まえられます。
 
-### When the scheduled run stops
+### 定期実行が止まるとき
 
-GitHub automatically disables schedule triggers after 60 days without repository activity (the owner is notified). When it stops, re-enable it from the Actions tab. Keep in mind that on a quiet repository, the check stops silently.
+schedule はリポジトリの活動が 60 日間無いと GitHub 側で自動的に止まります（オーナーに通知が来ます）。止まったら Actions タブから有効化し直してください。動きの無いリポジトリでは黙って検査が止まる、という性質は覚えておいてください。
 
-### Where queries are sent
+### 問い合わせ先
 
-By default the package names and versions are sent to [api.osv.dev](https://osv.dev) for matching (the source code is not sent). If you want nothing to leave the runner, add `--offline-vulnerabilities` (with `--download-offline-databases` for the first fetch) to `scan-args` to match against a vulnerability database downloaded onto the runner.
+既定ではパッケージ名とバージョンを [api.osv.dev](https://osv.dev) へ送って照合します（ソースコードは送りません）。外部へ何も出したくない場合は、脆弱性データベースを runner に落として照合する `--offline-vulnerabilities`（初回の取得は `--download-offline-databases`）を `scan-args` に足します。
 
 ## Scorecard
 
-[OpenSSF Scorecard](https://github.com/ossf/scorecard) scores **the repository's security posture as a whole** on a 0–10 scale against a public set of checks: branch protection, token permissions, dependency pinning, dangerous workflow patterns, and so on. The other checks each guard one kind of artifact; Scorecard grades the combination, so a regression that no individual check owns still surfaces.
+[OpenSSF Scorecard](https://github.com/ossf/scorecard) は、ブランチ保護・トークンの権限・依存の固定・危険なワークフローの書き方などの公開された検査項目に照らして、**リポジトリのセキュリティ体制全体**を 0〜10 で採点します。他の検査はそれぞれ 1 種類の対象を守りますが、Scorecard は組み合わせを採点するので、どの個別検査の持ち場でもない後退にも気付けます。
 
-[scorecard.yml](../.github/workflows/scorecard.yml) has the same three triggers as the [osv-scanner full scan](#full-scan-scheduled), except the schedule is weekly (Tuesday 05:00 JST) — the score follows settings and workflow definitions, which change far less often than vulnerability disclosures. Findings appear under Code scanning on the Security tab as the `Scorecard` tool.
+[scorecard.yml](../.github/workflows/scorecard.yml) の実行のきっかけは [osv-scanner の全体検査](#全体検査定期実行)と同じ 3 つで、schedule だけが毎週（火曜 05:00 JST）です。点数が追うのは設定とワークフロー定義で、脆弱性の公開よりずっと変化が遅いためです。検出は Security タブの Code scanning に `Scorecard` ツールとして出ます。
 
-**Findings do not block merges**: the `code_scanning` rule in [main.json](../.github/rulesets/main.json) names only CodeQL. Scorecard findings are graded advice about posture, not defects in the change at hand, so they are reviewed from the Security tab and adopted deliberately rather than enforced per PR.
+**検出はマージを止めません。**[main.json](../.github/rulesets/main.json) の `code_scanning` ルールが挙げているのは CodeQL だけです。Scorecard の検出は目の前の変更の欠陥ではなく体制への段階評価付きの助言なので、PR ごとに強制するのではなく、Security タブから確認して取捨選択します。
 
-### The published score and the workflow restrictions
+### 公開スコアとワークフローの制約
 
-`publish_results: true` sends the score to the public [Scorecard API](https://scorecard.dev), where anyone can view it at `https://scorecard.dev/viewer/?uri=github.com/OWNER/REPO`. To show it in the README, add a badge:
+`publish_results: true` により点数は公開の [Scorecard API](https://scorecard.dev) へ送られ、誰でも `https://scorecard.dev/viewer/?uri=github.com/OWNER/REPO` で見られます。README に出すにはバッジを足します。
 
 ```markdown
 [![OpenSSF Scorecard](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.scorecard.dev%2Fprojects%2Fgithub.com%2FOWNER%2FREPO&query=%24.score&label=openssf%20scorecard)](https://scorecard.dev/viewer/?uri=github.com/OWNER/REPO)
 ```
 
-The badge reads the score from the API through shields.io's dynamic JSON badge, because the plain badge endpoint (`https://api.scorecard.dev/projects/github.com/OWNER/REPO/badge`) redirects to a badge that still queries a retired API host and renders an error instead of the score. The cost is that the score is not colour-coded by value.
+バッジが shields.io の dynamic JSON バッジで API からスコアを直接読んでいるのは、素のバッジエンドポイント（`https://api.scorecard.dev/projects/github.com/OWNER/REPO/badge`）が、廃止された API ホストを参照し続けるバッジへリダイレクトされ、スコアではなくエラーを表示するためです。代償として、スコアの値による色分けはされません。
 
-In exchange, the API [restricts how the producing workflow may be written](https://github.com/ossf/scorecard-action#workflow-restrictions): the steps of the `analysis` job are limited to an approved list of actions, and the job can carry no `env`, containers, or services. **Adding a step to that job — installing a tool with mise, for example — makes publishing fail** (it surfaces through the issue below). Put anything extra in a separate job; `notify` already is one.
+引き換えに、API は[結果を作るワークフローの書き方を制約します](https://github.com/ossf/scorecard-action#workflow-restrictions)。`analysis` ジョブの step は承認されたアクションの一覧に限られ、ジョブに `env`・コンテナ・サービスを持てません。**このジョブに step を足すと — たとえば mise でツールを入れると — 公開が失敗します**（下の issue で表面化します）。追加のものは別ジョブに置きます。`notify` がまさにそれです。
 
-### Two checks that cannot reach full marks
+### 満点にならない 2 つの検査項目
 
-- **Branch-Protection** — reading the full protection settings requires admin access, and the workflow runs with the default `GITHUB_TOKEN`, which has none. Scorecard scores what is publicly visible and stops there. Registering another long-lived admin token is not worth the difference: the settings themselves are already verified daily by the [settings drift check](drift-check.md#settings-drift-check).
-- **CII-Best-Practices** — scores holding an [OpenSSF Best Practices badge](https://www.bestpractices.dev/), which is an application to an external program, not a repository setting.
+- **Branch-Protection** — 保護設定の全体を読むには admin 権限が要りますが、ワークフローは admin を持たない既定の `GITHUB_TOKEN` で動きます。Scorecard は公開されている範囲だけを採点し、そこで止まります。この差のためにもう 1 つ admin の長命トークンを登録する価値はありません。設定そのものは[設定のずれの検査](drift-check.md#設定のずれの検査)が毎日確認しています。
+- **CII-Best-Practices** — [OpenSSF Best Practices バッジ](https://www.bestpractices.dev/)の保有を採点します。外部プログラムへの申請であって、リポジトリの設定ではありません。
 
-### When the run fails
+### 実行が落ちたとき
 
-When the run itself fails — the Scorecard API being down, or an edit that broke the restrictions above — the `notify` job opens an issue titled `scorecard runs are failing` with the `maintenance` label, using [the same mechanism as the settings drift check](drift-check.md#notification-on-failure), and once a run passes it closes automatically.
+実行そのものが落ちたとき — Scorecard API の障害や、上の制約を破る編集をしたとき — は、`notify` ジョブが[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)で `scorecard runs are failing` という issue を `maintenance` ラベル付きで立て、実行が通れば自動的に閉じます。

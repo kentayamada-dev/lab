@@ -1,44 +1,44 @@
-# Security policy
+# セキュリティポリシー
 
-## Where to report
+## 報告先
 
-**Do not report vulnerabilities in public issues or Discussions.** Publishing the details before a fix exists hands out the attack recipe.
+**脆弱性を公開の issue や Discussions に書かないでください。** 修正が無い状態で詳細が出ると、攻撃の手順書を配ることになります。
 
-Reports are received through GitHub's **private vulnerability reporting**. Click **Report a vulnerability** on the repository's **Security** tab, fill in the form, and send it. The exchange happens on a private advisory visible only to the reporter and the maintainers; the advisory is published once the fix is out.
+報告は GitHub の**プライベート脆弱性報告**で受け付けます。リポジトリの **Security** タブにある **Report a vulnerability** から、フォームに記入して送信してください。やり取りは報告者とメンテナだけが見られる非公開のアドバイザリ上で行い、修正が出た時点でアドバイザリを公開します。
 
-**If you cannot find Report a vulnerability**, private reporting is not enabled (the script in [Setup](README.md#setup) enables it). Open an issue saying only that you want to get in touch about a security matter, without any details.
+**Report a vulnerability が見つからない場合**、プライベート報告が有効になっていません（[セットアップ](README.md#セットアップ)のスクリプトが有効化します）。詳細は書かず、セキュリティの件で連絡したい旨だけを書いた issue を立ててください。
 
-Reference: [Privately reporting a security vulnerability](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability)
+参考: [プライベートに脆弱性を報告する](https://docs.github.com/ja/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability)
 
-## What to include in a report
+## 報告に書くこと
 
-Include whatever you know — partial information is fine. Reproduction steps speed up the investigation.
+分かっている範囲で構いません。再現手順があると調査が早くなります。
 
-- The affected area (a workflow, a script, a configuration file, and so on)
-- Steps to reproduce, or the conditions under which the attack works
-- The expected impact (what becomes readable, writable, or executable)
-- The environment you confirmed it in (OS, tool versions, commit SHA)
-- Any workaround or fix you are aware of (if any)
+- 対象の箇所（ワークフロー、スクリプト、設定ファイルなど）
+- 再現手順、または攻撃が成立する条件
+- 想定される影響（何が読める / 書ける / 実行できるようになるか）
+- 確認した環境（OS、ツールのバージョン、コミット SHA）
+- 把握している回避策や修正案（あれば）
 
-## Scope
+## 対象の範囲
 
-The scope is **what is in this repository** (the list under [What's included](README.md#whats-included) is exactly the scope).
+範囲は**このリポジトリに入っているもの**です（[収録内容](README.md#収録内容)の一覧がそのまま範囲です）。
 
-| Status | Description |
+| 区分 | 内容 |
 | --- | --- |
-| In scope | Over-broad workflow permissions, injection into `run`, leaked secrets, dangerous behavior in the scripts |
-| Out of scope | The application code of a repository created from this template (report it to that repository) |
-| Out of scope | Vulnerabilities in the tools or actions this template depends on (report them upstream; we pick up fixes through version updates) |
-| Out of scope | Anything already surfaced as an alert on the Security tab |
+| 対象 | ワークフローの権限の与えすぎ、`run` へのインジェクション、secret の漏洩、スクリプトの危険な挙動 |
+| 対象外 | このテンプレートから作ったリポジトリのアプリコード（そのリポジトリへ報告してください） |
+| 対象外 | このテンプレートが依存するツールや action の脆弱性（上流へ報告してください。修正はバージョン更新で取り込みます） |
+| 対象外 | Security タブに既にアラートとして出ているもの |
 
-## Supported versions
+## サポート対象のバージョン
 
-**Only the latest commit on main.** Because this is a template, fixes are not backported to past commits or releases. To pick up a fix, apply the change from main in the derived repository.
+**main の最新コミットのみ**です。テンプレートという性質上、過去のコミットやリリースへの修正の取り込みは行いません。修正を取り込むには、派生先のリポジトリで main の変更を適用してください。
 
-We cannot promise a response time. If two weeks pass with no reply, follow up through the same channel.
+返信時期の約束はできません。2 週間返信が無い場合は、同じ経路で催促してください。
 
-## Automated checks
+## 自動の検査
 
-Before reporting, you can use these to see whether something has already been detected. Findings appear under Code scanning on the Security tab. The security-related checks are [CodeQL](docs/ci-jobs.md#codeql), [ghalint](docs/ci-jobs.md#ghalint), [zizmor](docs/ci-jobs.md#zizmor), [gitleaks](docs/ci-jobs.md#gitleaks), [osv-scanner](docs/ci-jobs.md#osv-scanner), and [Scorecard](docs/ci-jobs.md#scorecard); what each looks at is in [CI check jobs](docs/ci-jobs.md#ci-check-jobs).
+報告の前に、既に検出済みかどうかをここで確認できます。検出結果は Security タブの Code scanning に出ます。セキュリティ関連の検査は [CodeQL](docs/ci-jobs.md#codeql)、[ghalint](docs/ci-jobs.md#ghalint)、[zizmor](docs/ci-jobs.md#zizmor)、[gitleaks](docs/ci-jobs.md#gitleaks)、[osv-scanner](docs/ci-jobs.md#osv-scanner)、[Scorecard](docs/ci-jobs.md#scorecard) で、それぞれが何を見るかは [CI の検査ジョブ](docs/ci-jobs.md#ci-の検査ジョブ)にあります。
 
-These checks only cover known patterns and known vulnerabilities. Design flaws and operational gaps sail straight through them, so tell us through the channel above if you notice one.
+これらの検査が拾うのは既知のパターンと既知の脆弱性だけです。設計上の欠陥や運用上の穴はそのまま通り抜けるので、気づいた場合は上記の経路で知らせてください。

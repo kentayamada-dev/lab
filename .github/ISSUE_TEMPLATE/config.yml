@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Ask in Discussions
+  - name: Discussions で質問する
     url: https://github.com/kentayamada-dev/lab/discussions/new/choose
-    about: For questions, general discussion, or anything you cannot classify as a bug or a request.
+    about: 質問、方針の相談、バグにも要望にも分類できないものはこちらへ。

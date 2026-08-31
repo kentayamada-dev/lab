@@ -1,42 +1,40 @@
-# Troubleshooting
+# トラブルシューティング
 
-**English** | [日本語](troubleshooting.ja.md)
+CI のジョブが落ちた場合は、[CI の検査ジョブ](ci-jobs.md#ci-の検査ジョブ)の表から該当する節を引いてください。
 
-When a CI job fails, look up the relevant section from the table in [CI check jobs](ci-jobs.md#ci-check-jobs).
+## PR が「必須チェック待ち」で止まる
 
-## A PR is stuck waiting for a required check
+`ci` という名前のチェックが、期待した報告元から届いていません。ワークフローに `paths` フィルタが付いていないか、ジョブ名が `ci` から変わっていないかを確認します。
 
-The check named `ci` has not arrived from the expected reporter. Check whether a `paths` filter was added to the workflow, or whether the job name changed from `ci`.
-
-If Actions is green but it keeps waiting, the `integration_id` in [main.json](../.github/rulesets/main.json) disagrees with the actual reporter. Check the `app.id` on the `ci` row with the following command, update the JSON to match, and run the script again.
+Actions は緑なのに待ち続ける場合は、[main.json](../.github/rulesets/main.json) の `integration_id` が実際の報告元と食い違っています。次のコマンドで `ci` の行の `app.id` を確認し、JSON に反映してスクリプトを再実行してください。
 
 ```bash
 gh api repos/OWNER/REPO/commits/main/check-runs --jq '.check_runs[] | "\(.name)\t\(.app.id)\t\(.app.slug)"'
 ```
 
-## A merge is blocked while CI is green
+## CI は緑なのにマージできない
 
-Two protections other than the required check can hold the merge button ([What branch protection enforces](../README.md#what-branch-protection-enforces)).
+必須チェック以外に、マージを止める保護が 2 つあります（[ブランチ保護の内容](../README.md#ブランチ保護の内容)）。
 
-- An unresolved review thread. Resolve every thread on the Files changed tab, including the ones you left on your own PR.
-- A Code scanning alert, whatever its severity. Open Code scanning on the Security tab and either fix the alert or dismiss it ([CodeQL](ci-jobs.md#codeql)).
+- 未解決のレビューコメント。Files changed タブで、自分の PR に自分で付けたものも含めてすべて resolve してください。
+- Code scanning のアラート（重大度は問いません）。Security タブの Code scanning を開き、直すか dismiss してください（[CodeQL](ci-jobs.md#codeql)）。
 
-## Renovate does not create PRs
+## Renovate の PR が作られない
 
-Look at the run log of the `renovate` workflow on the Actions tab. Almost always `RENOVATE_TOKEN` is unset, expired, or lacking permissions. If the log alone is not enough, produce a verbose log with `gh workflow run renovate.yml --field log_level=debug`.
+Actions タブの `renovate` ワークフローの実行ログを見ます。`RENOVATE_TOKEN` の未設定・期限切れ・権限不足がほとんどです。ログだけで分からない場合は `gh workflow run renovate.yml --field log_level=debug` で詳細ログを出します。
 
-When the run succeeds but no PR arrives, look at the `Dependency updates are available` issue ([The update list issue](renovate.md#the-update-list-issue)). If it is not open, there was nothing to update as of the last run (the concurrent PR limit is lifted, so nothing is merely being held back).
+実行は成功しているのに PR が来ないときは、`Dependency updates are available` の issue を見ます（[更新の一覧の issue](renovate.md#更新の一覧の-issue)）。立っていなければ、前回の実行の時点で更新が無かったということです（並列 PR 上限は外してあるので、保留されているだけということはありません）。
 
-## The scheduled osv-scanner run does not fire
+## osv-scanner の定期実行が動かない
 
-GitHub automatically disables schedule triggers after 60 days without repository activity. Open the `osv-scanner` workflow on the Actions tab and re-enable it if it is disabled ([details](ci-jobs.md#when-the-scheduled-run-stops)).
+schedule はリポジトリの活動が 60 日間無いと GitHub 側で自動的に止まります。Actions タブで `osv-scanner` ワークフローを開き、無効化されていれば有効化し直してください（[詳細](ci-jobs.md#定期実行が止まるとき)）。
 
-If it runs but detects nothing, drop `--allow-no-lockfiles` from `scan-args` and run it once. If no lockfile could be read at all the job fails, so you find out on the spot whether something is being missed ([details](ci-jobs.md#it-passes-silently-when-there-is-nothing-to-scan)).
+実行はされているのに何も検出されない場合は、`scan-args` から `--allow-no-lockfiles` を外して 1 回走らせます。lockfile を 1 件も読めていなければジョブが落ちるので、取りこぼしかどうかがその場で分かります（[詳細](ci-jobs.md#検査対象が無いときは黙って通ります)）。
 
-## A greyed-out `osv-scanner` appears on the PR
+## PR に灰色の `osv-scanner` が出る
 
-That is the `1 configuration not found` warning. It is normal and does not block the merge. The reason for it, and the reason it is left in place, are in [The "1 configuration not found" shown on PRs](ci-jobs.md#the-1-configuration-not-found-shown-on-prs).
+`1 configuration not found` という警告です。正常な状態で、マージも止まりません。理由と、消さずに残している理由は [PR に出る「1 configuration not found」](ci-jobs.md#pr-に出る1-configuration-not-found)にあります。
 
-## CI is broken and main cannot be fixed
+## CI が壊れて main を直せない
 
-Setting `enforcement` in [main.json](../.github/rulesets/main.json) to `disabled` and running the script again lifts the protection temporarily. Set it back to `active` once things are restored.
+[main.json](../.github/rulesets/main.json) の `enforcement` を `disabled` にしてスクリプトを再実行すれば一時的に保護を外せます。復旧後に `active` へ戻してください。

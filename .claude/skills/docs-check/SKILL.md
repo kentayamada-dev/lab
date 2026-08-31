@@ -1,6 +1,6 @@
 ---
 name: docs-check
-description: Review every tracked file against the no-duplication rule in CLAUDE.md — comments vs nearby code and repo docs, docs vs code and easily found references, bilingual pairs — and flag docs and comments that have drifted from what the code actually does. Pass `diff` to review only the files in the current diff.
+description: Review every tracked file against the no-duplication rule in CLAUDE.md — comments vs nearby code and repo docs, docs vs code and easily found references — and flag docs and comments that have drifted from what the code actually does. Pass `diff` to review only the files in the current diff.
 disable-model-invocation: true
 argument-hint: "[diff]"
 allowed-tools:
@@ -38,9 +38,9 @@ git diff --name-only origin/main
 git ls-files --others --exclude-standard
 ```
 
-In diff-only mode, still read each changed file's related files (its bilingual counterpart, the doc describing a changed script, sibling docs) for context, and report a finding whenever a changed file is on either side of it — an updated `X.md` whose `X.ja.md` was not touched is a finding. Skip duplication purely between unchanged files.
+In diff-only mode, still read each changed file's related files (the doc describing a changed script, sibling docs) for context, and report a finding whenever a changed file is on either side of it. Skip duplication purely between unchanged files.
 
-Review each file's comments and docs against everything else in the repo — read related files together (a script and the doc describing it, sibling docs, both halves of a bilingual pair) so cross-file duplication surfaces. In a large result, group findings by file and order them by how much text the fix removes.
+Review each file's comments and docs against everything else in the repo — read related files together (a script and the doc describing it, sibling docs) so cross-file duplication surfaces. In a large result, group findings by file and order them by how much text the fix removes.
 
 ## What to look for
 
@@ -49,5 +49,4 @@ Review each file's comments and docs against everything else in the repo — rea
 - **Script `--help` text and runtime output are code.** What they already tell (options, what stays or changes, next steps) must not be restated in README or docs — shrink the doc side to the command plus a pointer to `--help`.
 - **Upstream documentation is an easily found reference.** Feature behavior of GitHub, gh, or a tool belongs to its official docs; keep only the repo-specific reason or gotcha and link out for the rest.
 - **Do not remove what something depends on.** The top comment of each script under `scripts/` is its `--help` text (CI checks neither is empty), and docs may point at specific comments (`mise.toml`, `renovate.yml`).
-- **Bilingual pairs**: README.md and files under `docs/` must stay in sync with their `X.md` / `X.ja.md` counterpart (see CONTRIBUTING.md) — flag pairs whose content has drifted apart.
 - **Docs and comments must match the code.** While reading related files together, flag statements that contradict what the code or config actually does — a job, flag, path, or filename that no longer exists, a described behavior the script no longer has. Propose updating (or deleting, if the no-duplication rule says the code speaks for itself) the stale text; never "fix" the code to match a stale doc without asking.
