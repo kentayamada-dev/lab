@@ -1,10 +1,10 @@
 # CI の検査ジョブ
 
-[ci.yml](../.github/workflows/ci.yml) に初期状態で入っている検査ジョブの一覧です。検査が落ちたときや設定を変えるときに、該当する節だけ読んでください。
+[ci.yml](../.github/workflows/ci.yml) に入っている検査ジョブの一覧です。検査が落ちたときや設定を変えるときに、該当する節だけ読んでください。
 
 | ジョブ | 見るもの | 解説 |
 | --- | --- | --- |
-| `codeql` | コードの静的解析（初期状態はワークフローファイルのみ） | [CodeQL](#codeql) |
+| `codeql` | コードの静的解析（actions / go / javascript-typescript） | [CodeQL](#codeql) |
 | `pr-title` | PR タイトルが Conventional Commits 形式か | [PR タイトルの書式](../README.md#pr-タイトルの書式) |
 | `format` | インデント・改行コード・行末空白 | [書式の統一](../README.md#書式の統一) |
 | `actionlint` | ワークフロー定義の構文・式の誤り | [actionlint](#actionlint) |
@@ -21,6 +21,11 @@
 | `script-tests` | ワークフローが呼ぶスクリプトの判断が変わっていないか | [script-tests](#script-tests) |
 | `issue-forms` | issue フォームがスキーマに沿っているか | [issue のテンプレート](../README.md#issue-のテンプレート) |
 | `renovate-config` | Renovate 設定の検証 | [設定の検証](renovate.md#設定の検証) |
+| `proto` | proto ファイルの整形・lint・破壊的変更 | [アプリコードの検査](#アプリコードの検査) |
+| `gen` | buf.gen.yaml と生成コードのずれ | [アプリコードの検査](#アプリコードの検査) |
+| `db` | schema.sql とマイグレーションのずれ | [アプリコードの検査](#アプリコードの検査) |
+| `api` | Go コードの整形・lint・SQL の検証・テスト | [アプリコードの検査](#アプリコードの検査) |
+| `web` | web の依存導入と型検査込みのビルド | [アプリコードの検査](#アプリコードの検査) |
 | `osv-scanner-diff` | PR が新たに持ち込む依存の脆弱性 | [osv-scanner](#osv-scanner) |
 
 コードを変えなくても結果が変わる検査（[設定のずれの検査](drift-check.md#設定のずれの検査)、[osv-scanner](#osv-scanner) の全体検査、[外部リンクの検査](#外部リンクの定期検査)、[Scorecard](#scorecard)）は、`ci` に入れると無関係な PR まで止めるため、別ワークフローの定期実行にしてあります。
@@ -53,15 +58,24 @@ jobs:
 - CI は 1 つの変更につき 2 回走ります（PR 上と、マージ後の main）。base を最新化するたびに PR 側はさらに走ります。実行時間の長いジョブを追加するときはこのコストを見込んでください。main 側の run は、CodeQL がアラートの基準として使う「デフォルトブランチの解析結果」を作ります。
 - 同じ PR への連続 push では古い実行を打ち切りますが、**main への push では打ち切りません**（`concurrency` の `cancel-in-progress` を `github.event_name == 'pull_request'` にしてあります）。連続マージで前のコミットの実行がキャンセルされると、そのコミットに `cancelled` が残り、[CodeQL](#codeql) の解析も欠けるためです。
 
-## アプリコードを追加したら
+## アプリコードの検査
 
-lint / test / build のジョブを `ci` の `needs` に足す（[CI にジョブを追加する](#ci-にジョブを追加する)）のにあわせて、「アプリコードがまだ無い」前提の次の 3 つを見直してください。
+`proto` / `gen` / `db` / `api` / `web` の 5 ジョブは、[Makefile](../Makefile) のターゲットを docker compose のサービス（[docker-compose.yml](../docker-compose.yml)）の中で実行します。mise を経由しないのは、コマンドとツールのバージョンの情報源を、ローカル開発と同じ Makefile / docker-compose.yml / 各コンテナ定義に一本化するためです。手元での再現も同じターゲットで、前提は docker だけです。
+
+| ジョブ | 実行するもの |
+| --- | --- |
+| `proto` | `make proto-check`（buf の format / lint / breaking。breaking は origin/main と比較するため、このジョブだけ `fetch-depth: 0` で checkout します。比較先にまだ proto/ が無いとき — モジュールを初めて足す PR — はスキップします） |
+| `gen` | `make gen-check`（buf.gen.yaml の再生成結果と buf generate の出力を、コミット済みのものと突き合わせ） |
+| `db` | `make db-check`（atlas.sum の検証と、schema.sql とマイグレーションの diff） |
+| `api` | `make db-migrate` でスキーマを適用してから `make api-check`（sqlc の `db-prepare` ルールが実 DB に対してクエリを prepare するため、先にテーブルが要ります） |
+| `web` | `make web-check`（lockfile どおりの依存導入と、型検査込みの `next build`） |
+
+各ジョブは `USER_UID` / `USER_GID` を runner の uid / gid に合わせてから make を呼びます。bind mount したチェックアウトをコンテナ側が読み書きできるようにするためで、buf が `.git` を読むときの dubious ownership 判定もこれで避けます。`api` ジョブは `API_BUILD_TARGET=base` でイメージを build します（dev target が足す gopls は検査で使わず、コンパイルに時間がかかるためです）。
+
+言語やパッケージマネージャを増やしたときは、次も見直してください。
 
 - [CodeQL](#codeql) の `matrix.language` に言語を足す
-- [CodeQL](#codeql) のアラートの閾値を見直す。どちらも `all` なので note 級の品質アラートでもマージが止まります。対象がワークフローファイルだけなら許容できますが、実際の言語を解析すると煩わしくなります
-- [osv-scanner](#osv-scanner) の `--allow-no-lockfiles` を外す（[検査対象が無いときは黙って通ります](#検査対象が無いときは黙って通ります)）
-
-lockfile（`package-lock.json` や `go.mod` など）は、置いた時点で osv-scanner と [Renovate](renovate.md#renovate) が設定なしで検出します。
+- 新しい lockfile が [osv-scanner](#osv-scanner) の[対応形式](https://google.github.io/osv-scanner/supported-languages-and-lockfiles/)にあるか確認する（対応する lockfile は、置いた時点で osv-scanner と [Renovate](renovate.md#renovate) が設定なしで検出します）
 
 ## ツールの導入と検証
 
@@ -98,21 +112,15 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 初回の実行で固定版のツールが入ります。コマンドもバージョンも両側が同じファイルを読むため、結果は CI と一致します。注意は 2 つ。[zizmor](#zizmor) は環境変数 `GITHUB_TOKEN` が無いとオフラインで動き、オンラインの監査は警告付きでスキップされます。[gitleaks](#gitleaks) は shallow clone には無い全履歴を必要とします。
 
-タスクが無いジョブは、手元のチェックアウトだけでは動かないものです。[CodeQL](#codeql) と `pr-title` は GitHub 側を必要とし、[setup-script](#setup-script) はトークンと API を必要とし、[markdownlint-cli2](#markdownlint-cli2)・[renovate-config](renovate.md#設定の検証)・[osv-scanner](#osv-scanner) は前述の、mise を通さない 3 つの例外です。
+タスクが無いジョブは、手元のチェックアウトだけでは動かないものです。[CodeQL](#codeql) と `pr-title` は GitHub 側を必要とし、[setup-script](#setup-script) はトークンと API を必要とし、[markdownlint-cli2](#markdownlint-cli2)・[renovate-config](renovate.md#設定の検証)・[osv-scanner](#osv-scanner) は前述の、mise を通さない 3 つの例外です。[アプリコードの検査](#アプリコードの検査)の 5 ジョブにもタスクはありませんが、こちらは CI と同じ make ターゲットで再現できます（前提は docker）。
 
 ## CodeQL
 
-[ci.yml](../.github/workflows/ci.yml) の `codeql` ジョブが静的解析を行い、結果は Security タブの Code scanning に出ます。`ci` の `needs` に入っているので、解析に失敗すると PR がマージできません。ただし**アラートの検出そのものではジョブは落ちません**（`analyze` は結果をアップロードするだけです）。マージを止めるのはブランチ保護側の役目で、[main.json](../.github/rulesets/main.json) の `code_scanning` ルールが、重大度を問わずアラートが 1 件でもあればマージを止めます（`alerts_threshold` と `security_alerts_threshold` をどちらも `all` にしてあります）。厳しさを変えるときは同じ場所のこの 2 つを書き換えてください。問題ないと判断したアラートは Security タブの Code scanning で dismiss すれば、マージは止まらなくなります。
+[ci.yml](../.github/workflows/ci.yml) の `codeql` ジョブが静的解析を行い、結果は Security タブの Code scanning に出ます。`ci` の `needs` に入っているので、解析に失敗すると PR がマージできません。ただし**アラートの検出そのものではジョブは落ちません**（`analyze` は結果をアップロードするだけです）。マージを止めるのはブランチ保護側の役目で、[main.json](../.github/rulesets/main.json) の `code_scanning` ルールが判定します。セキュリティ系のアラートは重大度を問わず止め（`security_alerts_threshold: all`）、品質系のアラートは error 級だけで止めます（`alerts_threshold: errors`。note / warning 級の指摘で無関係の PR まで止めないためです）。厳しさを変えるときは同じ場所のこの 2 つを書き換えてください。問題ないと判断したアラートは Security タブの Code scanning で dismiss すれば、マージは止まらなくなります。
 
-初期状態の解析対象は `actions`（ワークフローファイル自体）だけです。アプリコードを入れたら `matrix.language` に足してください。
+解析対象は `matrix.language` にある `actions`（ワークフローファイル自体）・`go`・`javascript-typescript` で、言語を足すときも同じ場所に足します。`build-mode` は原則 `none`（ビルドせずソースだけを抽出）ですが、Go は `none` に対応していないため `autobuild` です（go.mod が指すツールチェーンは Go 側が自動取得します）。
 
-```yaml
-    strategy:
-      matrix:
-        language: [actions, javascript-typescript]
-```
-
-指定できる言語と、追加で `build-mode` が必要な言語は [CodeQL のサポート言語](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/) にあります。
+指定できる言語と、`build-mode: none` に対応していない言語は [CodeQL のサポート言語](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/) にあります。
 
 注意点:
 
@@ -194,7 +202,7 @@ ignore-hidden = false
 [ci.yml](../.github/workflows/ci.yml) の `lychee` ジョブが、Markdown のリンク切れを検査します。このリポジトリのリンクの大半は見出しへのアンカーとリポジトリ内ファイルへの相対パスで、見出しの改名やファイルの移動で静かに切れます。このジョブはそれを PR で落とします。
 
 ```bash
-lychee --offline --include-fragments --no-progress .
+lychee --offline --include-fragments --no-progress --exclude-path <vendored の Swagger UI 一式> .
 ```
 
 | 指定 | 理由 |
@@ -202,6 +210,7 @@ lychee --offline --include-fragments --no-progress .
 | `--offline` | `file` スキーム以外を検査対象から外す（= 通信しない） |
 | `--include-fragments` | リンク先ファイルの中の `#アンカー` まで照合する |
 | `--no-progress` | 非対話シェル向けにプログレスバーを消す |
+| `--exclude-path` | vendored の Swagger UI 一式（api/internal/server/ の swagger-*）を走査から外す。中身の文字列をリンクとして拾ってしまうため。[外部リンクの定期検査](#外部リンクの定期検査)も同じものを除外している |
 | `.` | リポジトリのルートを再帰的にたどる（[.gitignore](../.gitignore) のものは除外） |
 
 **このジョブは外部 URL を検査しません。** `--offline` を外すと相手先の一時的な不調やレート制限で CI が落ち、コードと無関係に赤くなるためです。外部 URL は別ワークフローの定期実行で見ます（[外部リンクの定期検査](#外部リンクの定期検査)）。
@@ -221,7 +230,7 @@ lychee --offline --include-fragments --no-progress .
 | 落ちたとき | PR がマージできない | issue が立つ |
 
 ```bash
-lychee --no-progress --exclude 'OWNER/REPO' .
+lychee --no-progress --exclude 'OWNER/REPO' --exclude-path <vendored の Swagger UI 一式> .
 ```
 
 CI ではこれに `--mode plain` を足し、出力を `tee` で控えます（ANSI エスケープを混ぜずに issue 本文へそのまま載せるため）。
@@ -253,7 +262,7 @@ CI ではこれに `--mode plain` を足し、出力を `tee` で控えます（
 
 **本文は途中で改行せず、1 段落を 1 行で書きます。** Markdown は段落内の改行を半角スペースに変換して表示するため、日本語の文を途中で折り返すと、表示された文の途中に空白が入ります。折り返しはソース側ではなく表示側で決めることでもあり、1 段落 1 行にしておけば差分が段落単位になって、語句を直しただけで以降の折り返し位置がずれる、といったことも起きません。`MD013` の本文の上限を 1000 文字まで上げているのはこのためです。
 
-行末の空白は `MD009` が見ます。[.editorconfig](../.editorconfig) が `*.md` を検査から外している分（[例外](../README.md#2-つの例外)）はここで埋まります。
+行末の空白は `MD009` が見ます。[.editorconfig](../.editorconfig) が `*.md` を検査から外している分（[例外](../README.md#例外)）はここで埋まります。
 
 **このジョブだけは公式の [action](https://github.com/DavidAnson/markdownlint-cli2-action) を使い、mise を経由しません。** markdownlint-cli2 は npm でしか配布されておらず、mise で入れると実行用の node も別に要るためです。検査に使われるバージョンは action に同梱されたもので、action は commit SHA で固定してあります。
 
@@ -392,7 +401,6 @@ git ls-files -z '.github/scripts/tests/*.bats' 'scripts/tests/*.bats' \
     with:
       scan-args: |-
         -r
-        --allow-no-lockfiles
         ./
       fail-on-vuln: false
 ```
@@ -434,15 +442,11 @@ gh api repos/OWNER/REPO/commits/<sha>/check-runs \
 
 設定ファイルは検査対象ファイルと同じディレクトリに置いたものだけが効き、サブディレクトリには伝播しません。サブディレクトリへ lockfile を置く構成でルートの 1 つを全体に効かせたい場合は、`scan-args` に `--config=osv-scanner.toml` を足してください。
 
-### 検査対象が無いときは黙って通ります
+### 検査対象の lockfile
 
-見るのはリポジトリにコミットされた lockfile / マニフェストです（[対応形式の一覧](https://google.github.io/osv-scanner/supported-languages-and-lockfiles/)）。`-r` を付けてあるのでサブディレクトリも辿ります。
+見るのはリポジトリにコミットされた lockfile / マニフェストです（[対応形式の一覧](https://google.github.io/osv-scanner/supported-languages-and-lockfiles/)）。`-r` を付けてあるのでサブディレクトリも辿り、`api/go.mod` と `web/pnpm-lock.yaml` が対象になります。
 
-このテンプレートには読める lockfile が 1 件も無いため、現時点ではまだ何も検査していません。lockfile を置いた時点で、設定を足さずに検査が始まります。
-
-osv-scanner は検査対象が 1 件も無いとき、「スキャンしたつもりで何もスキャンしていない」状態を黙って成功にしないよう終了コード 128 で失敗します。そのため両方の呼び出しに **`--allow-no-lockfiles`** を渡してこの状態を明示的に許可しています（付けないと呼び出し先が deprecation warning を出し、いずれ CI が赤くなります）。
-
-代償として、何も検査していないことが警告として出なくなります。**依存を入れたらこのフラグを外してください。** 外せば「読める lockfile が 1 件も無い」状態がジョブの失敗になり、lockfile を `.gitignore` に入れてしまったといった取りこぼしをその場で捕まえられます。
+osv-scanner は検査対象が 1 件も無いとき、「スキャンしたつもりで何もスキャンしていない」状態を黙って成功にしないよう終了コード 128 で失敗します。lockfile を `.gitignore` に入れてしまったといった取りこぼしは、この失敗でその場で表面化します（アプリコードが無い間この状態を許可していたテンプレート由来の `--allow-no-lockfiles` は、lockfile が入った時点で外してあります）。
 
 ### 定期実行が止まるとき
 

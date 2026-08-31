@@ -1,0 +1,276 @@
+openapi: 3.1.0
+info:
+  title: todo.v1
+paths:
+  /todo.v1.TodoService/CreateTodo:
+    post:
+      tags:
+        - todo.v1.TodoService
+      summary: CreateTodo
+      description: |-
+        Creates a new todo item from the given title and returns the stored
+         record. Fails with the invalid_argument code when the title is blank.
+      operationId: todo.v1.TodoService.CreateTodo
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/todo.v1.CreateTodoRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/todo.v1.CreateTodoResponse'
+  /todo.v1.TodoService/ListTodos:
+    post:
+      tags:
+        - todo.v1.TodoService
+      summary: ListTodos
+      description: Returns all todo items. The list is empty when no todos exist.
+      operationId: todo.v1.TodoService.ListTodos
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/todo.v1.ListTodosRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/todo.v1.ListTodosResponse'
+  /todo.v1.TodoService/UpdateTodo:
+    post:
+      tags:
+        - todo.v1.TodoService
+      summary: UpdateTodo
+      description: |-
+        Updates the done flag of the todo identified by id and returns the updated
+         record. Fails with the not_found code when no todo has that id.
+      operationId: todo.v1.TodoService.UpdateTodo
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/todo.v1.UpdateTodoRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/todo.v1.UpdateTodoResponse'
+components:
+  schemas:
+    connect-protocol-version:
+      type: number
+      title: Connect-Protocol-Version
+      enum:
+        - 1
+      description: Define the version of the Connect protocol
+      const: 1
+    connect-timeout-header:
+      type: number
+      title: Connect-Timeout-Ms
+      description: Define the timeout, in ms
+    connect.error:
+      type: object
+      properties:
+        code:
+          type: string
+          examples:
+            - not_found
+          enum:
+            - canceled
+            - unknown
+            - invalid_argument
+            - deadline_exceeded
+            - not_found
+            - already_exists
+            - permission_denied
+            - resource_exhausted
+            - failed_precondition
+            - aborted
+            - out_of_range
+            - unimplemented
+            - internal
+            - unavailable
+            - data_loss
+            - unauthenticated
+          description: The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].
+        message:
+          type: string
+          description: A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client.
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/connect.error_details.Any'
+          description: A list of messages that carry the error details. There is no limit on the number of messages.
+      title: Connect Error
+      additionalProperties: true
+      description: 'Error type returned by Connect: https://connectrpc.com/docs/go/errors/#http-representation'
+    connect.error_details.Any:
+      type: object
+      properties:
+        type:
+          type: string
+          description: 'A URL that acts as a globally unique identifier for the type of the serialized message. For example: `type.googleapis.com/google.rpc.ErrorInfo`. This is used to determine the schema of the data in the `value` field and is the discriminator for the `debug` field.'
+        value:
+          type: string
+          format: binary
+          description: The Protobuf message, serialized as bytes and base64-encoded. The specific message type is identified by the `type` field.
+        debug:
+          oneOf:
+            - type: object
+              title: Any
+              additionalProperties: true
+              description: Detailed error information.
+          discriminator:
+            propertyName: type
+          title: Debug
+          description: Deserialized error detail payload. The 'type' field indicates the schema. This field is for easier debugging and should not be relied upon for application logic.
+      additionalProperties: true
+      description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message, with an additional debug field for ConnectRPC error details.
+    todo.v1.CreateTodoRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          title: title
+          description: Title of the todo to create. Must not be blank.
+      title: CreateTodoRequest
+      additionalProperties: false
+      description: Request to create a new todo.
+    todo.v1.CreateTodoResponse:
+      type: object
+      properties:
+        todo:
+          title: todo
+          description: The stored todo, including its assigned id.
+          $ref: '#/components/schemas/todo.v1.Todo'
+      title: CreateTodoResponse
+      additionalProperties: false
+      description: Response containing the newly created todo.
+    todo.v1.ListTodosRequest:
+      type: object
+      title: ListTodosRequest
+      additionalProperties: false
+      description: Request to list todos. It takes no parameters.
+    todo.v1.ListTodosResponse:
+      type: object
+      properties:
+        todos:
+          type: array
+          items:
+            $ref: '#/components/schemas/todo.v1.Todo'
+          title: todos
+          description: All todos. Empty when none exist.
+      title: ListTodosResponse
+      additionalProperties: false
+      description: Response containing every todo.
+    todo.v1.Todo:
+      type: object
+      properties:
+        id:
+          type:
+            - integer
+            - string
+          title: id
+          format: int64
+          description: Unique identifier assigned by the database.
+        title:
+          type: string
+          title: title
+          description: Human readable description of what has to be done.
+        done:
+          type: boolean
+          title: done
+          description: Whether the item has been completed.
+      title: Todo
+      additionalProperties: false
+      description: A single todo item.
+    todo.v1.UpdateTodoRequest:
+      type: object
+      properties:
+        id:
+          type:
+            - integer
+            - string
+          title: id
+          format: int64
+          description: Identifier of the todo to update.
+        done:
+          type: boolean
+          title: done
+          description: Desired completion state.
+      title: UpdateTodoRequest
+      additionalProperties: false
+      description: Request to change the completion state of an existing todo.
+    todo.v1.UpdateTodoResponse:
+      type: object
+      properties:
+        todo:
+          title: todo
+          description: The todo after the update was applied.
+          $ref: '#/components/schemas/todo.v1.Todo'
+      title: UpdateTodoResponse
+      additionalProperties: false
+      description: Response containing the updated todo.
+security: []
+tags:
+  - name: todo.v1.TodoService
+    description: Operations on todo items.

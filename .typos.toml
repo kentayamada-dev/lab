@@ -1,5 +1,7 @@
 [files]
 ignore-hidden = false
+# Generated and vendored files follow their producers' spelling.
+extend-exclude = ["api/gen/", "web/src/gen/", "api/internal/server/swagger-ui*"]
 
 [default]
 extend-ignore-re = ["`recieve` → `receive`"]

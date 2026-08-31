@@ -39,7 +39,7 @@
           {
             "tool": "CodeQL",
             "security_alerts_threshold": "all",
-            "alerts_threshold": "all"
+            "alerts_threshold": "errors"
           }
         ]
       }

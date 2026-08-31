@@ -44,10 +44,15 @@ jobs:
         run: |
           set -eo pipefail
           # pipefail is set above because otherwise tee's exit code hides a failed check.
+          # The vendored Swagger UI assets are full of strings lychee reads as links.
           lychee \
             --no-progress \
             --mode plain \
             --exclude 'OWNER/REPO' \
+            --exclude-path api/internal/server/swagger-ui-bundle.js \
+            --exclude-path api/internal/server/swagger-ui-bundle.js.LICENSE.txt \
+            --exclude-path api/internal/server/swagger-ui.css \
+            --exclude-path api/internal/server/swagger.html \
             . 2>&1 | tee "${RUNNER_TEMP}/lychee.log"
 
       # steps.check.outcome is part of the condition so that a failure in another
@@ -71,11 +76,7 @@ jobs:
             cat "${RUNNER_TEMP}/lychee.log"
             echo '```'
             echo
-            echo "If a link target has moved, update the link where it is referenced. You can run the same check locally with:"
-            echo
-            echo '```bash'
-            echo "lychee --no-progress --exclude 'OWNER/REPO' ."
-            echo '```'
+            echo "If a link target has moved, update the link where it is referenced. You can run the same check locally with the lychee command in [\`.github/workflows/link-check.yml\`](${WORKFLOW_FILE_URL})."
             echo
             echo "For URLs that can never be checked, for example because the target started blocking bots,"
             echo "add them to \`--exclude\` in [\`.github/workflows/link-check.yml\`](${WORKFLOW_FILE_URL})."

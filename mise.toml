@@ -60,7 +60,15 @@ run = "typos --color always"
 
 [tasks."check:lychee"]
 description = "Broken links and broken anchors in Markdown"
-run = "lychee --offline --include-fragments --no-progress ."
+# The vendored Swagger UI assets are full of strings lychee reads as links.
+run = '''
+lychee --offline --include-fragments --no-progress \
+  --exclude-path api/internal/server/swagger-ui-bundle.js \
+  --exclude-path api/internal/server/swagger-ui-bundle.js.LICENSE.txt \
+  --exclude-path api/internal/server/swagger-ui.css \
+  --exclude-path api/internal/server/swagger.html \
+  .
+'''
 
 [tasks."check:ghalint"]
 description = "Workflow security (how they are written)"

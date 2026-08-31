@@ -1,0 +1,63 @@
+syntax = "proto3";
+package todo.v1;
+
+option go_package = "example/app/gen/go/todo/v1;todov1";
+
+// A single todo item.
+message Todo {
+  // Unique identifier assigned by the database.
+  int64 id = 1;
+  // Human readable description of what has to be done.
+  string title = 2;
+  // Whether the item has been completed.
+  bool done = 3;
+}
+
+// Request to create a new todo.
+message CreateTodoRequest {
+  // Title of the todo to create. Must not be blank.
+  string title = 1;
+}
+
+// Response containing the newly created todo.
+message CreateTodoResponse {
+  // The stored todo, including its assigned id.
+  Todo todo = 1;
+}
+
+// Request to list todos. It takes no parameters.
+message ListTodosRequest {}
+
+// Response containing every todo.
+message ListTodosResponse {
+  // All todos. Empty when none exist.
+  repeated Todo todos = 1;
+}
+
+// Request to change the completion state of an existing todo.
+message UpdateTodoRequest {
+  // Identifier of the todo to update.
+  int64 id = 1;
+  // Desired completion state.
+  bool done = 2;
+}
+
+// Response containing the updated todo.
+message UpdateTodoResponse {
+  // The todo after the update was applied.
+  Todo todo = 1;
+}
+
+// Operations on todo items.
+service TodoService {
+  // Creates a new todo item from the given title and returns the stored
+  // record. Fails with the invalid_argument code when the title is blank.
+  rpc CreateTodo(CreateTodoRequest) returns (CreateTodoResponse);
+
+  // Returns all todo items. The list is empty when no todos exist.
+  rpc ListTodos(ListTodosRequest) returns (ListTodosResponse);
+
+  // Updates the done flag of the todo identified by id and returns the updated
+  // record. Fails with the not_found code when no todo has that id.
+  rpc UpdateTodo(UpdateTodoRequest) returns (UpdateTodoResponse);
+}

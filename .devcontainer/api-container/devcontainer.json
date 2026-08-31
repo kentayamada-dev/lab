@@ -1,0 +1,23 @@
+{
+  "name": "API",
+  "dockerComposeFile": [
+    "../../docker-compose.yml"
+  ],
+  "service": "api",
+  "runServices": [
+    "api"
+  ],
+  "shutdownAction": "none",
+  "workspaceFolder": "/workspace/api",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "go.lintTool": "staticcheck",
+        "go.formatTool": "gofumpt"
+      },
+      "extensions": [
+        "golang.Go"
+      ]
+    }
+  }
+}
