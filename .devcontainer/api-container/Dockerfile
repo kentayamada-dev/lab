@@ -1,4 +1,4 @@
-FROM golang:1.26.6-trixie AS base
+FROM golang:1.26.6-trixie@sha256:b75d466dd608587fd66cca705a307ba65b889827d06ad61d6a75f0482b51b7c7 AS base
 
 ARG USER_NAME
 ARG USER_UID
@@ -15,7 +15,7 @@ RUN mkdir -p /go/pkg/mod /go/cache \
 
 USER ${USER_NAME}
 
-FROM golang:1.26.6-trixie AS gopls
+FROM golang:1.26.6-trixie@sha256:b75d466dd608587fd66cca705a307ba65b889827d06ad61d6a75f0482b51b7c7 AS gopls
 
 ARG GOPLS_VERSION=latest
 
