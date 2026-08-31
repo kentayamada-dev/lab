@@ -88,8 +88,7 @@ jobs:
           cache_save: ${{ github.event_name == 'push' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
-      # The check commands are mise tasks shared with local runs
-      # (docs/ci-jobs.md#reproducing-the-checks-locally).
+      # The check commands are mise tasks shared with local runs (docs/ci-jobs.md).
       - name: Check formatting
         run: mise run --skip-tools check:format
 

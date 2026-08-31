@@ -17,8 +17,7 @@ shfmt = "3.13.1"
 typos = "1.49.0"
 zizmor = "1.29.0"
 
-# One task per check job in ci.yml, named after it
-# (docs/ci-jobs.md#reproducing-the-checks-locally).
+# One task per check job in ci.yml, named after it (docs/ci-jobs.md).
 [tasks.check]
 description = "Run every CI check that works from a local checkout"
 depends = ["check:*"]

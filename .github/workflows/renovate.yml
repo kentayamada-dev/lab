@@ -120,7 +120,7 @@ jobs:
             echo "Run log: ${RUN_URL}"
             echo
             echo "The usual causes are the \`RENOVATE_TOKEN\` secret being expired, missing, or lacking permissions"
-            echo "(see \"Registering the token\" in [\`docs/renovate.md\`](${DOC_URL})). Once fixed, you can re-run manually to confirm."
+            echo "(see [\`docs/renovate.md\`](${DOC_URL})). Once fixed, you can re-run manually to confirm."
             echo
             echo '```bash'
             echo 'gh workflow run renovate.yml'
@@ -192,7 +192,7 @@ jobs:
             echo "Run log: ${RUN_URL}"
             echo
             echo "The usual causes are the \`RENOVATE_TOKEN\` secret lacking permissions or being expired, and a temporary outage at the distribution source"
-            echo "(see \"When a dependency cannot be resolved\" in [\`docs/renovate.md\`](${DOC_URL})). Once fixed, you can re-run manually to confirm."
+            echo "(see [\`docs/renovate.md\`](${DOC_URL})). Once fixed, you can re-run manually to confirm."
             echo
             echo '```bash'
             echo 'gh workflow run renovate.yml'
