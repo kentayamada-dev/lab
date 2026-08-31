@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file todo/v1/todo.proto.
  */
 export const file_todo_v1_todo: GenFile = /*@__PURE__*/
-  fileDesc("ChJ0b2RvL3YxL3RvZG8ucHJvdG8SB3RvZG8udjEiLwoEVG9kbxIKCgJpZBgBIAEoAxINCgV0aXRsZRgCIAEoCRIMCgRkb25lGAMgASgIIi0KEVVwZGF0ZVRvZG9SZXF1ZXN0EgoKAmlkGAEgASgDEgwKBGRvbmUYAiABKAgiIgoRQ3JlYXRlVG9kb1JlcXVlc3QSDQoFdGl0bGUYASABKAkiMQoSQ3JlYXRlVG9kb1Jlc3BvbnNlEhsKBHRvZG8YASABKAsyDS50b2RvLnYxLlRvZG8iEgoQTGlzdFRvZG9zUmVxdWVzdCIxChFMaXN0VG9kb3NSZXNwb25zZRIcCgV0b2RvcxgBIAMoCzINLnRvZG8udjEuVG9kbyIxChJVcGRhdGVUb2RvUmVzcG9uc2USGwoEdG9kbxgBIAEoCzINLnRvZG8udjEuVG9kbzLfAQoLVG9kb1NlcnZpY2USRQoKQ3JlYXRlVG9kbxIaLnRvZG8udjEuQ3JlYXRlVG9kb1JlcXVlc3QaGy50b2RvLnYxLkNyZWF0ZVRvZG9SZXNwb25zZRJCCglMaXN0VG9kb3MSGS50b2RvLnYxLkxpc3RUb2Rvc1JlcXVlc3QaGi50b2RvLnYxLkxpc3RUb2Rvc1Jlc3BvbnNlEkUKClVwZGF0ZVRvZG8SGi50b2RvLnYxLlVwZGF0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5VcGRhdGVUb2RvUmVzcG9uc2VCI1ohZXhhbXBsZS9hcHAvZ2VuL2dvL3RvZG8vdjE7dG9kb3YxYgZwcm90bzM");
+  fileDesc("ChJ0b2RvL3YxL3RvZG8ucHJvdG8SB3RvZG8udjEiLwoEVG9kbxIKCgJpZBgBIAEoAxINCgV0aXRsZRgCIAEoCRIMCgRkb25lGAMgASgIIiIKEUNyZWF0ZVRvZG9SZXF1ZXN0Eg0KBXRpdGxlGAEgASgJIjEKEkNyZWF0ZVRvZG9SZXNwb25zZRIbCgR0b2RvGAEgASgLMg0udG9kby52MS5Ub2RvIhIKEExpc3RUb2Rvc1JlcXVlc3QiMQoRTGlzdFRvZG9zUmVzcG9uc2USHAoFdG9kb3MYASADKAsyDS50b2RvLnYxLlRvZG8iLQoRVXBkYXRlVG9kb1JlcXVlc3QSCgoCaWQYASABKAMSDAoEZG9uZRgCIAEoCCIxChJVcGRhdGVUb2RvUmVzcG9uc2USGwoEdG9kbxgBIAEoCzINLnRvZG8udjEuVG9kbzLfAQoLVG9kb1NlcnZpY2USRQoKQ3JlYXRlVG9kbxIaLnRvZG8udjEuQ3JlYXRlVG9kb1JlcXVlc3QaGy50b2RvLnYxLkNyZWF0ZVRvZG9SZXNwb25zZRJCCglMaXN0VG9kb3MSGS50b2RvLnYxLkxpc3RUb2Rvc1JlcXVlc3QaGi50b2RvLnYxLkxpc3RUb2Rvc1Jlc3BvbnNlEkUKClVwZGF0ZVRvZG8SGi50b2RvLnYxLlVwZGF0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5VcGRhdGVUb2RvUmVzcG9uc2VCI1ohZXhhbXBsZS9hcHAvZ2VuL2dvL3RvZG8vdjE7dG9kb3YxYgZwcm90bzM");
 
 /**
  * A single todo item.
@@ -48,6 +48,84 @@ export const TodoSchema: GenMessage<Todo> = /*@__PURE__*/
   messageDesc(file_todo_v1_todo, 0);
 
 /**
+ * Request to create a new todo.
+ *
+ * @generated from message todo.v1.CreateTodoRequest
+ */
+export type CreateTodoRequest = Message<"todo.v1.CreateTodoRequest"> & {
+  /**
+   * Title of the todo to create. Must not be blank.
+   *
+   * @generated from field: string title = 1;
+   */
+  title: string;
+};
+
+/**
+ * Describes the message todo.v1.CreateTodoRequest.
+ * Use `create(CreateTodoRequestSchema)` to create a new message.
+ */
+export const CreateTodoRequestSchema: GenMessage<CreateTodoRequest> = /*@__PURE__*/
+  messageDesc(file_todo_v1_todo, 1);
+
+/**
+ * Response containing the newly created todo.
+ *
+ * @generated from message todo.v1.CreateTodoResponse
+ */
+export type CreateTodoResponse = Message<"todo.v1.CreateTodoResponse"> & {
+  /**
+   * The stored todo, including its assigned id.
+   *
+   * @generated from field: todo.v1.Todo todo = 1;
+   */
+  todo?: Todo | undefined;
+};
+
+/**
+ * Describes the message todo.v1.CreateTodoResponse.
+ * Use `create(CreateTodoResponseSchema)` to create a new message.
+ */
+export const CreateTodoResponseSchema: GenMessage<CreateTodoResponse> = /*@__PURE__*/
+  messageDesc(file_todo_v1_todo, 2);
+
+/**
+ * Request to list todos. It takes no parameters.
+ *
+ * @generated from message todo.v1.ListTodosRequest
+ */
+export type ListTodosRequest = Message<"todo.v1.ListTodosRequest"> & {
+};
+
+/**
+ * Describes the message todo.v1.ListTodosRequest.
+ * Use `create(ListTodosRequestSchema)` to create a new message.
+ */
+export const ListTodosRequestSchema: GenMessage<ListTodosRequest> = /*@__PURE__*/
+  messageDesc(file_todo_v1_todo, 3);
+
+/**
+ * Response containing every todo.
+ *
+ * @generated from message todo.v1.ListTodosResponse
+ */
+export type ListTodosResponse = Message<"todo.v1.ListTodosResponse"> & {
+  /**
+   * All todos. Empty when none exist.
+   *
+   * @generated from field: repeated todo.v1.Todo todos = 1;
+   */
+  todos: Todo[];
+};
+
+/**
+ * Describes the message todo.v1.ListTodosResponse.
+ * Use `create(ListTodosResponseSchema)` to create a new message.
+ */
+export const ListTodosResponseSchema: GenMessage<ListTodosResponse> = /*@__PURE__*/
+  messageDesc(file_todo_v1_todo, 4);
+
+/**
  * Request to change the completion state of an existing todo.
  *
  * @generated from message todo.v1.UpdateTodoRequest
@@ -73,84 +151,6 @@ export type UpdateTodoRequest = Message<"todo.v1.UpdateTodoRequest"> & {
  * Use `create(UpdateTodoRequestSchema)` to create a new message.
  */
 export const UpdateTodoRequestSchema: GenMessage<UpdateTodoRequest> = /*@__PURE__*/
-  messageDesc(file_todo_v1_todo, 1);
-
-/**
- * Request to create a new todo.
- *
- * @generated from message todo.v1.CreateTodoRequest
- */
-export type CreateTodoRequest = Message<"todo.v1.CreateTodoRequest"> & {
-  /**
-   * Title of the todo to create.
-   *
-   * @generated from field: string title = 1;
-   */
-  title: string;
-};
-
-/**
- * Describes the message todo.v1.CreateTodoRequest.
- * Use `create(CreateTodoRequestSchema)` to create a new message.
- */
-export const CreateTodoRequestSchema: GenMessage<CreateTodoRequest> = /*@__PURE__*/
-  messageDesc(file_todo_v1_todo, 2);
-
-/**
- * Response containing the newly created todo.
- *
- * @generated from message todo.v1.CreateTodoResponse
- */
-export type CreateTodoResponse = Message<"todo.v1.CreateTodoResponse"> & {
-  /**
-   * The stored todo, including its assigned id.
-   *
-   * @generated from field: todo.v1.Todo todo = 1;
-   */
-  todo?: Todo | undefined;
-};
-
-/**
- * Describes the message todo.v1.CreateTodoResponse.
- * Use `create(CreateTodoResponseSchema)` to create a new message.
- */
-export const CreateTodoResponseSchema: GenMessage<CreateTodoResponse> = /*@__PURE__*/
-  messageDesc(file_todo_v1_todo, 3);
-
-/**
- * Request to list todos. It takes no parameters.
- *
- * @generated from message todo.v1.ListTodosRequest
- */
-export type ListTodosRequest = Message<"todo.v1.ListTodosRequest"> & {
-};
-
-/**
- * Describes the message todo.v1.ListTodosRequest.
- * Use `create(ListTodosRequestSchema)` to create a new message.
- */
-export const ListTodosRequestSchema: GenMessage<ListTodosRequest> = /*@__PURE__*/
-  messageDesc(file_todo_v1_todo, 4);
-
-/**
- * Response containing every todo.
- *
- * @generated from message todo.v1.ListTodosResponse
- */
-export type ListTodosResponse = Message<"todo.v1.ListTodosResponse"> & {
-  /**
-   * All todos. Empty when none exist.
-   *
-   * @generated from field: repeated todo.v1.Todo todos = 1;
-   */
-  todos: Todo[];
-};
-
-/**
- * Describes the message todo.v1.ListTodosResponse.
- * Use `create(ListTodosResponseSchema)` to create a new message.
- */
-export const ListTodosResponseSchema: GenMessage<ListTodosResponse> = /*@__PURE__*/
   messageDesc(file_todo_v1_todo, 5);
 
 /**
@@ -181,7 +181,8 @@ export const UpdateTodoResponseSchema: GenMessage<UpdateTodoResponse> = /*@__PUR
  */
 export const TodoService: GenService<{
   /**
-   * Creates a new todo item from the given title and returns the stored record.
+   * Creates a new todo item from the given title and returns the stored
+   * record. Fails with the invalid_argument code when the title is blank.
    *
    * @generated from rpc todo.v1.TodoService.CreateTodo
    */

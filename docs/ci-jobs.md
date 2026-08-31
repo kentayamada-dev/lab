@@ -64,7 +64,7 @@ jobs:
 
 | ジョブ | 実行するもの |
 | --- | --- |
-| `proto` | `make proto-check`（buf の format / lint / breaking。breaking は origin/main と比較するため、このジョブだけ `fetch-depth: 0` で checkout します） |
+| `proto` | `make proto-check`（buf の format / lint / breaking。breaking は origin/main と比較するため、このジョブだけ `fetch-depth: 0` で checkout します。比較先にまだ proto/ が無いとき — モジュールを初めて足す PR — はスキップします） |
 | `gen` | `make gen-check`（buf.gen.yaml の再生成結果と buf generate の出力を、コミット済みのものと突き合わせ） |
 | `db` | `make db-check`（atlas.sum の検証と、schema.sql とマイグレーションの diff） |
 | `api` | `make db-migrate` でスキーマを適用してから `make api-check`（sqlc の `db-prepare` ルールが実 DB に対してクエリを prepare するため、先にテーブルが要ります） |
@@ -118,7 +118,7 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 [ci.yml](../.github/workflows/ci.yml) の `codeql` ジョブが静的解析を行い、結果は Security タブの Code scanning に出ます。`ci` の `needs` に入っているので、解析に失敗すると PR がマージできません。ただし**アラートの検出そのものではジョブは落ちません**（`analyze` は結果をアップロードするだけです）。マージを止めるのはブランチ保護側の役目で、[main.json](../.github/rulesets/main.json) の `code_scanning` ルールが判定します。セキュリティ系のアラートは重大度を問わず止め（`security_alerts_threshold: all`）、品質系のアラートは error 級だけで止めます（`alerts_threshold: errors`。note / warning 級の指摘で無関係の PR まで止めないためです）。厳しさを変えるときは同じ場所のこの 2 つを書き換えてください。問題ないと判断したアラートは Security タブの Code scanning で dismiss すれば、マージは止まらなくなります。
 
-解析対象は `matrix.language` にある `actions`（ワークフローファイル自体）・`go`・`javascript-typescript` で、言語を足すときも同じ場所に足します。`build-mode: none` を渡してあるので、ビルドせずソースだけを抽出します（Go もこのモードに対応しており、アプリのツールチェーンをジョブに持ち込まずに済みます）。
+解析対象は `matrix.language` にある `actions`（ワークフローファイル自体）・`go`・`javascript-typescript` で、言語を足すときも同じ場所に足します。`build-mode` は原則 `none`（ビルドせずソースだけを抽出）ですが、Go は `none` に対応していないため `autobuild` です（go.mod が指すツールチェーンは Go 側が自動取得します）。
 
 指定できる言語と、`build-mode: none` に対応していない言語は [CodeQL のサポート言語](https://codeql.github.com/docs/codeql-overview/supported-languages-and-frameworks/) にあります。
 

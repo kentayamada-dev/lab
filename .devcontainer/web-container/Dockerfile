@@ -8,8 +8,11 @@ COPY common/create-user.sh /tmp/
 RUN sh /tmp/create-user.sh "${USER_NAME}" "${USER_UID}" "${USER_GID}" \
   && rm -f /tmp/*.sh
 
+# pnpm resolves its global bin directory to ${PNPM_HOME}/bin and refuses
+# global operations (including `pnpm config set --global`) when it is not in
+# PATH, so both directories go in.
 ENV PNPM_HOME=/pnpm \
-  PATH=/pnpm:$PATH
+  PATH=/pnpm/bin:/pnpm:$PATH
 
 RUN npm install -g pnpm@11.24.0
 

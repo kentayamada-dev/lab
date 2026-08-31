@@ -9,7 +9,8 @@ ATLAS_DIR := file:///workspace/db/migrations
 
 RUN_ATLAS := $(RUN) --env ATLAS_SRC='$(ATLAS_SRC)' --env ATLAS_DIR='$(ATLAS_DIR)' atlas
 
-BUF_AGAINST := .git\#ref=origin/main
+BUF_AGAINST_REF := origin/main
+BUF_AGAINST     := .git\#ref=$(BUF_AGAINST_REF)
 
 GEN_CONFIG_SCRIPT := scripts/gen-buf-config.sh
 GEN_CHECK_DIR     := .gen-check.tmp
@@ -87,8 +88,13 @@ proto-fmt: ## Format the proto files
 	$(RUN) buf format --write
 proto-fmt-check: ## Fail if the proto files are not formatted
 	$(RUN) buf format --diff --exit-code
-proto-breaking: ## Fail if the proto files break the API, override with BUF_AGAINST=
-	$(RUN) buf breaking --against '$(BUF_AGAINST)'
+proto-breaking: ## Fail if the proto files break the API, override with BUF_AGAINST_REF=
+	@if git rev-parse --quiet --verify '$(BUF_AGAINST_REF):proto' >/dev/null; then \
+	  echo "$(RUN) buf breaking --against '$(BUF_AGAINST)'"; \
+	  $(RUN) buf breaking --against '$(BUF_AGAINST)'; \
+	else \
+	  echo "skipping the breaking check: '$(BUF_AGAINST_REF)' has no proto directory (or the ref is missing)" >&2; \
+	fi
 
 # ---- Code generation ---------------------------------------------------------
 gen: buf.gen.yaml ## Regenerate buf.gen.yaml and run buf generate
