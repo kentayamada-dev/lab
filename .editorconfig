@@ -14,8 +14,8 @@ trim_trailing_whitespace = false
 [*.{sh,bash}]
 indent_size = unset
 
-# make requires tab-indented recipes, and gofmt enforces tabs; both mix in
-# space-aligned continuation lines, so the indent checks are off entirely.
+# See the exceptions under the formatting section of README.md for why the
+# indent checks are off here.
 [{Makefile,*.go}]
 indent_style = unset
 indent_size = unset
