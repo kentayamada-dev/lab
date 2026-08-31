@@ -1,35 +1,30 @@
-# Contributing guide
+# 貢献の手引き
 
-This page summarizes the entry points for contributing. The details of each procedure live in the README and under docs/, and this page links to the relevant section.
+このページは貢献の入口をまとめたものです。手順の詳細は README と `docs/` にあり、ここからは該当する節へリンクします。
 
-## Where to report and ask
+## 報告・質問の場所
 
-| Topic | Where |
+| 内容 | 場所 |
 | --- | --- |
-| Something behaves incorrectly or raises an error | [Bug report issue](.github/ISSUE_TEMPLATE/bug_report.yml) |
-| A feature to add or work that needs doing | [Task issue](.github/ISSUE_TEMPLATE/task.yml) |
-| Questions, direction discussions, or anything you cannot classify as a bug or a request | Discussions (there is a link on the issue creation page) |
-| A security problem | [SECURITY.md](SECURITY.md) (**do not write it in an issue**) |
+| 動作がおかしい、エラーが出る | [バグ報告の issue](.github/ISSUE_TEMPLATE/bug_report.yml) |
+| 追加したい機能、やるべき作業 | [作業項目の issue](.github/ISSUE_TEMPLATE/task.yml) |
+| 質問、方針の相談、バグにも要望にも分類できないもの | Discussions（issue の作成画面にリンクがあります） |
+| セキュリティ上の問題 | [SECURITY.md](SECURITY.md)（**issue には書かないでください**） |
 
-For details on choosing between them, see [Issue templates](README.md#issue-templates).
+使い分けの詳細は [issue のテンプレート](README.md#issue-のテンプレート)を参照してください。
 
-## How changes land
+## 変更の入り方
 
-main is protected and every change lands through a PR ([Development flow](README.md#development-flow)). There are three things to know.
+main は保護されていて、変更はすべて PR 経由で入ります（[開発フロー](README.md#開発フロー)）。押さえるべき点は 3 つです。
 
-- **Write the PR title in Conventional Commits format** ([the format](README.md#pr-title-format)). On a squash merge it becomes, verbatim, the title of the commit that lands on main.
-- **Nothing merges until the required CI check `ci` passes** ([the list of check jobs](docs/ci-jobs.md#ci-check-jobs)).
-- Indentation, line endings, and trailing whitespace are checked by CI too ([Consistent formatting](README.md#consistent-formatting)).
+- **PR タイトルは Conventional Commits の書式で書きます**（[書式](README.md#pr-タイトルの書式)）。squash マージ時にそのまま main のコミットタイトルになります。
+- **必須チェック `ci` が通るまでマージできません**（[検査ジョブの一覧](docs/ci-jobs.md#ci-の検査ジョブ)）。
+- インデント・改行コード・行末の空白も CI が検査します（[書式の統一](README.md#書式の統一)）。
 
-## Bilingual documentation
+## ドキュメントの言語
 
-[README.md](README.md) and the files under `docs/` exist in two languages: `X.md` is the English original and `X.ja.md` is the Japanese translation. **English is the authoritative version.** When the two disagree, the English one is right and the translation is the thing to fix.
+ドキュメントは日本語で書きます。ツールが出力・照合するものは英語のままにします。通知 issue のタイトル（ワークフローが完全一致で既存の issue を探します）、スクリプトの `--help` と実行時の出力、ワークフローのステップ名、コード中のコメントが該当します。
 
-- **Change both sides in the same PR.** No check enforces this — a PR that updates only one side passes — so keeping the pair in step is on you. A change that genuinely needs no counterpart, such as an English typo fix, needs nothing done to the translation.
-- **Write the English first**, then bring the translation across. Doing it the other way round leaves the authoritative version trailing the one nobody is supposed to trust.
-- **Anchors are per-language.** Each language links within its own set (`docs/ci-jobs.ja.md` links to `../README.ja.md#...`), and the anchors come from the headings, so renaming a heading means fixing that language's links. The `lychee` job catches what you miss.
-- **Nothing else is translated.** Anything a tool emits or matches on stays English-only: the notification issue titles (the workflows find an open issue by exact title), the script's `--help` and runtime output, the issue and PR templates, workflow step names, and code comments.
+## 行動規範
 
-## Code of conduct
-
-The [code of conduct](CODE_OF_CONDUCT.md) applies to all interactions in this repository.
+[行動規範](CODE_OF_CONDUCT.md)はこのリポジトリでのすべてのやり取りに適用されます。

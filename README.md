@@ -1,246 +1,243 @@
 # repo-baseline
 
-**English** | [日本語](README.ja.md)
-
 [![ci](https://github.com/kentayamada-dev/repo-baseline/actions/workflows/ci.yml/badge.svg)](https://github.com/kentayamada-dev/repo-baseline/actions/workflows/ci.yml) [![OpenSSF Scorecard](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.scorecard.dev%2Fprojects%2Fgithub.com%2Fkentayamada-dev%2Frepo-baseline&query=%24.score&label=openssf%20scorecard)](https://scorecard.dev/viewer/?uri=github.com/kentayamada-dev/repo-baseline)
 
-A template repository providing the groundwork for repository operations: branch protection and a CI workflow built to be extended.
+リポジトリ運用の土台（ブランチ保護と、拡張前提の CI ワークフロー）を収めたテンプレートリポジトリ。
 
-**It contains no application code.** The application itself is built in a repository created from this template ([After adding application code](docs/ci-jobs.md#after-adding-application-code)). **It is for public repositories only** (the conditions for using rulesets and Code scanning differ on private ones).
+**アプリケーションコードは含まれていません。** アプリの実装はこのテンプレートから作ったリポジトリで進めます（[アプリコードを追加したら](docs/ci-jobs.md#アプリコードを追加したら)）。**public リポジトリ専用です**（private では ruleset や Code scanning の利用条件が異なるため）。
 
-## How to read this
+## 読み方
 
-You only need to read these two sections up front.
+最初に読むのは次の 2 つだけです。
 
-- [Setup](#setup) — the one-time work right after creating a repository from the template
-- [Development flow](#development-flow) — how PRs are handled day to day
+- [セットアップ](#セットアップ) — テンプレートからリポジトリを作った直後の一度きりの作業
+- [開発フロー](#開発フロー) — 普段の PR の回し方
 
-The rest is reference material to look up when you need it.
+残りは、必要になったときに引くリファレンスです。
 
-- [What's included](#whats-included) — the list of files in the repository
-- [Settings drift check](docs/drift-check.md#settings-drift-check) — the daily check that repository settings have not drifted from the definitions
-- [Releases](#releases) — the constraints immutable releases impose
-- [CI check jobs](docs/ci-jobs.md#ci-check-jobs) — look up the relevant section when a check fails or when you add a job
-- [Renovate](docs/renovate.md#renovate) — automated dependency updates
-- [Troubleshooting](docs/troubleshooting.md#troubleshooting) — look up by symptom
+- [収録内容](#収録内容) — 入っているファイルの一覧
+- [設定のずれの検査](docs/drift-check.md#設定のずれの検査) — リポジトリ設定が定義からずれていないかの毎日の検査
+- [リリース](#リリース) — immutable releases による制約
+- [CI の検査ジョブ](docs/ci-jobs.md#ci-の検査ジョブ) — 検査が落ちたとき・ジョブを足すときに該当の節を引く
+- [Renovate](docs/renovate.md#renovate) — 依存更新の自動化
+- [トラブルシューティング](docs/troubleshooting.md#トラブルシューティング) — 症状から引く
 
-## What's included
+## 収録内容
 
-| Path | Description |
+| パス | 内容 |
 | --- | --- |
-| [.github/rulesets/main.json](.github/rulesets/main.json) | The branch protection definition for main (a GitHub Repository Ruleset) |
-| [scripts/sync-repo-config.sh](scripts/sync-repo-config.sh) | A script that applies and checks the ruleset above together with the repository settings |
-| [scripts/tests/](scripts/tests) | Tests for the script above, run in CI ([script-tests](docs/ci-jobs.md#script-tests)) |
-| [.github/workflows/ci.yml](.github/workflows/ci.yml) | CI. The gate job `ci` that serves as the required check, plus the check jobs ([list](docs/ci-jobs.md#ci-check-jobs)) |
-| [.github/workflows/osv-scanner.yml](.github/workflows/osv-scanner.yml) | Scheduled scan for known vulnerabilities in dependencies (daily / [osv-scanner](docs/ci-jobs.md#osv-scanner)) |
-| [.github/workflows/scorecard.yml](.github/workflows/scorecard.yml) | Scheduled scoring of the repository's security posture with OpenSSF Scorecard (weekly / [Scorecard](docs/ci-jobs.md#scorecard)) |
-| [.github/workflows/repo-settings.yml](.github/workflows/repo-settings.yml) | Scheduled check for drift in repository settings and rulesets (daily / [Settings drift check](docs/drift-check.md#settings-drift-check)) |
-| [.github/workflows/link-check.yml](.github/workflows/link-check.yml) | Scheduled check of the external links in the documentation (daily / [Scheduled external link checks](docs/ci-jobs.md#scheduled-external-link-checks)) |
-| [.github/workflows/renovate.yml](.github/workflows/renovate.yml) | Runs Renovate ([The update list issue](docs/renovate.md#the-update-list-issue)) |
-| [.github/scripts/](.github/scripts) | The scripts the scheduled workflows above call to report a failing check as an issue and to retract it |
-| [.github/scripts/tests/](.github/scripts/tests) | Tests for the scripts above, run in CI ([script-tests](docs/ci-jobs.md#script-tests)) |
-| [.github/renovate.json5](.github/renovate.json5) | Renovate configuration |
-| [.github/pull_request_template.md](.github/pull_request_template.md) | The PR body template |
-| [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE) | Issue templates (bug report / task) |
-| [CLAUDE.md](CLAUDE.md) | Instructions Claude Code reads. Replace it with the instructions for your own repository |
-| [.claude/settings.json](.claude/settings.json) | Claude Code settings, wiring up the hook scripts below |
-| [.claude/hooks/](.claude/hooks) | The hook scripts that enforce the rules in CLAUDE.md |
-| [.claude/skills/docs-check/SKILL.md](.claude/skills/docs-check/SKILL.md) | The duplication and stale-docs check to run (run as `/docs-check`) |
-| [.claude/tests/](.claude/tests) | Tests for the hook scripts and the settings that wire them up, run in CI ([hooks](docs/ci-jobs.md#hooks)) |
-| [mise.toml](mise.toml) | Versions of the check tools used in CI, and the tasks that run the same checks locally (`mise run check`) |
-| [.markdownlint-cli2.jsonc](.markdownlint-cli2.jsonc) | Configuration for markdownlint-cli2, the Markdown format checker |
-| [.typos.toml](.typos.toml) | Configuration for typos, the typo checker |
-| [.editorconfig](.editorconfig) | Editor-side formatting settings (indentation / line endings / encoding) |
-| [.gitattributes](.gitattributes) | The git setting that fixes line endings to LF |
-| [.gitignore](.gitignore) | What git does not track (it also excludes those paths from typos) |
-| [docs/drift-check.md](docs/drift-check.md) | Reference: the settings drift check and `SETTINGS_TOKEN` |
-| [docs/ci-jobs.md](docs/ci-jobs.md) | Reference: the CI check jobs |
-| [docs/renovate.md](docs/renovate.md) | Reference: Renovate |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | Reference: troubleshooting |
-| [SECURITY.md](SECURITY.md) | Where to report vulnerabilities and what is in scope |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | The contributing guide (GitHub shows it on the issue / PR creation pages) |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Code of conduct (based on Contributor Covenant v2.1) |
-| [LICENSE](LICENSE) | The MIT license ([License](#license)) |
-| `*.ja.md` | The Japanese versions: [README.ja.md](README.ja.md) and the four files under `docs/`. The `.md` of the same name is the English original |
+| [.github/rulesets/main.json](.github/rulesets/main.json) | main のブランチ保護（GitHub Repository Ruleset）の定義 |
+| [scripts/sync-repo-config.sh](scripts/sync-repo-config.sh) | 上記 ruleset とリポジトリ設定をまとめて適用・検査するスクリプト |
+| [scripts/tests/](scripts/tests) | 上記スクリプトのテスト。CI で実行される（[script-tests](docs/ci-jobs.md#script-tests)） |
+| [.github/workflows/ci.yml](.github/workflows/ci.yml) | CI。必須チェックとなるゲートジョブ `ci` と検査ジョブ（[一覧](docs/ci-jobs.md#ci-の検査ジョブ)） |
+| [.github/workflows/osv-scanner.yml](.github/workflows/osv-scanner.yml) | 依存パッケージの既知の脆弱性の定期検査（毎日 / [osv-scanner](docs/ci-jobs.md#osv-scanner)） |
+| [.github/workflows/scorecard.yml](.github/workflows/scorecard.yml) | OpenSSF Scorecard によるリポジトリのセキュリティ体制の定期採点（毎週 / [Scorecard](docs/ci-jobs.md#scorecard)） |
+| [.github/workflows/repo-settings.yml](.github/workflows/repo-settings.yml) | リポジトリ設定と ruleset のずれの定期検査（毎日 / [設定のずれの検査](docs/drift-check.md#設定のずれの検査)） |
+| [.github/workflows/link-check.yml](.github/workflows/link-check.yml) | ドキュメントの外部リンクの定期検査（毎日 / [外部リンクの定期検査](docs/ci-jobs.md#外部リンクの定期検査)） |
+| [.github/workflows/renovate.yml](.github/workflows/renovate.yml) | Renovate の実行（[更新の一覧の issue](docs/renovate.md#更新の一覧の-issue)） |
+| [.github/scripts/](.github/scripts) | 上記の定期実行ワークフローが、落ちた検査を issue として報告し、取り下げるために呼ぶスクリプト |
+| [.github/scripts/tests/](.github/scripts/tests) | 上記スクリプトのテスト。CI で実行される（[script-tests](docs/ci-jobs.md#script-tests)） |
+| [.github/renovate.json5](.github/renovate.json5) | Renovate の設定 |
+| [.github/pull_request_template.md](.github/pull_request_template.md) | PR の本文テンプレート |
+| [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE) | issue のテンプレート（バグ報告 / 作業項目） |
+| [CLAUDE.md](CLAUDE.md) | Claude Code が読み込む指示書。自分のリポジトリの指示書で置き換える |
+| [.claude/settings.json](.claude/settings.json) | Claude Code の設定。下のフックスクリプトをここで配線する |
+| [.claude/hooks/](.claude/hooks) | CLAUDE.md の規則を強制するフックスクリプト |
+| [.claude/skills/docs-check/SKILL.md](.claude/skills/docs-check/SKILL.md) | 重複・ドキュメント陳腐化チェックの手順（`/docs-check` で実行） |
+| [.claude/tests/](.claude/tests) | フックスクリプトと、それを呼び出す設定のテスト。CI で実行される（[hooks](docs/ci-jobs.md#hooks)） |
+| [mise.toml](mise.toml) | CI で使う検査ツールのバージョンと、同じ検査を手元で回すタスク（`mise run check`） |
+| [.markdownlint-cli2.jsonc](.markdownlint-cli2.jsonc) | Markdown の書式検査 markdownlint-cli2 の設定 |
+| [.typos.toml](.typos.toml) | 誤字検査 typos の設定 |
+| [.editorconfig](.editorconfig) | エディタ側の書式設定（インデント / 改行 / 文字コード） |
+| [.gitattributes](.gitattributes) | 改行コードを LF に固定する git の設定 |
+| [.gitignore](.gitignore) | git の追跡から外すもの（typos の除外にも効きます） |
+| [docs/drift-check.md](docs/drift-check.md) | リファレンス: 設定のずれの検査と `SETTINGS_TOKEN` |
+| [docs/ci-jobs.md](docs/ci-jobs.md) | リファレンス: CI の検査ジョブ |
+| [docs/renovate.md](docs/renovate.md) | リファレンス: Renovate |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | リファレンス: トラブルシューティング |
+| [SECURITY.md](SECURITY.md) | 脆弱性の報告先と対象の範囲 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | 貢献の手引き（GitHub が issue / PR の作成画面に表示します） |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 行動規範（Contributor Covenant v2.1 ベース） |
+| [LICENSE](LICENSE) | MIT ライセンス（[ライセンス](#ライセンス)） |
 
-**The English is the authoritative version** ([Bilingual documentation](CONTRIBUTING.md#bilingual-documentation)). Everything a tool emits or matches on stays English-only, which is why this document quotes markers such as `DRIFT` and `UNKNOWN` in English.
+**ドキュメントは日本語で書きます。** ツールが出力・照合するものは英語のみなので、`DRIFT` や `UNKNOWN` などのマーカーはこの文書でも英語のまま引用しています。
 
-## Setup
+## セットアップ
 
-One-time work to do right after creating your own repository from the template.
+テンプレートから自分のリポジトリを作った直後に行う、一度きりの作業です。
 
-1. **Run the setup script** (just below)
-2. **Commit the [config.yml](.github/ISSUE_TEMPLATE/config.yml) the script rewrote** ([Issue templates](#issue-templates))
-3. **Register the `SETTINGS_TOKEN` secret** ([how to create it](docs/drift-check.md#creating-settings_token)) — without it the [settings drift check](docs/drift-check.md#settings-drift-check) fails with "UNKNOWN" and opens an issue
-4. **If you use [Renovate](docs/renovate.md#renovate), register the `RENOVATE_TOKEN` secret** ([how to create it](docs/renovate.md#registering-the-token)) — without it the Monday scheduled run fails and opens an issue
+1. **セットアップスクリプトを実行する**（このすぐ下）
+2. **スクリプトが書き換えた [config.yml](.github/ISSUE_TEMPLATE/config.yml) をコミットする**（[issue のテンプレート](#issue-のテンプレート)）
+3. **secret `SETTINGS_TOKEN` を登録する**（[作成手順](docs/drift-check.md#settings_token-の作成)） — 未登録だと[設定のずれの検査](docs/drift-check.md#設定のずれの検査)が `UNKNOWN` で落ちて issue が立ちます
+4. **[Renovate](docs/renovate.md#renovate) を使うなら secret `RENOVATE_TOKEN` を登録する**（[作成手順](docs/renovate.md#トークンの登録)） — 未登録だと月曜の定期実行が落ちて issue が立ちます
 
-Prerequisites: [gh](https://cli.github.com/) and [jq](https://jqlang.github.io/jq/), with `gh auth login` already done.
+前提: [gh](https://cli.github.com/) と [jq](https://jqlang.github.io/jq/)、および `gh auth login` 済みであること。
 
 ```bash
 ./scripts/sync-repo-config.sh
 ```
 
-That enables everything below. Add `--dry-run` if you only want to see what would be sent; the other options and environment variables are in `--help`.
+これで以下が有効になります。送信内容だけ確認したい場合は `--dry-run` を付けてください。他のオプションと環境変数は `--help` にあります。
 
-- Branch protection on main ([What branch protection enforces](#what-branch-protection-enforces))
-- Auto-merge and automatic branch deletion after merging
-- The "Update branch" suggestion on PRs that have fallen behind the base (being up to date before merging is required)
-- Restricting the merge method to squash only (merge commits / rebase are disabled)
-- Always using the PR title as the commit title on squash ([PR title format](#pr-title-format))
-- Enabling Discussions, Issues, and Projects (stated explicitly rather than relying on GitHub's defaults)
-- Creating only the missing issue and PR labels ([Labels](#labels))
-- Disabling the Wiki (it is unused: main protection and CI do not cover it, and it is not copied from a template)
-- Immutable releases ([Releases](#releases))
-- Private vulnerability reporting (received through a private channel rather than public issues)
-- Dependabot alerts (GitHub notifies the moment a known vulnerability is published for a dependency. Unlike the daily [osv-scanner](docs/ci-jobs.md#osv-scanner) scan, it keeps working after scheduled workflows are disabled by 60 days without activity)
-- Secret scanning push protection (a push that carries a credential is rejected before it lands, where [gitleaks](docs/ci-jobs.md#gitleaks) only reports what is already in the history)
-- Fixing the default permissions of the Actions `GITHUB_TOKEN` to read and forbidding `GITHUB_TOKEN` from creating or approving PRs (so the ceiling when a workflow forgets its `permissions` does not depend on the default)
+- main のブランチ保護（[ブランチ保護の内容](#ブランチ保護の内容)）
+- auto-merge とマージ後のブランチ自動削除
+- base に遅れた PR での「Update branch」の提案（マージ前の最新化が必須のため）
+- マージ方式を squash のみに限定（merge commit / rebase は無効）
+- squash 時のコミットタイトルを常に PR タイトルにする（[PR タイトルの書式](#pr-タイトルの書式)）
+- Discussions・Issues・Projects の有効化（GitHub の既定値に依存させず明示します）
+- issue と PR のラベルを無いものだけ作成（[ラベル](#ラベル)）
+- Wiki の無効化（main の保護も CI も掛からず、テンプレートからも複製されないため使いません）
+- immutable releases（[リリース](#リリース)）
+- 脆弱性の非公開報告（public issue ではなく非公開の窓口で受け取る）
+- Dependabot alerts（依存に既知の脆弱性が公表された時点で GitHub が通知します。毎日の [osv-scanner](docs/ci-jobs.md#osv-scanner) と違い、60 日間更新が無く scheduled workflow が止まった後も動き続けます）
+- secret scanning の push protection（資格情報を含む push を、入る前に拒否します。[gitleaks](docs/ci-jobs.md#gitleaks) は既に履歴に入ったものを見つけるだけです）
+- Actions の `GITHUB_TOKEN` の既定権限を read に固定し、`GITHUB_TOKEN` による PR の作成・承認を禁止（各ワークフローが `permissions` を書き忘れたときの上限を既定値に依存させません）
 
-> The script refuses repositories that are not public.
+> スクリプトは public 以外のリポジトリを拒否します。
 
-When applying this to an existing repository, a leftover classic branch protection on main applies alongside the ruleset and makes the behavior hard to follow. The script only warns and continues (`--dry-run` and `--check` do not perform this check), so delete it if it is still there.
+既存のリポジトリに適用する場合、main に旧来の branch protection（classic）が残っていると ruleset と併用され、挙動が追いにくくなります。スクリプトは警告を出すだけで続行するので（`--dry-run` と `--check` ではこの確認を行いません）、残っているなら消してください。
 
 ```bash
 gh api --method DELETE repos/OWNER/REPO/branches/main/protection
 ```
 
-### What branch protection enforces
+### ブランチ保護の内容
 
-| Item | Setting |
+| 項目 | 設定 |
 | --- | --- |
-| Direct push to main | Forbidden |
-| PR | Required |
-| Approvals | 0 (self-merge allowed) |
-| Review threads | All must be resolved before merging |
-| CI (`ci`) | Required (only a report from GitHub Actions counts) |
-| Code scanning alerts | Block merging on any alert, whatever its severity ([CodeQL](docs/ci-jobs.md#codeql)) |
-| Up to date before merging | Required (click Update branch once the base moves ahead) |
-| Merge method | Squash only |
-| Linear history | Required (no merge commits) |
-| Deleting / force-pushing main | Forbidden |
+| main への直接 push | 禁止 |
+| PR | 必須 |
+| 承認 | 0 人（セルフマージ可） |
+| レビューコメント | すべて解決しないとマージ不可 |
+| CI (`ci`) | 必須（GitHub Actions が報告したものだけを有効とする） |
+| Code scanning のアラート | 重大度を問わず、アラートが 1 件でもあればマージを止める（[CodeQL](docs/ci-jobs.md#codeql)） |
+| マージ前の最新化 | 必須（base が進んだら Update branch） |
+| マージ方式 | squash のみ |
+| 履歴 | 一直線を強制（merge commit 不可） |
+| main の削除 / force-push | 禁止 |
 
-There is a single ruleset, [main.json](.github/rulesets/main.json), and it targets only `main`. Nothing applies to branches other than main, and no bypass is granted, not even to administrators. To change the settings, edit the JSON and run the script again.
+ruleset は [main.json](.github/rulesets/main.json) の 1 つで、対象は `main` だけです。main 以外のブランチには何も掛からず、管理者にも例外（bypass）を与えていません。設定を変えるときは JSON を編集してスクリプトを再実行してください。
 
-Signed commits are not required. The rule reads every commit in the pull request, not just the squash commit GitHub creates and signs on merge, so it would block Renovate's update PRs, whose commits are unsigned.
+コミットの署名は必須にしていません。ルールが見るのはマージ時に GitHub が作って署名する squash コミットだけでなく PR に含まれるすべてのコミットなので、必須にすると未署名のコミットで作られる Renovate の更新 PR がマージできなくなるためです。
 
-Zero approvals assumes a single maintainer. Once two or more people work on the repository, change the `pull_request` rule in the JSON: `required_approving_review_count` to 1, and `dismiss_stale_reviews_on_push` and `require_last_push_approval` to `true`. To require a review from the owner of the area that changed, add a `CODEOWNERS` file and turn on `require_code_owner_review` as well.
+承認 0 人は、管理者が 1 人であることを前提にした設定です。2 人以上で開発するようになったら JSON の `pull_request` ルールを変えてください。`required_approving_review_count` を 1 に、`dismiss_stale_reviews_on_push` と `require_last_push_approval` を `true` にします。変更箇所の担当者のレビューを必須にするなら、`CODEOWNERS` を置いて `require_code_owner_review` も有効にします。
 
-## Development flow
+## 開発フロー
 
-main is protected and cannot be pushed to directly. Every change lands through a PR.
+main は保護されており直接 push できません。すべての変更を PR 経由で入れます。
 
 ```bash
 git switch -c feat/xxx
-# make changes and commit
+# 変更してコミット
 git push -u origin HEAD
 gh pr create
 gh pr merge --auto --squash
 ```
 
-Zero approvals are required, so you can merge your own PR, but nothing merges until CI passes. Adding `gh pr merge --auto --squash` merges automatically as soon as CI passes (squash is the only enabled merge method, and non-interactive runs error out without an explicit method).
+承認は 0 人でよいのでセルフマージできますが、CI が通らない限りマージはされません。`gh pr merge --auto --squash` を付けておくと、CI が通った時点で自動的にマージされます（マージ方式は squash のみ有効ですが、非対話の実行では方式を明示しないとエラーになります）。
 
-The checks CI runs can be reproduced before pushing. With [mise](https://mise.jdx.dev/) installed, the command below runs every check that works from a local checkout, with the same commands and tool versions as CI ([Reproducing the checks locally](docs/ci-jobs.md#reproducing-the-checks-locally)).
+CI の検査は push する前に手元で再現できます。[mise](https://mise.jdx.dev/) が入っていれば、下のコマンドが手元のチェックアウトで動く検査すべてを、CI と同じコマンド・同じツールバージョンで実行します（[検査を手元で再現する](docs/ci-jobs.md#検査を手元で再現する)）。
 
 ```bash
 mise run check
 ```
 
-A PR whose base has moved ahead cannot be merged until it is brought up to date. Click "Update branch" on the PR page, or run `git merge origin/main` and push. CI runs again, and once it passes the PR can be merged.
+main が進んだ PR は、最新化するまでマージできません。PR 画面の「Update branch」を押すか、`git merge origin/main` して push してください。CI が再実行され、通ればマージできます。
 
-### PR title format
+### PR タイトルの書式
 
-PR titles are required to follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format.
+PR タイトルは [Conventional Commits](https://www.conventionalcommits.org/ja/v1.0.0/) 形式に強制しています。
 
 ```text
-<type>(<scope>)!: <description>
+<type>(<scope>)!: <説明>
 ```
 
-| Element | Required | Description |
+| 要素 | 必須 | 内容 |
 | --- | --- | --- |
-| `type` | Required | One of `feat` `fix` `docs` `refactor` `test` `build` `ci` `perf` `chore` `revert` |
-| `(scope)` | Optional | The area that changed. Written like `fix(cli):` |
-| `!` | Optional | Added for a backward-incompatible change. `feat!:` |
-| `description` | Required | At least one character |
+| `type` | 必須 | `feat` `fix` `docs` `refactor` `test` `build` `ci` `perf` `chore` `revert` のいずれか |
+| `(scope)` | 任意 | 変更箇所。`fix(cli):` のように書く |
+| `!` | 任意 | 後方互換を壊す変更に付ける。`feat!:` |
+| `説明` | 必須 | 1 文字以上 |
 
 ```text
-feat: add a user search endpoint
-fix(cli): highlight that config.yml must be committed
-feat!: switch the config file format to TOML
+feat: ユーザー検索エンドポイントを追加
+fix(cli): config.yml のコミットが必要なことを目立たせる
+feat!: 設定ファイルの形式を TOML に変更
 ```
 
-Titles are constrained because the setting that always uses the PR title as the commit title on squash (`squash_merge_commit_title=PR_TITLE`) means **the PR title becomes the title of the commit that lands on main**. Only the title is constrained; the body is not checked. The commit messages you stacked locally are concatenated into the body of the squash commit and left on main.
+タイトルを縛るのは、squash 時のコミットタイトルを常に PR タイトルにする設定（`squash_merge_commit_title=PR_TITLE`）により、**main に残るコミットのタイトルが PR タイトル**になるためです。縛るのはタイトルだけで、本文は検査しません。ローカルで積んだコミットメッセージは squash コミットの本文に連結されて main に残ります。
 
-The validation is done by CI's `pr-title` job, and since it is part of the required check `ci` it cannot be bypassed. When it fails, fixing the PR title re-runs the check automatically (no new push needed). If you add or remove types, fix the `PATTERN` in [ci.yml](.github/workflows/ci.yml), the table above, and the type list in the prompt hook in [.claude/settings.json](.claude/settings.json) together. The [hooks](docs/ci-jobs.md#hooks) job compares every copy (the failure message in ci.yml included) against the `PATTERN`, so a missed one fails CI.
+検証は CI の `pr-title` ジョブが行い、必須チェック `ci` に含まれるため回避できません。落ちた場合は PR タイトルを直せば自動で再検証されます（再 push は不要）。type を増減する場合は [ci.yml](.github/workflows/ci.yml) の `PATTERN` と上の表、[.claude/settings.json](.claude/settings.json) の prompt フックの type 一覧を合わせて直してください。各コピー（ci.yml 内の失敗メッセージも含む）が `PATTERN` と一致することは [hooks](docs/ci-jobs.md#hooks) ジョブが検査するため、直し漏れは CI で落ちます。
 
-Re-validation works because `edited` was added to the `types` of `pull_request`. With the default, fixing the title does not start the workflow and it stays failed. The cost is that [CodeQL](docs/ci-jobs.md#codeql) also runs on every title edit, but skipping only `codeql` with an `if` would let the gate job `ci`, which treats `skipped` as a success, paint the previous failure green, so that is not done.
+再検証が効くのは、`pull_request` の `types` に `edited` を足してあるためです。既定のままだとタイトルを直してもワークフローが起動せず、落ちたままになります。代償としてタイトルの編集ごとに [CodeQL](docs/ci-jobs.md#codeql) まで回りますが、`codeql` だけ `if` でスキップすると、`skipped` を成功として扱うゲートジョブ `ci` が前回の失敗を緑で上書きしてしまうため、そうしていません。
 
-GitHub's default (`COMMIT_OR_PR_TITLE`) uses the commit's own title on a PR with a single commit, so dropping `PR_TITLE` means the title that `pr-title` validated may never land on main. That drift cannot be detected by `pr-title` (it looks at the PR title, not at what actually lands on main); the [settings drift check](docs/drift-check.md#settings-drift-check) catches it. To check locally, run:
+GitHub の既定（`COMMIT_OR_PR_TITLE`）はコミットが 1 つだけの PR だとそのコミットのタイトルを使うため、`PR_TITLE` を外すと `pr-title` で検証したタイトルが main に載らないことがあります。このずれは `pr-title` では検出できず（見ているのは PR タイトルで、実際に main に載るものではないため）、[設定のずれの検査](docs/drift-check.md#設定のずれの検査)が拾います。手元で確認するには次を実行します。
 
 ```bash
-gh api repos/OWNER/REPO --jq .squash_merge_commit_title   # must be PR_TITLE
-./scripts/sync-repo-config.sh --check              # checks the other settings and the ruleset too
+gh api repos/OWNER/REPO --jq .squash_merge_commit_title   # PR_TITLE であること
+./scripts/sync-repo-config.sh --check              # 他の設定と ruleset もまとめて確認
 ```
 
-### Consistent formatting
+### 書式の統一
 
-Indentation, line endings, and trailing whitespace are kept consistent by three layers with different degrees of enforcement.
+インデント・改行コード・行末空白を、強制力の違う 3 段構えで揃えています。
 
-| Mechanism | Enforcement | Role |
+| 仕組み | 強制力 | 役割 |
 | --- | --- | --- |
-| [.editorconfig](.editorconfig) | None (a hint) | Gets it right as you type. Silently ignored by editors without the plugin |
-| [.gitattributes](.gitattributes) | git normalizes | Fixes line endings to LF. Independent of editor settings and OS |
-| The `format` job in `ci` | Required check | Rejects violations on the PR (two tools: editorconfig-checker and shfmt) |
+| [.editorconfig](.editorconfig) | なし（ヒント） | 入力時点で揃える。プラグイン未導入のエディタでは黙って無視される |
+| [.gitattributes](.gitattributes) | git が正規化 | 改行コードを LF に固定。エディタ設定や OS に依存しない |
+| `ci` の `format` ジョブ | 必須チェック | 違反を PR で弾く（editorconfig-checker と shfmt の 2 つ） |
 
-The `format` job checks every item in `.editorconfig` using [editorconfig-checker](https://github.com/editorconfig-checker/editorconfig-checker). `.editorconfig` is the single source of truth; the check items are not copied into CI.
+`format` ジョブは [editorconfig-checker](https://github.com/editorconfig-checker/editorconfig-checker) で `.editorconfig` の全項目を検査します。設定の情報源は `.editorconfig` 1 つだけで、CI 側に検査項目を書き写してはいません。
 
-The tab check (`indent_style`) also prevents concrete breakage. YAML cannot use tabs for indentation by specification, so editing `ci.yml` in an environment whose editor defaults to tabs breaks the workflow.
+タブの検査（`indent_style`）には実害の防止という意味もあります。YAML は仕様上インデントにタブを使えないため、エディタの既定がタブの環境で `ci.yml` を編集するとワークフローが壊れます。
 
-The same job has [shfmt](https://github.com/mvdan/sh) check the formatting of shell scripts.
+同じジョブで [shfmt](https://github.com/mvdan/sh) がシェルスクリプトの整形を検査します。
 
 ```bash
 git ls-files -z '*.sh' '*.bash' \
   | xargs -0 -r shfmt -d -i 2 -ci
 ```
 
-| Option | Reason |
+| 指定 | 理由 |
 | --- | --- |
-| `-d` | Print the diff before and after formatting and exit 1 if there is one (it does not rewrite, unlike `-w`) |
-| `-i 2` | Indent with 2 spaces |
-| `-ci` | Indent the contents of `case` (the existing style in this repository) |
+| `-d` | 整形前後の差分を出し、差分があれば終了コードを 1 にする（`-w` のように書き換えない） |
+| `-i 2` | インデントは半角 2 |
+| `-ci` | `case` の中身を字下げする（このリポジトリの既存の書き方） |
 
-Things to note about shfmt:
+shfmt の注意点:
 
-- **Passing even one flag makes shfmt ignore `.editorconfig`.** The formatting of shell scripts is decided by these options alone. Options such as `-sr`, which puts spaces around redirects, are left off to match the existing style. To change that, add to these flags.
-- **Multiple statements put on one line separated by `;` are rewritten onto separate lines.** One-line guards such as `cmd || { echo "..." >&2; exit 1; }` are expanded too. There is no flag to disable it, so every shell script in the repository is written in that expanded form.
+- **フラグを 1 つでも渡すと shfmt は `.editorconfig` を読みません。** シェルスクリプトの書式はこの指定だけで決まります。redirect の前後に空白を入れる `-sr` などは既存の書き方に合わせて付けていません。変えるならこのフラグに足します。
+- **`;` で区切って 1 行に並べた複数の文は、行に分けて書き直されます。** `cmd || { echo "..." >&2; exit 1; }` のような 1 行ガードも展開されます。無効にするフラグは無いので、リポジトリ内のシェルスクリプトはこの形に揃えてあります。
 
-editorconfig-checker and shfmt are installed with mise and run like the other check tools ([Installing and verifying the tools](docs/ci-jobs.md#installing-and-verifying-the-tools), versions in [mise.toml](mise.toml)). **The command name for editorconfig-checker is `ec`** (the `editorconfig-checker` written in [mise.toml](mise.toml) is the package name in the [aqua](https://aquaproj.github.io/) registry, which differs from the binary name).
+editorconfig-checker と shfmt は、他の検査ツールと同じく本体を mise で入れて実行しています（[ツールの導入と検証](docs/ci-jobs.md#ツールの導入と検証)、バージョンは [mise.toml](mise.toml)）。**editorconfig-checker のコマンド名は `ec` です**（[mise.toml](mise.toml) に書く `editorconfig-checker` は [aqua](https://aquaproj.github.io/) レジストリでのパッケージ名で、バイナリの名前とは違います）。
 
-#### Two exceptions
+#### 2 つの例外
 
-Shell scripts are excluded from the `indent_size` check (see [.editorconfig](.editorconfig)). The contents of a heredoc are display text printed to the CLI, where aligning the width to a multiple of 2 is meaningless, but editorconfig-checker cannot tell heredoc content apart from code. The excluded files are still covered by shfmt in the same `format` job (shfmt does not format the contents of a heredoc, so it can check without any exclusion). The source of truth for indentation in shell scripts is the shfmt flags, not `.editorconfig`.
+シェルスクリプトを `indent_size` の検査から外しています（[.editorconfig](.editorconfig) 参照）。heredoc の中は CLI に出力する表示用テキストで、幅を 2 の倍数に揃える意味がありませんが、editorconfig-checker は heredoc を区別できないためです。外した分は同じ `format` ジョブの shfmt が見ます（shfmt は heredoc の中身を整形の対象にしないので、除外を作らずに検査できます）。シェルスクリプトのインデントの情報源は、`.editorconfig` ではなく shfmt のフラグです。
 
-`*.md` is excluded from the trailing-whitespace check because in Markdown two trailing spaces mean a hard line break. Removing them uniformly would change the rendering. The excluded files are still covered by `MD009` in markdownlint-cli2 ([markdownlint-cli2](docs/ci-jobs.md#markdownlint-cli2)).
+`*.md` を行末空白の検査から外しているのは、Markdown では行末の半角スペース 2 つが強制改行を意味するためです。一律に削除すると表示が変わります。外した分は markdownlint-cli2 の `MD009` が見ます（[markdownlint-cli2](docs/ci-jobs.md#markdownlint-cli2)）。
 
-### Issue templates
+### issue のテンプレート
 
-There are two in [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE). Both are YAML issue forms. Labels are applied automatically ([Labels](#labels)).
+[.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE) に 2 種類あります。どちらも YAML の issue フォーム形式です。ラベルは自動で付きます（[ラベル](#ラベル)）。
 
-| Template | Purpose | Label applied automatically |
+| テンプレート | 用途 | 自動で付くラベル |
 | --- | --- | --- |
-| [Bug report](.github/ISSUE_TEMPLATE/bug_report.yml) | Something behaves incorrectly or raises an error | `bug` |
-| [Task](.github/ISSUE_TEMPLATE/task.yml) | A feature to add or work that needs doing | `enhancement` |
+| [バグ報告](.github/ISSUE_TEMPLATE/bug_report.yml) | 動作がおかしい、エラーが出る | `bug` |
+| [作業項目](.github/ISSUE_TEMPLATE/task.yml) | 追加したい機能、やるべき作業 | `enhancement` |
 
-**Anything that fits neither goes to Discussions.** The issue creation page shows an "Ask in Discussions" link. Once the discussion settles, "Create issue from discussion" on the Discussion page converts it into an issue.
+**どちらにも当てはまらないものは Discussions へ。** issue 作成画面に「Discussions で質問する」というリンクを出してあります。話が固まったら、Discussion ページの「Create issue from discussion」で issue に変換できます。
 
-Blank issues are forbidden by `blank_issues_enabled: false` in [config.yml](.github/ISSUE_TEMPLATE/config.yml), so every issue goes through one of the templates. That setting only removes the blank option from the issue creation page, though; the API route (including passing a title and body to `gh issue create`) goes straight through.
+白紙の issue は [config.yml](.github/ISSUE_TEMPLATE/config.yml) の `blank_issues_enabled: false` で禁止してあり、必ずどちらかのテンプレートを通ります。ただしこれは issue 作成画面から白紙の選択肢を消すだけの設定で、API 経由（`gh issue create` にタイトルと本文を渡した場合も含む）は素通りします。
 
-**Do not write security problems in issues.** Private vulnerability reporting is enabled, so you can report privately from the Security tab ([SECURITY.md](SECURITY.md)).
+**セキュリティ上の問題は issue に書かないでください。** 脆弱性の非公開報告を有効にしているので、Security タブから非公開で報告できます（[SECURITY.md](SECURITY.md)）。
 
-Since `contact_links` in `config.yml` only accepts absolute URLs, the template holds `https://github.com/OWNER/REPO/discussions/new/choose`, and the script in [Setup](#setup) rewrites it to the actual repository name. **The rewritten `config.yml` needs to be committed.** Fixing it by hand is fine too; in that case the script does nothing.
+`config.yml` の `contact_links` には絶対 URL しか書けないため、テンプレートには `https://github.com/OWNER/REPO/discussions/new/choose` と置いてあり、[セットアップ](#セットアップ)のスクリプトが実際のリポジトリ名へ書き換えます。**書き換わった `config.yml` はコミットが必要です。** 手で直しても構いません。その場合スクリプトは何もしません。
 
-The format is checked by the `issue-forms` job in `ci` using [check-jsonschema](https://github.com/python-jsonschema/check-jsonschema). A misspelled `type` or a misplaced `validations` is something GitHub only reveals at run time, and it shows up as **the template disappearing from the issue creation page**. The schema applied is the one from [SchemaStore](https://www.schemastore.org/), bundled with the tool itself, so changes on GitHub's side are picked up by updating the tool version.
+書式は `ci` の `issue-forms` ジョブが [check-jsonschema](https://github.com/python-jsonschema/check-jsonschema) で検査します。`type` の綴り違いや `validations` の位置違いは GitHub 側では実行時にしか分からず、**issue の作成画面からテンプレートが消える**という形で現れるためです。当てるスキーマは [SchemaStore](https://www.schemastore.org/) のものがツール本体に同梱されていて、GitHub 側の変更への追随はツールのバージョン更新に含まれます。
 
-The job runs the following. `config.yml` configures the template chooser rather than a form, and its schema is different, so it is checked separately. Both extensions are covered because GitHub accepts `.yml` and `.yaml` alike.
+ジョブは次を実行します。`config.yml` はフォームではなくフォームの選択画面の設定で、スキーマが別なので分けて検査します。拡張子は GitHub が `.yml` と `.yaml` のどちらも受け付けるため、両方を対象にしています。
 
 ```bash
 git ls-files -z '.github/ISSUE_TEMPLATE/*.yml' '.github/ISSUE_TEMPLATE/*.yaml' \
@@ -250,31 +247,31 @@ git ls-files -z '.github/ISSUE_TEMPLATE/config.yml' '.github/ISSUE_TEMPLATE/conf
   | xargs -0 -r check-jsonschema --builtin-schema vendor.github-issue-config
 ```
 
-Placing no templates at all is a legitimate choice, so when there is nothing to check it passes without checking. The flip side is that moving them out of `.github/ISSUE_TEMPLATE/` turns the job green with nothing to check.
+テンプレートを 1 つも置かない選択は正当なので、対象が 0 件のときは検査せず通します。裏返しに、`.github/ISSUE_TEMPLATE/` から置き場所を動かすと検査対象が無いまま緑になります。
 
-### Labels
+### ラベル
 
-The script in [Setup](#setup) creates four labels. None of them are applied by hand.
+[セットアップ](#セットアップ)のスクリプトが作るラベルは 4 つです。手で付けるものはありません。
 
-| Label | Applied to | Where it is applied |
+| ラベル | 付くもの | 付ける場所 |
 | --- | --- | --- |
-| `bug` | Bug report issues | `labels` in [bug_report.yml](.github/ISSUE_TEMPLATE/bug_report.yml) |
-| `enhancement` | Task issues | `labels` in [task.yml](.github/ISSUE_TEMPLATE/task.yml) |
-| `dependencies` | Renovate update PRs / the update list issue | `labels` in [renovate.json5](.github/renovate.json5) / `--label dependencies` in [renovate.yml](.github/workflows/renovate.yml) |
-| `maintenance` | Notification issues opened by failed scheduled checks | `--label maintenance` in each workflow |
+| `bug` | バグ報告の issue | [bug_report.yml](.github/ISSUE_TEMPLATE/bug_report.yml) の `labels` |
+| `enhancement` | 作業項目の issue | [task.yml](.github/ISSUE_TEMPLATE/task.yml) の `labels` |
+| `dependencies` | Renovate の更新 PR / 更新の一覧 issue | [renovate.json5](.github/renovate.json5) の `labels` / [renovate.yml](.github/workflows/renovate.yml) の `--label dependencies` |
+| `maintenance` | 定期検査の失敗で立つ通知 issue | 各ワークフローの `--label maintenance` |
 
-`maintenance` exists so that, when browsing issues, bugs reported by people can be distinguished from maintenance work found by automated checks. It expresses the kind of content, not "who created it" (notification issues can be filtered with `author:app/github-actions`).
+`maintenance` は、人が報告したバグと自動検査が見つけた保守作業を一覧で分けるためのラベルです。「誰が作ったか」ではなく内容の種類を表します（通知 issue は `author:app/github-actions` で絞れます）。
 
-Labels are applied to notification issues by [upsert-issue.sh](.github/scripts/upsert-issue.sh); why after creation rather than on it — and why a missing label costs only a warning — is explained in its `--help`.
+通知 issue へのラベル付けは [upsert-issue.sh](.github/scripts/upsert-issue.sh) が行います。作成時ではなく作成後に付ける理由と、ラベルが消えていても警告で済む理由は、スクリプトの `--help` に書いてあります。
 
-The [settings drift check](docs/drift-check.md#settings-drift-check) verifies daily that the labels have not been deleted (on the issue template side, GitHub silently ignores a nonexistent label, so a deletion goes unnoticed). When changing `labels` in a template or in `renovate.json5`, fix `LABELS_EXPECTED` in the script to match (the check only looks at the definitions in the script).
+ラベルが消されていないかは[設定のずれの検査](docs/drift-check.md#設定のずれの検査)が毎日確かめます（issue テンプレートの側は、存在しないラベルを GitHub が黙って無視するため、消えても気づけません）。テンプレートや `renovate.json5` の `labels` を変えるときは、スクリプトの `LABELS_EXPECTED` も合わせて直してください（検査が見るのはスクリプト側の定義だけです）。
 
-## Releases
+## リリース
 
-Because immutable releases are enabled, a release published after enabling them cannot be changed afterwards: its assets and its tag are locked, and a fix means publishing a new version ([GitHub's documentation](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases) has the details).
+immutable releases を有効にしているため、有効化後に公開したリリースは後から変更できません。アセットもタグも固定され、修正は新しいバージョンとして出し直します（詳細は [GitHub のドキュメント](https://docs.github.com/ja/repositories/releasing-projects-on-github/about-releases)）。
 
-The guarantee that the contents behind a given tag never change is a supply-chain safeguard. To disable it, run `gh api --method DELETE repos/OWNER/REPO/immutable-releases`.
+「同じタグの中身が入れ替わらない」ことが保証されるため、サプライチェーン対策になります。無効化するには `gh api --method DELETE repos/OWNER/REPO/immutable-releases` を実行します。
 
-## License
+## ライセンス
 
-MIT ([LICENSE](LICENSE)). Repositories created from this template may replace that file.
+MIT（[LICENSE](LICENSE)）。テンプレートから作ったリポジトリは、このファイルを差し替えてかまいません。

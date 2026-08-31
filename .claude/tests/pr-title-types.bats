@@ -53,7 +53,6 @@ prompt_types() {
   [ "$(prompt_types)" = "$(enforced_types)" ]
 }
 
-@test "the README tables list the enforced types" {
+@test "the README table lists the enforced types" {
   [ "$(table_types "${REPO_ROOT}/README.md")" = "$(enforced_types)" ]
-  [ "$(table_types "${REPO_ROOT}/README.ja.md")" = "$(enforced_types)" ]
 }

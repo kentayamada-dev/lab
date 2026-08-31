@@ -1,11 +1,11 @@
-## What changed
+## 変更内容
 
-<!-- Merges are squashed, so the PR title becomes, verbatim, the commit title on main. -->
+<!-- squash マージなので、PR タイトルがそのまま main のコミットタイトルになります。 -->
 
-## Background / rationale
+## 背景・理由
 
-<!-- If there is a corresponding issue, link it by writing `Closes #123`. -->
+<!-- 対応する issue があれば `Closes #123` の形でリンクしてください。 -->
 
-## What was verified
+## 確認したこと
 
-<!-- Describe what you checked locally, focusing on what CI does not verify automatically. -->
+<!-- 手元で確認した内容を、CI が自動で見ない部分を中心に書いてください。 -->
