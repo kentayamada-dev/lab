@@ -1,10 +1,10 @@
-# repo-baseline
+# lab
 
-[![ci](https://github.com/kentayamada-dev/repo-baseline/actions/workflows/ci.yml/badge.svg)](https://github.com/kentayamada-dev/repo-baseline/actions/workflows/ci.yml) [![OpenSSF Scorecard](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.scorecard.dev%2Fprojects%2Fgithub.com%2Fkentayamada-dev%2Frepo-baseline&query=%24.score&label=openssf%20scorecard)](https://scorecard.dev/viewer/?uri=github.com/kentayamada-dev/repo-baseline)
+[![ci](https://github.com/kentayamada-dev/lab/actions/workflows/ci.yml/badge.svg)](https://github.com/kentayamada-dev/lab/actions/workflows/ci.yml) [![OpenSSF Scorecard](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.scorecard.dev%2Fprojects%2Fgithub.com%2Fkentayamada-dev%2Flab&query=%24.score&label=openssf%20scorecard)](https://scorecard.dev/viewer/?uri=github.com/kentayamada-dev/lab)
 
-リポジトリ運用の土台（ブランチ保護と、拡張前提の CI ワークフロー）を収めたテンプレートリポジトリ。
+Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js のフロントエンド（[web/](web)）、Atlas で管理する Postgres スキーマ（[db/](db)）からなり、リポジトリ運用の土台（ブランチ保護と CI）はテンプレート由来です（[アプリコードの検査](docs/ci-jobs.md#アプリコードの検査)）。
 
-**アプリケーションコードは含まれていません。** アプリの実装はこのテンプレートから作ったリポジトリで進めます（[アプリコードを追加したら](docs/ci-jobs.md#アプリコードを追加したら)）。**public リポジトリ専用です**（private では ruleset や Code scanning の利用条件が異なるため）。
+**public リポジトリ専用です**（private では ruleset や Code scanning の利用条件が異なるため）。
 
 ## 読み方
 
@@ -26,6 +26,13 @@
 
 | パス | 内容 |
 | --- | --- |
+| [proto/](proto) | Connect API のスキーマ定義（protobuf） |
+| [api/](api) | Go の Connect API サーバ（生成コードは api/gen/、スキーマの定義本体は api/schema.sql） |
+| [web/](web) | Next.js のフロントエンド（生成コードは web/src/gen/） |
+| [db/](db) | Atlas のマイグレーションと設定 |
+| [docker-compose.yml](docker-compose.yml) | ローカル開発と CI のアプリ検査が使うサービス定義 |
+| [Makefile](Makefile) | サービス操作と proto / 生成コード / DB / api / web の検査の入口（`make help`） |
+| [.devcontainer/](.devcontainer) | api / web の devcontainer 定義 |
 | [.github/rulesets/main.json](.github/rulesets/main.json) | main のブランチ保護（GitHub Repository Ruleset）の定義 |
 | [scripts/sync-repo-config.sh](scripts/sync-repo-config.sh) | 上記 ruleset とリポジトリ設定をまとめて適用・検査するスクリプト |
 | [scripts/tests/](scripts/tests) | 上記スクリプトのテスト。CI で実行される（[script-tests](docs/ci-jobs.md#script-tests)） |
@@ -110,7 +117,7 @@ gh api --method DELETE repos/OWNER/REPO/branches/main/protection
 | 承認 | 0 人（セルフマージ可） |
 | レビューコメント | すべて解決しないとマージ不可 |
 | CI (`ci`) | 必須（GitHub Actions が報告したものだけを有効とする） |
-| Code scanning のアラート | 重大度を問わず、アラートが 1 件でもあればマージを止める（[CodeQL](docs/ci-jobs.md#codeql)） |
+| Code scanning のアラート | セキュリティ系は重大度を問わず、品質系は error 級のアラートがあればマージを止める（[CodeQL](docs/ci-jobs.md#codeql)） |
 | マージ前の最新化 | 必須（base が進んだら Update branch） |
 | マージ方式 | squash のみ |
 | 履歴 | 一直線を強制（merge commit 不可） |
@@ -188,7 +195,7 @@ gh api repos/OWNER/REPO --jq .squash_merge_commit_title   # PR_TITLE である�
 | [.gitattributes](.gitattributes) | git が正規化 | 改行コードを LF に固定。エディタ設定や OS に依存しない |
 | `ci` の `format` ジョブ | 必須チェック | 違反を PR で弾く（editorconfig-checker と shfmt の 2 つ） |
 
-`format` ジョブは [editorconfig-checker](https://github.com/editorconfig-checker/editorconfig-checker) で `.editorconfig` の全項目を検査します。設定の情報源は `.editorconfig` 1 つだけで、CI 側に検査項目を書き写してはいません。
+`format` ジョブは [editorconfig-checker](https://github.com/editorconfig-checker/editorconfig-checker) で `.editorconfig` の全項目を検査します。設定の情報源は `.editorconfig` 1 つだけで、CI 側に検査項目を書き写してはいません。検査から外すファイル（生成物と vendored。[例外](#例外)）だけは [.editorconfig-checker.json](.editorconfig-checker.json) に列挙します。
 
 タブの検査（`indent_style`）には実害の防止という意味もあります。YAML は仕様上インデントにタブを使えないため、エディタの既定がタブの環境で `ci.yml` を編集するとワークフローが壊れます。
 
@@ -212,11 +219,15 @@ shfmt の注意点:
 
 editorconfig-checker と shfmt は、他の検査ツールと同じく本体を mise で入れて実行しています（[ツールの導入と検証](docs/ci-jobs.md#ツールの導入と検証)、バージョンは [mise.toml](mise.toml)）。**editorconfig-checker のコマンド名は `ec` です**（[mise.toml](mise.toml) に書く `editorconfig-checker` は [aqua](https://aquaproj.github.io/) レジストリでのパッケージ名で、バイナリの名前とは違います）。
 
-#### 2 つの例外
+#### 例外
 
 シェルスクリプトを `indent_size` の検査から外しています（[.editorconfig](.editorconfig) 参照）。heredoc の中は CLI に出力する表示用テキストで、幅を 2 の倍数に揃える意味がありませんが、editorconfig-checker は heredoc を区別できないためです。外した分は同じ `format` ジョブの shfmt が見ます（shfmt は heredoc の中身を整形の対象にしないので、除外を作らずに検査できます）。シェルスクリプトのインデントの情報源は、`.editorconfig` ではなく shfmt のフラグです。
 
 `*.md` を行末空白の検査から外しているのは、Markdown では行末の半角スペース 2 つが強制改行を意味するためです。一律に削除すると表示が変わります。外した分は markdownlint-cli2 の `MD009` が見ます（[markdownlint-cli2](docs/ci-jobs.md#markdownlint-cli2)）。
+
+Makefile と Go はインデントの検査そのものを外しています。make のレシピは tab 必須、Go は gofmt が tab を強制する一方で、どちらも継続行や桁揃えに空白が混ざるためです。Go のインデントは `api` ジョブの `fmt-check`（gofumpt）が見ます。
+
+生成物と vendored のファイル（api/gen/、web/src/gen/、Swagger UI 一式）は editorconfig-checker の検査自体から除外しています（[.editorconfig-checker.json](.editorconfig-checker.json)）。手で書くファイルではなく、生成側・配布側の書式に従うためです。
 
 ### issue のテンプレート
 

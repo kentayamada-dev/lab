@@ -1,0 +1,22 @@
+version: "2"
+
+sql:
+  - engine: postgresql
+    schema: schema.sql
+    queries: queries
+    database:
+      uri: "${DB_URL}"
+    gen:
+      go:
+        package: db
+        out: gen/db
+        sql_package: pgx/v5
+    rules:
+      - no-delete
+      - sqlc/db-prepare
+
+rules:
+  - name: no-delete
+    message: "don't use delete statements"
+    rule: |
+      query.sql.contains("DELETE")

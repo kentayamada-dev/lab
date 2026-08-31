@@ -1,0 +1,133 @@
+name: lab
+
+x-env:
+  app_db_url: &app_db_url "postgres://${DB_USER:?}:${DB_PASSWORD:?}@db:${DB_PORT:?}/${DB_NAME:?}?${DB_OPTS:?}&application_name=app"
+  atlas_db_url: &atlas_db_url "postgres://${DB_USER:?}:${DB_PASSWORD:?}@db:${DB_PORT:?}/${ATLAS_DEV_DB:?}?${DB_OPTS:?}&application_name=atlas"
+  uid: &uid "${USER_UID:-1000}"
+  gid: &gid "${USER_GID:-1000}"
+  user: &tool_user "${USER_UID:-1000}:${USER_GID:-1000}"
+  user_name: &user_name "dev"
+
+services:
+  api:
+    hostname: api
+    container_name: api
+    init: true
+    build:
+      context: .devcontainer
+      dockerfile: api-container/Dockerfile
+      target: "${API_BUILD_TARGET:-dev}"
+      args:
+        USER_UID: *uid
+        USER_GID: *gid
+        USER_NAME: *user_name
+    environment:
+      API_PORT: "${API_PORT:?}"
+      DB_URL: *app_db_url
+    volumes:
+      - .:/workspace
+      - "${GO_MOD_CACHE:-go_mod_cache}:/go/pkg/mod"
+      - "${GO_BUILD_CACHE:-go_build_cache}:/go/cache"
+    command: sleep infinity
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    hostname: web
+    container_name: web
+    init: true
+    build:
+      context: .devcontainer
+      dockerfile: web-container/Dockerfile
+      args:
+        USER_UID: *uid
+        USER_GID: *gid
+        USER_NAME: *user_name
+    environment:
+      NEXT_TELEMETRY_DISABLED: 1
+      API_PORT: "${API_PORT:?}"
+    volumes:
+      - .:/workspace
+      - node_modules:/workspace/web/node_modules
+      - pnpm_store:/pnpm/store
+    command: sleep infinity
+
+  buf:
+    profiles:
+      - tools
+    image: bufbuild/buf:1.72
+    user: *tool_user
+    working_dir: /workspace
+    environment:
+      HOME: /tmp
+    volumes:
+      - .:/workspace
+
+  db:
+    hostname: db
+    container_name: db
+    image: postgres:18.4-trixie
+    ports:
+      - "127.0.0.1:${DB_PORT:?}:${DB_PORT:?}"
+    environment:
+      PGPORT: "${DB_PORT:?}"
+      POSTGRES_DB: postgres
+      POSTGRES_USER: "${DB_USER:?}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?}"
+      DB_NAME: "${DB_NAME:?}"
+      ATLAS_DEV_DB: "${ATLAS_DEV_DB:?}"
+    volumes:
+      - db_data:/var/lib/postgresql
+      - ./.devcontainer/db-container/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${DB_USER:?} -d ${DB_NAME:?} -p ${DB_PORT:?}" ]
+      interval: 1s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  atlas:
+    profiles:
+      - tools
+    image: arigaio/atlas:1.3.0-community-alpine
+    user: *tool_user
+    working_dir: /workspace/db
+    environment:
+      HOME: /tmp
+      DB_URL: *app_db_url
+      ATLAS_DB_URL: *atlas_db_url
+    volumes:
+      - .:/workspace
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db_gui:
+    hostname: db_gui
+    container_name: db_gui
+    image: dbeaver/cloudbeaver:26.1.5
+    ports:
+      - "127.0.0.1:8978:8978"
+    environment:
+      DB_HOST: db
+      DB_PORT: "${DB_PORT:?}"
+      DB_NAME: "${DB_NAME:?}"
+      DB_USER: "${DB_USER:?}"
+      DB_PASSWORD: "${DB_PASSWORD:?}"
+      CB_SERVER_NAME: db_gui
+      CB_ADMIN_NAME: CBAdmin
+      CB_ADMIN_PASSWORD: Password1
+      CLOUDBEAVER_SYSTEM_VARIABLES_RESOLVING_ENABLED: "true"
+      CLOUDBEAVER_APP_GRANT_CONNECTIONS_ACCESS_TO_ANONYMOUS_TEAM: "true"
+    volumes:
+      - db_gui_data:/opt/cloudbeaver/workspace
+      - ./.devcontainer/db_gui-container/initial-data-sources.conf:/opt/cloudbeaver/conf/initial-data-sources.conf:ro
+
+volumes:
+  go_mod_cache:
+  go_build_cache:
+  node_modules:
+  pnpm_store:
+  db_data:
+  db_gui_data:

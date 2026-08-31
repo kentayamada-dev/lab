@@ -1,0 +1,7 @@
+{
+  "Exclude": [
+    "^api/gen/",
+    "^web/src/gen/",
+    "^api/internal/server/swagger-ui"
+  ]
+}

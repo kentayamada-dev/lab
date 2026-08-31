@@ -1,0 +1,19 @@
+{
+  "name": "WEB",
+  "dockerComposeFile": [
+    "../../docker-compose.yml"
+  ],
+  "service": "web",
+  "runServices": [
+    "web"
+  ],
+  "shutdownAction": "none",
+  "workspaceFolder": "/workspace/web",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "bradlc.vscode-tailwindcss"
+      ]
+    }
+  }
+}
