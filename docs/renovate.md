@@ -92,6 +92,7 @@ Renovate には更新状況を issue にまとめる [Dependency Dashboard](http
 | ダイジェストのみ | `chore(deps): update renovate/renovate digest to e49d149` |
 | バージョンの固定（`pinDigests: true` の初回など） | `chore(deps): pin dependency versions` |
 | 置き換え（`replacements:all` が拾ったとき） | `chore(deps): replace old with new` |
+| ロールバック（固定していたバージョンが配布元から消えたとき） | `chore(deps): roll actions/checkout back to v7.0.1` |
 
 `chore(deps):` の接頭辞は `semanticCommits: 'enabled'` が付けます（`config:recommended` に含まれるプリセットにより、アプリ本体の依存では `fix(deps):` になります）。接頭辞が付く形は変えていないので、CI の [`pr-title`](../README.md#pr-タイトルの書式) は通ります。
 
