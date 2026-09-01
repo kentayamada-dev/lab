@@ -28,7 +28,7 @@
 | `web` | web の依存導入と型検査込みのビルド | [アプリコードの検査](#アプリコードの検査) |
 | `osv-scanner-diff` | PR が新たに持ち込む依存の脆弱性 | [osv-scanner](#osv-scanner) |
 
-コードを変えなくても結果が変わる検査（[設定のずれの検査](drift-check.md#設定のずれの検査)、[osv-scanner](#osv-scanner) の全体検査、[外部リンクの検査](#外部リンクの定期検査)、[Scorecard](#scorecard)）は、`ci` に入れると無関係な PR まで止めるため、別ワークフローの定期実行にしてあります。
+コードを変えなくても結果が変わる検査（[設定のずれの検査](drift-check.md#設定のずれの検査)、[osv-scanner](#osv-scanner) の全体検査、[外部リンクの検査](#外部リンクの定期検査)、[Claude Code 設定の検査](#claude-code-設定の定期検査)、[Scorecard](#scorecard)）は、`ci` に入れると無関係な PR まで止めるため、別ワークフローの定期実行にしてあります。
 
 ## CI にジョブを追加する
 
@@ -347,6 +347,18 @@ prompt フックは中身も対象です。Conventional Commits の type 一覧�
 ブランチ規則のテストは bats の一時ディレクトリに使い捨てのリポジトリを作るため、判定が runner のいるブランチに左右されることはありません。`jq` は GitHub ホストの runner に最初から入っていて、そもそも呼ぶのはフック自身なので、[mise.toml](../mise.toml) に足すのは bats だけです。
 
 テストを独立した `tests/` ではなく `.claude/` の下に置いてあるのは、フックを削除すればテストも一緒に消えるようにするためと、テンプレートから作ったリポジトリが自分のテストに一番自然な置き場を空けておくためです。その後もこのジョブが緑のままなのは `-r` のおかげで、`.bats` が 1 つも残らなければ bats は起動しません。フックを手放すなら、ジョブ自体もフックと一緒に削除してください。
+
+## Claude Code 設定の定期検査
+
+[claude-settings.yml](../.github/workflows/claude-settings.yml) が、[.claude/settings.json](../.claude/settings.json) を [SchemaStore](https://www.schemastore.org/) にある Claude Code 設定のスキーマと突き合わせます。使うのは [issue-forms](../README.md#issue-のテンプレート) ジョブと同じ [check-jsonschema](https://github.com/python-jsonschema/check-jsonschema) です。Claude Code は知らないキーを黙って無視するため、キーの綴りを間違えても実行時には何も落ちません — そのキーで加えたつもりの挙動が、ただ静かに欠けるだけです。気づけるのは検証だけです。
+
+ジョブの形は 2 つの制約が決めています。このスキーマは check-jsonschema に同梱されていないので実行時に SchemaStore から取得し、中身は Claude Code のリリースに追従します — こちらのコードを変えなくても結果が変わりうるため、`ci` のジョブではなく定期実行です。また、スキーマは未知のトップレベルキーを許容する（`additionalProperties` が `false` なのは `sandbox` や `permissions` などの入れ子の中だけ）ため、トップレベルの綴り間違いは素通りします。
+
+```bash
+check-jsonschema --schemafile https://json.schemastore.org/claude-code-settings.json .claude/settings.json
+```
+
+落ちたときの通知は[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)です。`The Claude Code settings do not match the schema` という issue が `maintenance` ラベル付きで立ち、実行が通れば自動的に閉じます。定期実行なので[活動が無いと止まる](#定期実行が止まるとき)点も同じです。`.claude/` を手放すなら、このワークフローもフックや設定と一緒に削除してください。
 
 ## script-tests
 
