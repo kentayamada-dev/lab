@@ -41,6 +41,7 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 | [.github/workflows/scorecard.yml](.github/workflows/scorecard.yml) | OpenSSF Scorecard によるリポジトリのセキュリティ体制の定期採点（毎週 / [Scorecard](docs/ci-jobs.md#scorecard)） |
 | [.github/workflows/repo-settings.yml](.github/workflows/repo-settings.yml) | リポジトリ設定と ruleset のずれの定期検査（毎日 / [設定のずれの検査](docs/drift-check.md#設定のずれの検査)） |
 | [.github/workflows/link-check.yml](.github/workflows/link-check.yml) | ドキュメントの外部リンクの定期検査（毎日 / [外部リンクの定期検査](docs/ci-jobs.md#外部リンクの定期検査)） |
+| [.github/workflows/claude-settings.yml](.github/workflows/claude-settings.yml) | Claude Code 設定のスキーマ照合の定期検査（毎日 / [Claude Code 設定の定期検査](docs/ci-jobs.md#claude-code-設定の定期検査)） |
 | [.github/workflows/renovate.yml](.github/workflows/renovate.yml) | Renovate の実行（[更新の一覧の issue](docs/renovate.md#更新の一覧の-issue)） |
 | [.github/scripts/](.github/scripts) | 上記の定期実行ワークフローが、落ちた検査を issue として報告し、取り下げるために呼ぶスクリプト |
 | [.github/scripts/tests/](.github/scripts/tests) | 上記スクリプトのテスト。CI で実行される（[script-tests](docs/ci-jobs.md#script-tests)） |
