@@ -112,7 +112,7 @@ mise run check              # 手元のチェックアウトで動く検査す�
 mise run check:shellcheck   # 1 つのジョブの検査だけ
 ```
 
-初回の実行で固定版のツールが入ります。コマンドもバージョンも両側が同じファイルを読むため、結果は CI と一致します。注意は 2 つ。[zizmor](#zizmor) は環境変数 `GITHUB_TOKEN` が無いとオフラインで動き、オンラインの監査は警告付きでスキップされます。[gitleaks](#gitleaks) は shallow clone には無い全履歴を必要とします。
+初回の実行で固定版のツールが入ります。コマンドもバージョンも両側が同じファイルを読むため、結果は CI と一致します。注意は 2 つ。[zizmor](#zizmor) は環境変数 `GITHUB_TOKEN` が無いとオフラインで動き、オンラインの監査はスキップされます。[gitleaks](#gitleaks) は shallow clone には無い全履歴を必要とします。
 
 タスクが無いジョブは、手元のチェックアウトだけでは動かないものです。[CodeQL](#codeql) と `pr-title` は GitHub 側を必要とし、[setup-script](#setup-script) はトークンと API を必要とし、[markdownlint-cli2](#markdownlint-cli2)・[renovate-config](renovate.md#設定の検証)・[osv-scanner](#osv-scanner) は前述の、mise を通さない 3 つの例外です。[アプリコードの検査](#アプリコードの検査)の 5 ジョブにもタスクはありませんが、こちらは CI と同じ make ターゲットで再現できます（前提は docker）。
 
@@ -145,12 +145,7 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 ## shellcheck
 
-[ci.yml](../.github/workflows/ci.yml) の `shellcheck` ジョブが、git 管理下の `*.sh` / `*.bash` を検査します。未クォートの変数展開、意図しない単語分割、常に真になる比較など、実行してもエラーにならず黙って誤動作する類の不備が対象です。整形（インデントなど）は見ません。そちらは [`format`](../README.md#書式の統一) ジョブの shfmt が担当します。
-
-```bash
-git ls-files -z '*.sh' '*.bash' \
-  | xargs -0 -r shellcheck --color=always --external-sources
-```
+[ci.yml](../.github/workflows/ci.yml) の `shellcheck` ジョブが、git 管理下の `*.sh` / `*.bash` を検査します。未クォートの変数展開、意図しない単語分割、常に真になる比較など、実行してもエラーにならず黙って誤動作する類の不備が対象です。整形（インデントなど）は見ません。そちらは [`format`](../README.md#書式の統一) ジョブの shfmt が担当します。コマンドは [mise.toml](../mise.toml) の `check:shellcheck` タスクにあります。
 
 | 指定 | 理由 |
 | --- | --- |
@@ -163,16 +158,11 @@ git ls-files -z '*.sh' '*.bash' \
 
 ## hadolint
 
-[ci.yml](../.github/workflows/ci.yml) の `hadolint` ジョブが、git 管理下の Dockerfile を検査します。ベースイメージのタグ未固定（`FROM node:latest`）、バージョン指定の無い `apt-get install`、最後の `USER` が root のままなど、**`docker build` は通るが再現性・サイズ・権限で損をする書き方**が対象です。`RUN` に書いたシェルも、同梱の ShellCheck が [shellcheck](#shellcheck) ジョブと同じ観点で見ます。
-
-```bash
-git ls-files -z '*Dockerfile' '*Dockerfile.*' '*.dockerfile' \
-  | xargs -0 -r hadolint
-```
+[ci.yml](../.github/workflows/ci.yml) の `hadolint` ジョブが、git 管理下の Dockerfile を検査します。ベースイメージのタグ未固定（`FROM node:latest`）、バージョン指定の無い `apt-get install`、最後の `USER` が root のままなど、**`docker build` は通るが再現性・サイズ・権限で損をする書き方**が対象です。`RUN` に書いたシェルも、同梱の ShellCheck が [shellcheck](#shellcheck) ジョブと同じ観点で見ます。コマンドは [mise.toml](../mise.toml) の `check:hadolint` タスクにあります。
 
 `git ls-files` / `-z` / `-0` の理由は [shellcheck](#shellcheck) と同じです。`-r` は、hadolint がファイル名を渡されないと標準入力を Dockerfile として読むため、空の実行をさせないために付けています。
 
-**hadolint はディレクトリを辿らず、検査対象はファイル名で渡す必要があります。** 上のパターンで `Dockerfile` / `Dockerfile.dev` / `api.Dockerfile` / `web.dockerfile` などを、サブディレクトリも含めて拾います。`Containerfile` のような別の名前を使う場合はパターンを足してください。
+**hadolint はディレクトリを辿らず、検査対象はファイル名で渡す必要があります。** タスクのパターンで `Dockerfile` / `Dockerfile.dev` / `api.Dockerfile` / `web.dockerfile` などを、サブディレクトリも含めて拾います。`Containerfile` のような別の名前を使う場合はパターンを足してください。
 
 色の指定が無いのは、hadolint に色を強制するオプションが無いためです（tty でない CI のログには色が付きません）。
 
@@ -239,7 +229,7 @@ lychee --no-progress --exclude 'OWNER/REPO' --exclude-path <vendored の Swagger
 
 CI ではこれに `--mode plain` を足し、出力を `tee` で控えます（ANSI エスケープを混ぜずに issue 本文へそのまま載せるため）。
 
-`ci` に入れていないのは、リンク先はこちらが何もしなくても消え、一時的な不調でも落ちる（= コードを変えなくても結果が変わる）ためです。
+`ci` に入れていないのは、リンク先はこちらが何もしなくても消え、一時的な不調でも落ちる — コードを変えなくても結果が変わる — ためです（[こうした検査を定期実行にしている理由](#ci-の検査ジョブ)）。
 
 **アンカーは見ません**（`--include-fragments` を付けていません）。外部ページの見出し ID は描画側の都合で決まり（GitHub は README の見出しに `user-content-` を付けます）、誤検出にしかならないためです。リポジトリ内のアンカーは `ci` 側が見ています。
 
@@ -293,7 +283,7 @@ excludes:
 
 監査項目の一覧は [zizmor のドキュメント](https://docs.zizmor.sh/audits/)にあります。`run:` への `${{ }}` の直接埋め込み（template injection）、`pull_request_target` のような危険な trigger、必要以上の `permissions`、ダイジェストで固定されていない action / イメージ、などです。
 
-固定した SHA や使用中の action を GitHub API と照合する 2 つの監査（`impostor-commit`、`known-vulnerable-actions`）は、トークンが無いと黙ってスキップされます。ジョブでは `GITHUB_TOKEN` に `github.token` を渡して有効にしています（公開情報しか参照しないので `contents: read` で足ります）。
+固定した SHA や使用中の action を GitHub API と照合する 2 つの監査（`impostor-commit`、`known-vulnerable-actions`）は、トークンが無いとスキップされます。ジョブでは `GITHUB_TOKEN` に `github.token` を渡して有効にしています（公開情報しか参照しないので `contents: read` で足ります）。
 
 検査対象はリポジトリのルート（`.`）で、composite action や Dependabot の設定も自動で集めます。`--strict-collection` を付けてあるので、解析できないファイルがあれば警告で流さず失敗します。
 
@@ -307,11 +297,7 @@ excludes:
 
 走査対象は履歴全体です。`gitleaks git` は内部で `git log -p` を使うため、`actions/checkout` に `fetch-depth: 0` を付けて浅いクローンを避けています（既定の深さ 1 では過去のコミットに入った値を見落とします）。
 
-```bash
-gitleaks git --redact --verbose --no-banner
-```
-
-`--redact` は検出した値そのものをログに出さないための指定です。public リポジトリでは実行ログも公開されるため、これが無いと検査自体が漏洩経路になります。`--verbose` は検出箇所（コミット / ファイル / 行 / ルール ID / fingerprint）を出します。
+コマンドは [mise.toml](../mise.toml) の `check:gitleaks` タスクにあります。`--redact` は検出した値そのものをログに出さないための指定です。public リポジトリでは実行ログも公開されるため、これが無いと検査自体が漏洩経路になります。`--verbose` は検出箇所（コミット / ファイル / 行 / ルール ID / fingerprint）を出します。
 
 ### 検出されたとき
 
@@ -331,12 +317,7 @@ private リポジトリではこのジョブを走らせません（セットア
 
 ## hooks
 
-[ci.yml](../.github/workflows/ci.yml) の `hooks` ジョブが、[.claude/tests/](../.claude/tests) にある [bats](https://bats-core.readthedocs.io/) のテストで、隣の [.claude/hooks/](../.claude/hooks) にあるフックスクリプトを検査します。フックは標準入力に JSON でツール呼び出しを受け取り、標準出力に JSON で判定を返すフィルタなので、テストはコマンドを 1 つ流し込んで判定を読むだけです。
-
-```bash
-git ls-files -z '.claude/tests/*.bats' \
-  | xargs -0 -r bats --print-output-on-failure
-```
+[ci.yml](../.github/workflows/ci.yml) の `hooks` ジョブが、[.claude/tests/](../.claude/tests) にある [bats](https://bats-core.readthedocs.io/) のテストで、隣の [.claude/hooks/](../.claude/hooks) にあるフックスクリプトを検査します。フックは標準入力に JSON でツール呼び出しを受け取り、標準出力に JSON で判定を返すフィルタなので、テストはコマンドを 1 つ流し込んで判定を読むだけです。コマンドは [mise.toml](../mise.toml) の `check:hooks` タスクにあります。
 
 テストが押さえるのは当たり前の場合ではなく境目です。先にブランチを作るコミットは通し、ブランチを作らない同じコミットは拒否する。`git log | grep push` は push ではない。この境目はシェルを解析せず文字列で判定しているので、その代償である誤検知（引用しただけの `echo "git commit"` も拒否される）もあわせて固定してあります。そこが落ちたときは、挙動が良くなったのではなく変わったということです。
 
@@ -346,13 +327,13 @@ prompt フックは中身も対象です。Conventional Commits の type 一覧�
 
 ブランチ規則のテストは bats の一時ディレクトリに使い捨てのリポジトリを作るため、判定が runner のいるブランチに左右されることはありません。`jq` は GitHub ホストの runner に最初から入っていて、そもそも呼ぶのはフック自身なので、[mise.toml](../mise.toml) に足すのは bats だけです。
 
-テストを独立した `tests/` ではなく `.claude/` の下に置いてあるのは、フックを削除すればテストも一緒に消えるようにするためと、テンプレートから作ったリポジトリが自分のテストに一番自然な置き場を空けておくためです。その後もこのジョブが緑のままなのは `-r` のおかげで、`.bats` が 1 つも残らなければ bats は起動しません。フックを手放すなら、ジョブ自体もフックと一緒に削除してください。
+テストを独立した `tests/` ではなく `.claude/` の下に置いてあるのは、フックを削除すればテストも一緒に消えるようにするためと、テンプレートから作ったリポジトリが自分のテストに一番自然な置き場を空けておくためです。その後もこのジョブが緑のままなのはタスクの `xargs` に付けた `-r` のおかげで、`.bats` が 1 つも残らなければ bats は起動しません。フックを手放すなら、ジョブ自体もフックと一緒に削除してください。
 
 ## Claude Code 設定の定期検査
 
 [claude-settings.yml](../.github/workflows/claude-settings.yml) が、[.claude/settings.json](../.claude/settings.json) を [SchemaStore](https://www.schemastore.org/) にある Claude Code 設定のスキーマと突き合わせます。使うのは [issue-forms](../README.md#issue-のテンプレート) ジョブと同じ [check-jsonschema](https://github.com/python-jsonschema/check-jsonschema) です。Claude Code は知らないキーを黙って無視するため、キーの綴りを間違えても実行時には何も落ちません — そのキーで加えたつもりの挙動が、ただ静かに欠けるだけです。気づけるのは検証だけです。
 
-ジョブの形は 2 つの制約が決めています。このスキーマは check-jsonschema に同梱されていないので実行時に SchemaStore から取得し、中身は Claude Code のリリースに追従します — こちらのコードを変えなくても結果が変わりうるため、`ci` のジョブではなく定期実行です。また、スキーマは未知のトップレベルキーを許容する（`additionalProperties` が `false` なのは `sandbox` や `permissions` などの入れ子の中だけ）ため、トップレベルの綴り間違いは素通りします。
+ジョブの形は 2 つの制約が決めています。このスキーマは check-jsonschema に同梱されていないので実行時に SchemaStore から取得し、中身は Claude Code のリリースに追従するため、こちらのコードを変えなくても結果が変わりえます（[こうした検査を定期実行にしている理由](#ci-の検査ジョブ)）。また、スキーマは未知のトップレベルキーを許容する（`additionalProperties` が `false` なのは `sandbox` や `permissions` などの入れ子の中だけ）ため、トップレベルの綴り間違いは素通りします。
 
 ```bash
 check-jsonschema --schemafile https://json.schemastore.org/claude-code-settings.json .claude/settings.json
@@ -386,7 +367,7 @@ git ls-files -z '.github/scripts/tests/*.bats' 'scripts/tests/*.bats' \
 | 差分検査 | **その PR が新たに持ち込む**脆弱性だけ | [ci.yml](../.github/workflows/ci.yml) の `osv-scanner-diff` ジョブ（PR ごと） | ジョブが落ちる（`ci` の `needs` にあるのでマージ不可） |
 | 全体検査 | 依存全体の既知の脆弱性 | [osv-scanner.yml](../.github/workflows/osv-scanner.yml)（毎日 + main への push + 手動） | Security タブの Code scanning にアラート（ジョブは落ちない） |
 
-分ける理由は、この検査が「コードを変えていなくても結果が変わる」ことです。脆弱性は後から公開されるので、全体は定期実行で追いかけます。それを PR の必須チェックにすると既に main にある脆弱性で無関係な PR まで止まるため、PR 側は差分だけを見て落とします。この 2 本立ては [公式](https://github.com/google/osv-scanner-action)が推奨している構成です。
+分ける理由は、脆弱性が後から公開されることです。全体像はコードを変えなくても変わるため定期実行で追いかけ（[こうした検査を定期実行にしている理由](#ci-の検査ジョブ)）、PR 側は差分だけを見て、既に main にある脆弱性で無関係な PR が止まらないようにしています。この 2 本立ては [公式](https://github.com/google/osv-scanner-action)が推奨している構成です。
 
 ### 他の CLI ツールと扱いが違います
 

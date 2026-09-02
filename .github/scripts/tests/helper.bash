@@ -5,8 +5,6 @@
 # the environment, and the arguments it was called with land in a log the assertions
 # read. Nothing reaches GitHub.
 
-# `run` accepts flags only from 1.5.0 on, and bats warns until a test file declares
-# that it counts on them.
 bats_require_minimum_version 1.5.0
 
 SCRIPTS_DIR="${BATS_TEST_DIRNAME}/.."

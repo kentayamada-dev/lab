@@ -1,11 +1,8 @@
 # shellcheck shell=bash
 #
-# Shared by the .bats files next to this one. A Claude Code hook receives the
-# tool call as JSON on stdin and answers with JSON on stdout, so a test is one
-# stdin/stdout round trip.
+# Shared by the .bats files next to this one. A test is one stdin/stdout round
+# trip with a hook (docs/ci-jobs.md#hooks).
 
-# `run` accepts flags only from 1.5.0 on, and bats warns until a test file
-# declares that it counts on them.
 bats_require_minimum_version 1.5.0
 
 HOOKS_DIR="${BATS_TEST_DIRNAME}/../hooks"

@@ -6,8 +6,7 @@
 #
 # [^|;&\n] keeps each match inside one pipeline segment (a newline separates
 # commands just as ; does), so "git log | grep push" does not trigger. Matching
-# is textual, not a shell parse, so a command that
-# merely quotes the words (echo "git push") still asks — a cheap false positive.
+# is textual, not a shell parse (docs/ci-jobs.md#hooks).
 #
 # The hook fails closed: a tool call it cannot read (not JSON, or no command
 # string) gets the same "ask" — confirmation is the gate, and a command the

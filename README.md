@@ -101,8 +101,6 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 - secret scanning の push protection（資格情報を含む push を、入る前に拒否します。[gitleaks](docs/ci-jobs.md#gitleaks) は既に履歴に入ったものを見つけるだけです）
 - Actions の `GITHUB_TOKEN` の既定権限を read に固定し、`GITHUB_TOKEN` による PR の作成・承認を禁止（各ワークフローが `permissions` を書き忘れたときの上限を既定値に依存させません）
 
-> スクリプトは public 以外のリポジトリを拒否します。
-
 既存のリポジトリに適用する場合、main に旧来の branch protection（classic）が残っていると ruleset と併用され、挙動が追いにくくなります。スクリプトは警告を出すだけで続行するので（`--dry-run` と `--check` ではこの確認を行いません）、残っているなら消してください。
 
 ```bash
@@ -200,12 +198,7 @@ gh api repos/OWNER/REPO --jq .squash_merge_commit_title   # PR_TITLE である�
 
 タブの検査（`indent_style`）には実害の防止という意味もあります。YAML は仕様上インデントにタブを使えないため、エディタの既定がタブの環境で `ci.yml` を編集するとワークフローが壊れます。
 
-同じジョブで [shfmt](https://github.com/mvdan/sh) がシェルスクリプトの整形を検査します。
-
-```bash
-git ls-files -z '*.sh' '*.bash' \
-  | xargs -0 -r shfmt -d -i 2 -ci
-```
+同じジョブで [shfmt](https://github.com/mvdan/sh) がシェルスクリプトの整形を検査します（コマンドは [mise.toml](mise.toml) の `check:format` タスクにあります）。
 
 | 指定 | 理由 |
 | --- | --- |
@@ -249,15 +242,7 @@ Makefile と Go はインデントの検査そのものを外しています。m
 
 書式は `ci` の `issue-forms` ジョブが [check-jsonschema](https://github.com/python-jsonschema/check-jsonschema) で検査します。`type` の綴り違いや `validations` の位置違いは GitHub 側では実行時にしか分からず、**issue の作成画面からテンプレートが消える**という形で現れるためです。当てるスキーマは [SchemaStore](https://www.schemastore.org/) のものがツール本体に同梱されていて、GitHub 側の変更への追随はツールのバージョン更新に含まれます。
 
-ジョブは次を実行します。`config.yml` はフォームではなくフォームの選択画面の設定で、スキーマが別なので分けて検査します。拡張子は GitHub が `.yml` と `.yaml` のどちらも受け付けるため、両方を対象にしています。
-
-```bash
-git ls-files -z '.github/ISSUE_TEMPLATE/*.yml' '.github/ISSUE_TEMPLATE/*.yaml' \
-  ':!:.github/ISSUE_TEMPLATE/config.yml' ':!:.github/ISSUE_TEMPLATE/config.yaml' \
-  | xargs -0 -r check-jsonschema --builtin-schema vendor.github-issue-forms
-git ls-files -z '.github/ISSUE_TEMPLATE/config.yml' '.github/ISSUE_TEMPLATE/config.yaml' \
-  | xargs -0 -r check-jsonschema --builtin-schema vendor.github-issue-config
-```
+コマンドは [mise.toml](mise.toml) の `check:issue-forms` タスクにあります。`config.yml` はフォームではなくフォームの選択画面の設定で、スキーマが別なので分けて検査します。拡張子は GitHub が `.yml` と `.yaml` のどちらも受け付けるため、両方を対象にしています。
 
 テンプレートを 1 つも置かない選択は正当なので、対象が 0 件のときは検査せず通します。裏返しに、`.github/ISSUE_TEMPLATE/` から置き場所を動かすと検査対象が無いまま緑になります。
 

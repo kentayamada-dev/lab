@@ -5,7 +5,7 @@
 # check; close-issues-by-title.sh retracts it once the check passes.
 #
 # What to do with an issue that is already open is the caller's choice, because the
-# three workflows want different things out of it:
+# calling workflows want different things out of it:
 #   skip     leave it alone (the report would say the same thing again)
 #   comment  add --comment-file to it (every run's output is worth keeping)
 #   edit     replace its body with --body-file (only the latest state matters)

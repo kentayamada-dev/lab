@@ -96,7 +96,7 @@ Renovate には更新状況を issue にまとめる [Dependency Dashboard](http
 
 `chore(deps):` の接頭辞は `semanticCommits: 'enabled'` が付けます（`config:recommended` に含まれるプリセットにより、アプリ本体の依存では `fix(deps):` になります）。接頭辞が付く形は変えていないので、CI の [`pr-title`](../README.md#pr-タイトルの書式) は通ります。
 
-`packageRules` には `groupSlug` を明示しています。グループ名の言い回しに関係なくブランチ名を固定するためです。グループ名はブランチ名にも使われ（`renovate/non-major`）、ここが崩れると[更新の一覧の issue](#更新の一覧の-issue) の絞り込み（`renovate/` で始まるブランチ）にも響きます。
+`packageRules` には `groupSlug` を明示しています。グループ名の言い回しに関係なくブランチ名を固定するためです。ブランチ名はこの slug から作られ（`renovate/non-major`）、ここが崩れると[更新の一覧の issue](#更新の一覧の-issue) の絞り込み（`renovate/` で始まるブランチ）にも響きます。
 
 ### 本文
 

@@ -504,7 +504,7 @@ for i in "${!RULESET_FILES[@]}"; do
 done
 
 if [[ "$REPO_SETTINGS" == true ]]; then
-  echo "updating the repository settings (auto-merge / delete branch on merge / update branch / squash only / squash title)"
+  echo "updating the repository settings (auto-merge / delete branch on merge / update branch / squash only / squash title / Issues, Discussions, Projects on / Wiki off)"
   patch_args=()
   for kv in "${REPO_SETTINGS_EXPECTED[@]}"; do
     read -r rest_key _ want <<<"$kv"

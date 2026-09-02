@@ -9,11 +9,10 @@
 # by offset against the first commit: branching first is allowed. The flag has
 # to stand on its own (-c feat, not -cfeat) to count as one. [^|;&\n] keeps
 # each match inside one pipeline segment (a newline separates commands just as
-# ; does). Matching is textual, not a shell parse, so a command that merely
-# quotes the words (echo "git commit") is still denied on main — a cheap false
-# positive; likewise the branch is the one of the checkout the hook runs in,
-# so a command that commits in another repository (cd elsewhere, git -C) is
-# judged against this checkout all the same.
+# ; does). Matching is textual, not a shell parse (docs/ci-jobs.md#hooks), and
+# the branch is the one of the checkout the hook runs in, so a command that
+# commits in another repository (cd elsewhere, git -C) is judged against this
+# checkout all the same.
 #
 # The hook fails closed: on main, a tool call it cannot read (not JSON, or no
 # command string) is denied rather than waved through — a verdict must never
