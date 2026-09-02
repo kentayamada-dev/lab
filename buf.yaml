@@ -15,9 +15,3 @@ breaking:
     # mode injects it at generation time, so the option is absent from the
     # built image this rule inspects.
     - FILE_SAME_GO_PACKAGE
-  # Temporary: UpdateTodoRequest.done became optional (explicit presence),
-  # which is wire compatible but changes the generated code. Remove this
-  # block in the PR after that change lands on main.
-  ignore_only:
-    FIELD_SAME_CARDINALITY:
-      - proto/todo/v1/todo.proto
