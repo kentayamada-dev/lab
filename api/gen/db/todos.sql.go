@@ -74,13 +74,13 @@ func (q *Queries) ListTodos(ctx context.Context) ([]Todo, error) {
 
 const updateTodo = `-- name: UpdateTodo :one
 UPDATE todos
-SET completed = $1, title = coalesce($2, title)
+SET completed = coalesce($1, completed), title = coalesce($2, title)
 WHERE id = $3
 RETURNING id, title, completed, created_at
 `
 
 type UpdateTodoParams struct {
-	Completed bool
+	Completed pgtype.Bool
 	Title     pgtype.Text
 	ID        int64
 }

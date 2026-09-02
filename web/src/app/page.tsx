@@ -39,7 +39,7 @@ export default function Home() {
 
   const rename = async (t: Todo) => {
     if (!editTitle.trim()) return;
-    await client.updateTodo({ id: t.id, done: t.done, title: editTitle });
+    await client.updateTodo({ id: t.id, title: editTitle });
     setEditingId(null);
     await load();
   };

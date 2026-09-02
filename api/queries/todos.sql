@@ -9,7 +9,7 @@ ORDER BY id;
 
 -- name: UpdateTodo :one
 UPDATE todos
-SET completed = sqlc.arg(completed), title = coalesce(sqlc.narg(title), title)
+SET completed = coalesce(sqlc.narg(completed), completed), title = coalesce(sqlc.narg(title), title)
 WHERE id = sqlc.arg(id)
 RETURNING *;
 

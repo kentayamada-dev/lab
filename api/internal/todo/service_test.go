@@ -293,19 +293,19 @@ func TestServiceUpdateTodo(t *testing.T) {
 		updateTodo: func(_ context.Context, arg db.UpdateTodoParams) (db.Todo, error) {
 			gotParams = arg
 
-			return db.Todo{ID: arg.ID, Title: "buy milk", Completed: arg.Completed}, nil
+			return db.Todo{ID: arg.ID, Title: "buy milk", Completed: arg.Completed.Bool}, nil
 		},
 	})
 
 	res, err := svc.UpdateTodo(
 		t.Context(),
-		connect.NewRequest(&todov1.UpdateTodoRequest{Id: 7, Done: true}),
+		connect.NewRequest(&todov1.UpdateTodoRequest{Id: 7, Done: proto.Bool(true)}),
 	)
 	if err != nil {
 		t.Fatalf("UpdateTodo() error = %v, want nil", err)
 	}
 
-	wantParams := db.UpdateTodoParams{ID: 7, Completed: true}
+	wantParams := db.UpdateTodoParams{ID: 7, Completed: pgtype.Bool{Bool: true, Valid: true}}
 	if diff := cmp.Diff(wantParams, gotParams); diff != "" {
 		t.Errorf("params passed to the query (-want +got):\n%s", diff)
 	}
@@ -324,13 +324,13 @@ func TestServiceUpdateTodoWithTitle(t *testing.T) {
 		updateTodo: func(_ context.Context, arg db.UpdateTodoParams) (db.Todo, error) {
 			gotParams = arg
 
-			return db.Todo{ID: arg.ID, Title: arg.Title.String, Completed: arg.Completed}, nil
+			return db.Todo{ID: arg.ID, Title: arg.Title.String, Completed: arg.Completed.Bool}, nil
 		},
 	})
 
 	_, err := svc.UpdateTodo(
 		t.Context(),
-		connect.NewRequest(&todov1.UpdateTodoRequest{Id: 7, Done: true, Title: proto.String("  walk the dog  ")}),
+		connect.NewRequest(&todov1.UpdateTodoRequest{Id: 7, Done: proto.Bool(true), Title: proto.String("  walk the dog  ")}),
 	)
 	if err != nil {
 		t.Fatalf("UpdateTodo() error = %v, want nil", err)
@@ -338,11 +338,58 @@ func TestServiceUpdateTodoWithTitle(t *testing.T) {
 
 	wantParams := db.UpdateTodoParams{
 		ID:        7,
-		Completed: true,
+		Completed: pgtype.Bool{Bool: true, Valid: true},
 		Title:     pgtype.Text{String: "walk the dog", Valid: true},
 	}
 	if diff := cmp.Diff(wantParams, gotParams); diff != "" {
 		t.Errorf("params passed to the query (-want +got):\n%s", diff)
+	}
+}
+
+// An absent field reaches the query as a NULL parameter, which the query's
+// coalesce turns into "keep the current value".
+func TestServiceUpdateTodoLeavesAbsentFieldsUntouched(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		req        *todov1.UpdateTodoRequest
+		wantParams db.UpdateTodoParams
+	}{
+		"title only": {
+			req:        &todov1.UpdateTodoRequest{Id: 7, Title: proto.String("walk the dog")},
+			wantParams: db.UpdateTodoParams{ID: 7, Title: pgtype.Text{String: "walk the dog", Valid: true}},
+		},
+		"done only": {
+			req:        &todov1.UpdateTodoRequest{Id: 7, Done: proto.Bool(false)},
+			wantParams: db.UpdateTodoParams{ID: 7, Completed: pgtype.Bool{Bool: false, Valid: true}},
+		},
+		"neither": {
+			req:        &todov1.UpdateTodoRequest{Id: 7},
+			wantParams: db.UpdateTodoParams{ID: 7},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var gotParams db.UpdateTodoParams
+			svc := NewService(fakeQuerier{
+				updateTodo: func(_ context.Context, arg db.UpdateTodoParams) (db.Todo, error) {
+					gotParams = arg
+
+					return db.Todo{ID: arg.ID}, nil
+				},
+			})
+
+			if _, err := svc.UpdateTodo(t.Context(), connect.NewRequest(tt.req)); err != nil {
+				t.Fatalf("UpdateTodo() error = %v, want nil", err)
+			}
+
+			if diff := cmp.Diff(tt.wantParams, gotParams); diff != "" {
+				t.Errorf("params passed to the query (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 
@@ -359,7 +406,7 @@ func TestServiceUpdateTodoBlankTitle(t *testing.T) {
 
 	_, err := svc.UpdateTodo(
 		t.Context(),
-		connect.NewRequest(&todov1.UpdateTodoRequest{Id: 7, Done: true, Title: proto.String("   ")}),
+		connect.NewRequest(&todov1.UpdateTodoRequest{Id: 7, Title: proto.String("   ")}),
 	)
 	if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
 		t.Errorf("UpdateTodo() code = %v, want %v", got, connect.CodeInvalidArgument)
@@ -399,7 +446,7 @@ func TestServiceUpdateTodoErrors(t *testing.T) {
 
 			res, err := svc.UpdateTodo(
 				t.Context(),
-				connect.NewRequest(&todov1.UpdateTodoRequest{Id: 42, Done: true}),
+				connect.NewRequest(&todov1.UpdateTodoRequest{Id: 42, Done: proto.Bool(true)}),
 			)
 			if res != nil {
 				t.Errorf("UpdateTodo() response = %v, want nil", res)

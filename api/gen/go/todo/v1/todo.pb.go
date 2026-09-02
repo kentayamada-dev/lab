@@ -10,6 +10,7 @@ import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -30,7 +31,9 @@ type Todo struct {
 	// Human readable description of what has to be done.
 	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
 	// Whether the item has been completed.
-	Done          bool `protobuf:"varint,3,opt,name=done,proto3" json:"done,omitempty"`
+	Done bool `protobuf:"varint,3,opt,name=done,proto3" json:"done,omitempty"`
+	// When the item was created, assigned by the database.
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -86,11 +89,18 @@ func (x *Todo) GetDone() bool {
 	return false
 }
 
+func (x *Todo) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
 // Request to create a new todo.
 type CreateTodoRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Title of the todo to create. Leading and trailing whitespace is trimmed
-	// before storage.
+	// before storage, and the rules below apply to the trimmed value.
 	Title         string `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -267,8 +277,8 @@ type UpdateTodoRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Identifier of the todo to update.
 	Id int64 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Desired completion state.
-	Done bool `protobuf:"varint,2,opt,name=done,proto3" json:"done,omitempty"`
+	// Desired completion state. Left unchanged when absent.
+	Done *bool `protobuf:"varint,2,opt,name=done,proto3,oneof" json:"done,omitempty"`
 	// New title for the todo. Left unchanged when absent. Subject to the same
 	// rules as CreateTodoRequest.title.
 	Title         *string `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
@@ -314,8 +324,8 @@ func (x *UpdateTodoRequest) GetId() int64 {
 }
 
 func (x *UpdateTodoRequest) GetDone() bool {
-	if x != nil {
-		return x.Done
+	if x != nil && x.Done != nil {
+		return *x.Done
 	}
 	return false
 }
@@ -460,24 +470,29 @@ var File_todo_v1_todo_proto protoreflect.FileDescriptor
 
 const file_todo_v1_todo_proto_rawDesc = "" +
 	"\n" +
-	"\x12todo/v1/todo.proto\x12\atodo.v1\x1a\x1bbuf/validate/validate.proto\"@\n" +
+	"\x12todo/v1/todo.proto\x12\atodo.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"{\n" +
 	"\x04Todo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x12\n" +
-	"\x04done\x18\x03 \x01(\bR\x04done\"y\n" +
-	"\x11CreateTodoRequest\x12d\n" +
-	"\x05title\x18\x01 \x01(\tBN\xbaHK\xba\x01C\n" +
-	"\x0ftitle.not_blank\x12\x17title must not be blank\x1a\x17!this.matches('^\\\\s*$')r\x03\x18\xe8\aR\x05title\"7\n" +
+	"\x04done\x18\x03 \x01(\bR\x04done\x129\n" +
+	"\n" +
+	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xc6\x01\n" +
+	"\x11CreateTodoRequest\x12\xb0\x01\n" +
+	"\x05title\x18\x01 \x01(\tB\x99\x01\xbaH\x95\x01\xba\x01=\n" +
+	"\x0ftitle.not_blank\x12\x17title must not be blank\x1a\x11this.trim() != ''\xba\x01R\n" +
+	"\rtitle.max_len\x12%title must be at most 1000 characters\x1a\x1athis.trim().size() <= 1000R\x05title\"7\n" +
 	"\x12CreateTodoResponse\x12!\n" +
 	"\x04todo\x18\x01 \x01(\v2\r.todo.v1.TodoR\x04todo\"\x12\n" +
 	"\x10ListTodosRequest\"8\n" +
 	"\x11ListTodosResponse\x12#\n" +
-	"\x05todos\x18\x01 \x03(\v2\r.todo.v1.TodoR\x05todos\"\xac\x01\n" +
+	"\x05todos\x18\x01 \x03(\v2\r.todo.v1.TodoR\x05todos\"\x87\x02\n" +
 	"\x11UpdateTodoRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
-	"\x04done\x18\x02 \x01(\bR\x04done\x12i\n" +
-	"\x05title\x18\x03 \x01(\tBN\xbaHK\xba\x01C\n" +
-	"\x0ftitle.not_blank\x12\x17title must not be blank\x1a\x17!this.matches('^\\\\s*$')r\x03\x18\xe8\aH\x00R\x05title\x88\x01\x01B\b\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x17\n" +
+	"\x04done\x18\x02 \x01(\bH\x00R\x04done\x88\x01\x01\x12\xb5\x01\n" +
+	"\x05title\x18\x03 \x01(\tB\x99\x01\xbaH\x95\x01\xba\x01=\n" +
+	"\x0ftitle.not_blank\x12\x17title must not be blank\x1a\x11this.trim() != ''\xba\x01R\n" +
+	"\rtitle.max_len\x12%title must be at most 1000 characters\x1a\x1athis.trim().size() <= 1000H\x01R\x05title\x88\x01\x01B\a\n" +
+	"\x05_doneB\b\n" +
 	"\x06_title\"7\n" +
 	"\x12UpdateTodoResponse\x12!\n" +
 	"\x04todo\x18\x01 \x01(\v2\r.todo.v1.TodoR\x04todo\"#\n" +
@@ -508,33 +523,35 @@ func file_todo_v1_todo_proto_rawDescGZIP() []byte {
 
 var file_todo_v1_todo_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_todo_v1_todo_proto_goTypes = []any{
-	(*Todo)(nil),               // 0: todo.v1.Todo
-	(*CreateTodoRequest)(nil),  // 1: todo.v1.CreateTodoRequest
-	(*CreateTodoResponse)(nil), // 2: todo.v1.CreateTodoResponse
-	(*ListTodosRequest)(nil),   // 3: todo.v1.ListTodosRequest
-	(*ListTodosResponse)(nil),  // 4: todo.v1.ListTodosResponse
-	(*UpdateTodoRequest)(nil),  // 5: todo.v1.UpdateTodoRequest
-	(*UpdateTodoResponse)(nil), // 6: todo.v1.UpdateTodoResponse
-	(*DeleteTodoRequest)(nil),  // 7: todo.v1.DeleteTodoRequest
-	(*DeleteTodoResponse)(nil), // 8: todo.v1.DeleteTodoResponse
+	(*Todo)(nil),                  // 0: todo.v1.Todo
+	(*CreateTodoRequest)(nil),     // 1: todo.v1.CreateTodoRequest
+	(*CreateTodoResponse)(nil),    // 2: todo.v1.CreateTodoResponse
+	(*ListTodosRequest)(nil),      // 3: todo.v1.ListTodosRequest
+	(*ListTodosResponse)(nil),     // 4: todo.v1.ListTodosResponse
+	(*UpdateTodoRequest)(nil),     // 5: todo.v1.UpdateTodoRequest
+	(*UpdateTodoResponse)(nil),    // 6: todo.v1.UpdateTodoResponse
+	(*DeleteTodoRequest)(nil),     // 7: todo.v1.DeleteTodoRequest
+	(*DeleteTodoResponse)(nil),    // 8: todo.v1.DeleteTodoResponse
+	(*timestamppb.Timestamp)(nil), // 9: google.protobuf.Timestamp
 }
 var file_todo_v1_todo_proto_depIdxs = []int32{
-	0, // 0: todo.v1.CreateTodoResponse.todo:type_name -> todo.v1.Todo
-	0, // 1: todo.v1.ListTodosResponse.todos:type_name -> todo.v1.Todo
-	0, // 2: todo.v1.UpdateTodoResponse.todo:type_name -> todo.v1.Todo
-	1, // 3: todo.v1.TodoService.CreateTodo:input_type -> todo.v1.CreateTodoRequest
-	3, // 4: todo.v1.TodoService.ListTodos:input_type -> todo.v1.ListTodosRequest
-	5, // 5: todo.v1.TodoService.UpdateTodo:input_type -> todo.v1.UpdateTodoRequest
-	7, // 6: todo.v1.TodoService.DeleteTodo:input_type -> todo.v1.DeleteTodoRequest
-	2, // 7: todo.v1.TodoService.CreateTodo:output_type -> todo.v1.CreateTodoResponse
-	4, // 8: todo.v1.TodoService.ListTodos:output_type -> todo.v1.ListTodosResponse
-	6, // 9: todo.v1.TodoService.UpdateTodo:output_type -> todo.v1.UpdateTodoResponse
-	8, // 10: todo.v1.TodoService.DeleteTodo:output_type -> todo.v1.DeleteTodoResponse
-	7, // [7:11] is the sub-list for method output_type
-	3, // [3:7] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	9, // 0: todo.v1.Todo.created_at:type_name -> google.protobuf.Timestamp
+	0, // 1: todo.v1.CreateTodoResponse.todo:type_name -> todo.v1.Todo
+	0, // 2: todo.v1.ListTodosResponse.todos:type_name -> todo.v1.Todo
+	0, // 3: todo.v1.UpdateTodoResponse.todo:type_name -> todo.v1.Todo
+	1, // 4: todo.v1.TodoService.CreateTodo:input_type -> todo.v1.CreateTodoRequest
+	3, // 5: todo.v1.TodoService.ListTodos:input_type -> todo.v1.ListTodosRequest
+	5, // 6: todo.v1.TodoService.UpdateTodo:input_type -> todo.v1.UpdateTodoRequest
+	7, // 7: todo.v1.TodoService.DeleteTodo:input_type -> todo.v1.DeleteTodoRequest
+	2, // 8: todo.v1.TodoService.CreateTodo:output_type -> todo.v1.CreateTodoResponse
+	4, // 9: todo.v1.TodoService.ListTodos:output_type -> todo.v1.ListTodosResponse
+	6, // 10: todo.v1.TodoService.UpdateTodo:output_type -> todo.v1.UpdateTodoResponse
+	8, // 11: todo.v1.TodoService.DeleteTodo:output_type -> todo.v1.DeleteTodoResponse
+	8, // [8:12] is the sub-list for method output_type
+	4, // [4:8] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_todo_v1_todo_proto_init() }

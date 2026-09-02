@@ -5,13 +5,15 @@
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import { file_buf_validate_validate } from "../../buf/validate/validate_pb";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file todo/v1/todo.proto.
  */
 export const file_todo_v1_todo: GenFile = /*@__PURE__*/
-  fileDesc("ChJ0b2RvL3YxL3RvZG8ucHJvdG8SB3RvZG8udjEiLwoEVG9kbxIKCgJpZBgBIAEoAxINCgV0aXRsZRgCIAEoCRIMCgRkb25lGAMgASgIInIKEUNyZWF0ZVRvZG9SZXF1ZXN0El0KBXRpdGxlGAEgASgJQk66SEu6AUMKD3RpdGxlLm5vdF9ibGFuaxIXdGl0bGUgbXVzdCBub3QgYmUgYmxhbmsaFyF0aGlzLm1hdGNoZXMoJ15cXHMqJCcpcgMY6AciMQoSQ3JlYXRlVG9kb1Jlc3BvbnNlEhsKBHRvZG8YASABKAsyDS50b2RvLnYxLlRvZG8iEgoQTGlzdFRvZG9zUmVxdWVzdCIxChFMaXN0VG9kb3NSZXNwb25zZRIcCgV0b2RvcxgBIAMoCzINLnRvZG8udjEuVG9kbyKbAQoRVXBkYXRlVG9kb1JlcXVlc3QSCgoCaWQYASABKAMSDAoEZG9uZRgCIAEoCBJiCgV0aXRsZRgDIAEoCUJOukhLugFDCg90aXRsZS5ub3RfYmxhbmsSF3RpdGxlIG11c3Qgbm90IGJlIGJsYW5rGhchdGhpcy5tYXRjaGVzKCdeXFxzKiQnKXIDGOgHSACIAQFCCAoGX3RpdGxlIjEKElVwZGF0ZVRvZG9SZXNwb25zZRIbCgR0b2RvGAEgASgLMg0udG9kby52MS5Ub2RvIh8KEURlbGV0ZVRvZG9SZXF1ZXN0EgoKAmlkGAEgASgDIhQKEkRlbGV0ZVRvZG9SZXNwb25zZTKmAgoLVG9kb1NlcnZpY2USRQoKQ3JlYXRlVG9kbxIaLnRvZG8udjEuQ3JlYXRlVG9kb1JlcXVlc3QaGy50b2RvLnYxLkNyZWF0ZVRvZG9SZXNwb25zZRJCCglMaXN0VG9kb3MSGS50b2RvLnYxLkxpc3RUb2Rvc1JlcXVlc3QaGi50b2RvLnYxLkxpc3RUb2Rvc1Jlc3BvbnNlEkUKClVwZGF0ZVRvZG8SGi50b2RvLnYxLlVwZGF0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5VcGRhdGVUb2RvUmVzcG9uc2USRQoKRGVsZXRlVG9kbxIaLnRvZG8udjEuRGVsZXRlVG9kb1JlcXVlc3QaGy50b2RvLnYxLkRlbGV0ZVRvZG9SZXNwb25zZUJ4Cgtjb20udG9kby52MUIJVG9kb1Byb3RvUAFaIWV4YW1wbGUvYXBwL2dlbi9nby90b2RvL3YxO3RvZG92MaICA1RYWKoCB1RvZG8uVjHKAgdUb2RvXFYx4gITVG9kb1xWMVxHUEJNZXRhZGF0YeoCCFRvZG86OlYxYgZwcm90bzM", [file_buf_validate_validate]);
+  fileDesc("ChJ0b2RvL3YxL3RvZG8ucHJvdG8SB3RvZG8udjEiXwoEVG9kbxIKCgJpZBgBIAEoAxINCgV0aXRsZRgCIAEoCRIMCgRkb25lGAMgASgIEi4KCmNyZWF0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIr8BChFDcmVhdGVUb2RvUmVxdWVzdBKpAQoFdGl0bGUYASABKAlCmQG6SJUBugE9Cg90aXRsZS5ub3RfYmxhbmsSF3RpdGxlIG11c3Qgbm90IGJlIGJsYW5rGhF0aGlzLnRyaW0oKSAhPSAnJ7oBUgoNdGl0bGUubWF4X2xlbhIldGl0bGUgbXVzdCBiZSBhdCBtb3N0IDEwMDAgY2hhcmFjdGVycxoadGhpcy50cmltKCkuc2l6ZSgpIDw9IDEwMDAiMQoSQ3JlYXRlVG9kb1Jlc3BvbnNlEhsKBHRvZG8YASABKAsyDS50b2RvLnYxLlRvZG8iEgoQTGlzdFRvZG9zUmVxdWVzdCIxChFMaXN0VG9kb3NSZXNwb25zZRIcCgV0b2RvcxgBIAMoCzINLnRvZG8udjEuVG9kbyL2AQoRVXBkYXRlVG9kb1JlcXVlc3QSCgoCaWQYASABKAMSEQoEZG9uZRgCIAEoCEgAiAEBEq4BCgV0aXRsZRgDIAEoCUKZAbpIlQG6AT0KD3RpdGxlLm5vdF9ibGFuaxIXdGl0bGUgbXVzdCBub3QgYmUgYmxhbmsaEXRoaXMudHJpbSgpICE9ICcnugFSCg10aXRsZS5tYXhfbGVuEiV0aXRsZSBtdXN0IGJlIGF0IG1vc3QgMTAwMCBjaGFyYWN0ZXJzGhp0aGlzLnRyaW0oKS5zaXplKCkgPD0gMTAwMEgBiAEBQgcKBV9kb25lQggKBl90aXRsZSIxChJVcGRhdGVUb2RvUmVzcG9uc2USGwoEdG9kbxgBIAEoCzINLnRvZG8udjEuVG9kbyIfChFEZWxldGVUb2RvUmVxdWVzdBIKCgJpZBgBIAEoAyIUChJEZWxldGVUb2RvUmVzcG9uc2UypgIKC1RvZG9TZXJ2aWNlEkUKCkNyZWF0ZVRvZG8SGi50b2RvLnYxLkNyZWF0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5DcmVhdGVUb2RvUmVzcG9uc2USQgoJTGlzdFRvZG9zEhkudG9kby52MS5MaXN0VG9kb3NSZXF1ZXN0GhoudG9kby52MS5MaXN0VG9kb3NSZXNwb25zZRJFCgpVcGRhdGVUb2RvEhoudG9kby52MS5VcGRhdGVUb2RvUmVxdWVzdBobLnRvZG8udjEuVXBkYXRlVG9kb1Jlc3BvbnNlEkUKCkRlbGV0ZVRvZG8SGi50b2RvLnYxLkRlbGV0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5EZWxldGVUb2RvUmVzcG9uc2VCeAoLY29tLnRvZG8udjFCCVRvZG9Qcm90b1ABWiFleGFtcGxlL2FwcC9nZW4vZ28vdG9kby92MTt0b2RvdjGiAgNUWFiqAgdUb2RvLlYxygIHVG9kb1xWMeICE1RvZG9cVjFcR1BCTWV0YWRhdGHqAghUb2RvOjpWMWIGcHJvdG8z", [file_buf_validate_validate, file_google_protobuf_timestamp]);
 
 /**
  * A single todo item.
@@ -39,6 +41,13 @@ export type Todo = Message<"todo.v1.Todo"> & {
    * @generated from field: bool done = 3;
    */
   done: boolean;
+
+  /**
+   * When the item was created, assigned by the database.
+   *
+   * @generated from field: google.protobuf.Timestamp created_at = 4;
+   */
+  createdAt?: Timestamp | undefined;
 };
 
 /**
@@ -56,7 +65,7 @@ export const TodoSchema: GenMessage<Todo> = /*@__PURE__*/
 export type CreateTodoRequest = Message<"todo.v1.CreateTodoRequest"> & {
   /**
    * Title of the todo to create. Leading and trailing whitespace is trimmed
-   * before storage.
+   * before storage, and the rules below apply to the trimmed value.
    *
    * @generated from field: string title = 1;
    */
@@ -141,11 +150,11 @@ export type UpdateTodoRequest = Message<"todo.v1.UpdateTodoRequest"> & {
   id: bigint;
 
   /**
-   * Desired completion state.
+   * Desired completion state. Left unchanged when absent.
    *
-   * @generated from field: bool done = 2;
+   * @generated from field: optional bool done = 2;
    */
-  done: boolean;
+  done?: boolean | undefined;
 
   /**
    * New title for the todo. Left unchanged when absent. Subject to the same
@@ -249,10 +258,11 @@ export const TodoService: GenService<{
     output: typeof ListTodosResponseSchema;
   },
   /**
-   * Updates the todo identified by id and returns the updated record: done is
-   * always applied, title only when present. Fails with the not_found code
-   * when no todo has that id, and with the invalid_argument code when the
-   * title is present but breaks its rules.
+   * Updates the todo identified by id and returns the updated record: done and
+   * title are each applied only when present, so a request carrying neither
+   * returns the record unchanged. Fails with the not_found code when no todo
+   * has that id, and with the invalid_argument code when the title is present
+   * but breaks its rules.
    *
    * @generated from rpc todo.v1.TodoService.UpdateTodo
    */

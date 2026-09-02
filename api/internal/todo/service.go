@@ -103,9 +103,9 @@ func (s *Service) UpdateTodo(
 	ctx context.Context,
 	req *connect.Request[todov1.UpdateTodoRequest],
 ) (*connect.Response[todov1.UpdateTodoResponse], error) {
-	params := db.UpdateTodoParams{
-		ID:        req.Msg.Id,
-		Completed: req.Msg.Done,
+	params := db.UpdateTodoParams{ID: req.Msg.Id}
+	if req.Msg.Done != nil {
+		params.Completed = pgtype.Bool{Bool: req.Msg.GetDone(), Valid: true}
 	}
 	if req.Msg.Title != nil {
 		title, err := validTitle(req.Msg.GetTitle())
