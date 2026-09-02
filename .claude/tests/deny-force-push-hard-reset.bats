@@ -39,9 +39,16 @@ assert_decision() {
   assert_decision deny 'git reset -q --hard HEAD'
 }
 
+@test "denies a git clean, the dry run included" {
+  assert_decision deny 'git clean -fdx'
+  assert_decision deny 'git clean -n'
+  assert_decision deny 'git -C docs clean -f'
+}
+
 @test "denies when the command hides in a compound command" {
   assert_decision deny 'git fetch && git push -f'
   assert_decision deny 'cd docs; git reset --hard'
+  assert_decision deny 'cd docs && git clean -fdx'
 }
 
 @test "denies a merely quoted mention" {
@@ -58,6 +65,7 @@ assert_decision() {
 @test "stays silent when the words fall in different pipeline segments" {
   assert_decision '' 'git log --oneline | grep -- --force'
   assert_decision '' 'git push origin HEAD | grep -- -f'
+  assert_decision '' 'git status --porcelain | grep clean'
 }
 
 @test "stays silent when the words fall on different lines" {
