@@ -69,8 +69,8 @@ REPO_SETTINGS_EXPECTED=(
 REPO_SETTINGS_ENDPOINTS=(
   immutable-releases
   private-vulnerability-reporting
-  # Dependabot alerts. Unlike the two above, its GET returns no body (204 enabled /
-  # 404 disabled), so the check reads the status code instead of .enabled.
+  # Dependabot alerts: the GET has no body, so the check reads the status code
+  # instead of .enabled (docs/drift-check.md).
   vulnerability-alerts
 )
 

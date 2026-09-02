@@ -27,8 +27,7 @@ type Server struct {
 }
 
 func New(addr string, todoService todov1connect.TodoServiceHandler) *Server {
-	// Rejects requests that break the buf.validate rules declared in the
-	// proto before they reach the handler.
+	// Enforces the buf.validate rules declared in the proto.
 	validator := validate.NewInterceptor()
 
 	mux := http.NewServeMux()

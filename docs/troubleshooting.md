@@ -17,7 +17,7 @@ gh api repos/OWNER/REPO/commits/main/check-runs --jq '.check_runs[] | "\(.name)\
 必須チェック以外に、マージを止める保護が 2 つあります（[ブランチ保護の内容](../README.md#ブランチ保護の内容)）。
 
 - 未解決のレビューコメント。Files changed タブで、自分の PR に自分で付けたものも含めてすべて resolve してください。
-- Code scanning のアラート（重大度は問いません）。Security タブの Code scanning を開き、直すか dismiss してください（[CodeQL](ci-jobs.md#codeql)）。
+- Code scanning のアラート。Security タブの Code scanning を開き、直すか dismiss してください（どの重大度で止まるかは [CodeQL](ci-jobs.md#codeql)）。
 
 ## Renovate の PR が作られない
 

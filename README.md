@@ -48,7 +48,7 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 | [.github/renovate.json5](.github/renovate.json5) | Renovate の設定 |
 | [.github/pull_request_template.md](.github/pull_request_template.md) | PR の本文テンプレート |
 | [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE) | issue のテンプレート（バグ報告 / 作業項目） |
-| [CLAUDE.md](CLAUDE.md) | Claude Code が読み込む指示書。自分のリポジトリの指示書で置き換える |
+| [CLAUDE.md](CLAUDE.md) | Claude Code が読み込む指示書 |
 | [.claude/settings.json](.claude/settings.json) | Claude Code の設定。下のフックスクリプトをここで配線する |
 | [.claude/hooks/](.claude/hooks) | CLAUDE.md の規則を強制するフックスクリプト |
 | [.claude/skills/docs-check/SKILL.md](.claude/skills/docs-check/SKILL.md) | 重複・ドキュメント陳腐化チェックの手順（`/docs-check` で実行） |
@@ -183,7 +183,7 @@ gh api repos/OWNER/REPO --jq .squash_merge_commit_title   # PR_TITLE である�
 | [.gitattributes](.gitattributes) | git が正規化 | 改行コードを LF に固定。エディタ設定や OS に依存しない |
 | `ci` の `format` ジョブ | 必須チェック | 違反を PR で弾く（editorconfig-checker と shfmt の 2 つ） |
 
-`format` ジョブは [editorconfig-checker](https://github.com/editorconfig-checker/editorconfig-checker) で `.editorconfig` の全項目を検査します。設定の情報源は `.editorconfig` 1 つだけで、CI 側に検査項目を書き写してはいません。検査から外すファイル（生成物と vendored。[例外](#例外)）だけは [.editorconfig-checker.json](.editorconfig-checker.json) に列挙します。
+`format` ジョブは [editorconfig-checker](https://github.com/editorconfig-checker/editorconfig-checker) で `.editorconfig` の全項目を検査します。設定の情報源は `.editorconfig` 1 つだけで、CI 側に検査項目を書き写してはいません。検査から外すファイルは[例外](#例外)にあります。
 
 タブの検査（`indent_style`）には実害の防止という意味もあります。YAML は仕様上インデントにタブを使えないため、エディタの既定がタブの環境で `ci.yml` を編集するとワークフローが壊れます。
 
@@ -254,4 +254,4 @@ immutable releases を有効にしているため、有効化後に公開した�
 
 ## ライセンス
 
-MIT（[LICENSE](LICENSE)）。テンプレートから作ったリポジトリは、このファイルを差し替えてかまいません。
+MIT（[LICENSE](LICENSE)）。
