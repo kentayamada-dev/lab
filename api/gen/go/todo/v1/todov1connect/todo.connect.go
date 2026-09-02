@@ -46,15 +46,15 @@ const (
 // TodoServiceClient is a client for the todo.v1.TodoService service.
 type TodoServiceClient interface {
 	// Creates a new todo item from the given title and returns the stored
-	// record. Fails with the invalid_argument code when the title is blank or
-	// longer than 1000 characters.
+	// record. Fails with the invalid_argument code when the title breaks the
+	// rules declared on CreateTodoRequest.title.
 	CreateTodo(context.Context, *connect.Request[v1.CreateTodoRequest]) (*connect.Response[v1.CreateTodoResponse], error)
 	// Returns all todo items. The list is empty when no todos exist.
 	ListTodos(context.Context, *connect.Request[v1.ListTodosRequest]) (*connect.Response[v1.ListTodosResponse], error)
 	// Updates the todo identified by id and returns the updated record: done is
 	// always applied, title only when present. Fails with the not_found code
 	// when no todo has that id, and with the invalid_argument code when the
-	// title is present but blank or longer than 1000 characters.
+	// title is present but breaks its rules.
 	UpdateTodo(context.Context, *connect.Request[v1.UpdateTodoRequest]) (*connect.Response[v1.UpdateTodoResponse], error)
 	// Deletes the todo identified by id. Fails with the not_found code when no
 	// todo has that id.
@@ -130,15 +130,15 @@ func (c *todoServiceClient) DeleteTodo(ctx context.Context, req *connect.Request
 // TodoServiceHandler is an implementation of the todo.v1.TodoService service.
 type TodoServiceHandler interface {
 	// Creates a new todo item from the given title and returns the stored
-	// record. Fails with the invalid_argument code when the title is blank or
-	// longer than 1000 characters.
+	// record. Fails with the invalid_argument code when the title breaks the
+	// rules declared on CreateTodoRequest.title.
 	CreateTodo(context.Context, *connect.Request[v1.CreateTodoRequest]) (*connect.Response[v1.CreateTodoResponse], error)
 	// Returns all todo items. The list is empty when no todos exist.
 	ListTodos(context.Context, *connect.Request[v1.ListTodosRequest]) (*connect.Response[v1.ListTodosResponse], error)
 	// Updates the todo identified by id and returns the updated record: done is
 	// always applied, title only when present. Fails with the not_found code
 	// when no todo has that id, and with the invalid_argument code when the
-	// title is present but blank or longer than 1000 characters.
+	// title is present but breaks its rules.
 	UpdateTodo(context.Context, *connect.Request[v1.UpdateTodoRequest]) (*connect.Response[v1.UpdateTodoResponse], error)
 	// Deletes the todo identified by id. Fails with the not_found code when no
 	// todo has that id.

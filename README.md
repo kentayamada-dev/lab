@@ -68,7 +68,7 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 行動規範（Contributor Covenant v2.1 ベース） |
 | [LICENSE](LICENSE) | MIT ライセンス（[ライセンス](#ライセンス)） |
 
-**ドキュメントは日本語で書きます。** ツールが出力・照合するものは英語のみなので、`DRIFT` や `UNKNOWN` などのマーカーはこの文書でも英語のまま引用しています。
+ドキュメントの言語は [CONTRIBUTING.md](CONTRIBUTING.md#ドキュメントの言語) にあります。ツールが出力・照合する `DRIFT` や `UNKNOWN` などのマーカーがこの文書でも英語のままなのは、そのためです。
 
 ## セットアップ
 
@@ -97,7 +97,7 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 - Wiki の無効化（main の保護も CI も掛からず、テンプレートからも複製されないため使いません）
 - immutable releases（[リリース](#リリース)）
 - 脆弱性の非公開報告（public issue ではなく非公開の窓口で受け取る）
-- Dependabot alerts（依存に既知の脆弱性が公表された時点で GitHub が通知します。毎日の [osv-scanner](docs/ci-jobs.md#osv-scanner) と違い、60 日間更新が無く scheduled workflow が止まった後も動き続けます）
+- Dependabot alerts（依存に既知の脆弱性が公表された時点で GitHub が通知します。毎日の [osv-scanner](docs/ci-jobs.md#osv-scanner) と違い、[schedule が止まった後](docs/ci-jobs.md#定期実行が止まるとき)も動き続けます）
 - secret scanning の push protection（資格情報を含む push を、入る前に拒否します。[gitleaks](docs/ci-jobs.md#gitleaks) は既に履歴に入ったものを見つけるだけです）
 - Actions の `GITHUB_TOKEN` の既定権限を read に固定し、`GITHUB_TOKEN` による PR の作成・承認を禁止（各ワークフローが `permissions` を書き忘れたときの上限を既定値に依存させません）
 
@@ -109,20 +109,9 @@ gh api --method DELETE repos/OWNER/REPO/branches/main/protection
 
 ### ブランチ保護の内容
 
-| 項目 | 設定 |
-| --- | --- |
-| main への直接 push | 禁止 |
-| PR | 必須 |
-| 承認 | 0 人（セルフマージ可） |
-| レビューコメント | すべて解決しないとマージ不可 |
-| CI (`ci`) | 必須（GitHub Actions が報告したものだけを有効とする） |
-| Code scanning のアラート | セキュリティ系は重大度を問わず、品質系は error 級のアラートがあればマージを止める（[CodeQL](docs/ci-jobs.md#codeql)） |
-| マージ前の最新化 | 必須（base が進んだら Update branch） |
-| マージ方式 | squash のみ |
-| 履歴 | 一直線を強制（merge commit 不可） |
-| main の削除 / force-push | 禁止 |
-
 ruleset は [main.json](.github/rulesets/main.json) の 1 つで、対象は `main` だけです。main 以外のブランチには何も掛からず、管理者にも例外（bypass）を与えていません。設定を変えるときは JSON を編集してスクリプトを再実行してください。
+
+JSON から読み取りにくい点だけ補足します。承認は 0 人でセルフマージできますが、レビューコメントはすべて解決しないとマージできません。必須チェックは `ci` だけで、`integration_id` により GitHub Actions が報告したものだけを有効とします。Code scanning は、セキュリティ系のアラートは重大度を問わず、品質系は error 級があればマージを止めます（[CodeQL](docs/ci-jobs.md#codeql)）。
 
 コミットの署名は必須にしていません。ルールが見るのはマージ時に GitHub が作って署名する squash コミットだけでなく PR に含まれるすべてのコミットなので、必須にすると未署名のコミットで作られる Renovate の更新 PR がマージできなくなるためです。
 
@@ -198,13 +187,7 @@ gh api repos/OWNER/REPO --jq .squash_merge_commit_title   # PR_TITLE である�
 
 タブの検査（`indent_style`）には実害の防止という意味もあります。YAML は仕様上インデントにタブを使えないため、エディタの既定がタブの環境で `ci.yml` を編集するとワークフローが壊れます。
 
-同じジョブで [shfmt](https://github.com/mvdan/sh) がシェルスクリプトの整形を検査します（コマンドは [mise.toml](mise.toml) の `check:format` タスクにあります）。
-
-| 指定 | 理由 |
-| --- | --- |
-| `-d` | 整形前後の差分を出し、差分があれば終了コードを 1 にする（`-w` のように書き換えない） |
-| `-i 2` | インデントは半角 2 |
-| `-ci` | `case` の中身を字下げする（このリポジトリの既存の書き方） |
+同じジョブで [shfmt](https://github.com/mvdan/sh) がシェルスクリプトの整形を検査します（コマンドは [mise.toml](mise.toml) の `check:format` タスクにあります）。`-ci`（`case` の中身の字下げ）はこのリポジトリの既存の書き方に合わせた指定です。
 
 shfmt の注意点:
 

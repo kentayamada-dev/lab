@@ -64,13 +64,13 @@ jobs:
 
 | ジョブ | 実行するもの |
 | --- | --- |
-| `proto` | `make proto-check`（buf の format / lint / breaking。breaking は origin/main と比較するため、このジョブだけ `fetch-depth: 0` で checkout します。比較先にまだ proto/ が無いとき — モジュールを初めて足す PR — はスキップします） |
-| `gen` | `make gen-check`（buf.gen.yaml の再生成結果と buf generate の出力を、コミット済みのものと突き合わせ） |
-| `db` | `make db-check`（atlas.sum の検証と、schema.sql とマイグレーションの diff） |
-| `api` | `make db-migrate` でスキーマを適用してから `make api-check`（sqlc の `db-prepare` ルールが実 DB に対してクエリを prepare するため、先にテーブルが要ります） |
-| `web` | `make web-check`（lockfile どおりの依存導入と、型検査込みの `next build`） |
+| `proto` | `make proto-check`。breaking は origin/main と比較するため、このジョブだけ `fetch-depth: 0` で checkout します |
+| `gen` | `make gen-check` |
+| `db` | `make db-check` |
+| `api` | `make db-migrate` でスキーマを適用してから `make api-check`。sqlc の `db-prepare` ルールが実 DB に対してクエリを prepare するため、先にテーブルが要ります |
+| `web` | `make web-check` |
 
-各ジョブは `USER_UID` / `USER_GID` を runner の uid / gid に合わせてから make を呼びます。bind mount したチェックアウトをコンテナ側が読み書きできるようにするためで、buf が `.git` を読むときの dubious ownership 判定もこれで避けます。`api` ジョブは `API_BUILD_TARGET=base` でイメージを build します（dev target が足す gopls は検査で使わず、コンパイルに時間がかかるためです）。
+各ターゲットの内容は `make help` にあります。各ジョブは `USER_UID` / `USER_GID` を runner の uid / gid に合わせてから make を呼びます。bind mount したチェックアウトをコンテナ側が読み書きできるようにするためで、buf が `.git` を読むときの dubious ownership 判定もこれで避けます。`api` ジョブは `API_BUILD_TARGET=base` でイメージを build します（dev target が足す gopls は検査で使わず、コンパイルに時間がかかるためです）。
 
 `api` と `web` は依存物のキャッシュを run をまたいで持ち越します。[docker-compose.yml](../docker-compose.yml) の `GO_MOD_CACHE` / `GO_BUILD_CACHE` / `PNPM_STORE` は named volume を任意のホストディレクトリに差し替えるための変数で、CI はここに actions/cache で restore したディレクトリを渡します（ローカルでは未設定のまま named volume が使われます）。保存は [mise のキャッシュ](#ツールの導入と検証)と同じ理由で main への push のときだけです。`proto` / `gen` / `db` はイメージの pull だけで動くため、キャッシュしていません。
 
@@ -112,7 +112,7 @@ mise run check              # 手元のチェックアウトで動く検査す�
 mise run check:shellcheck   # 1 つのジョブの検査だけ
 ```
 
-初回の実行で固定版のツールが入ります。コマンドもバージョンも両側が同じファイルを読むため、結果は CI と一致します。注意は 2 つ。[zizmor](#zizmor) は環境変数 `GITHUB_TOKEN` が無いとオフラインで動き、オンラインの監査はスキップされます。[gitleaks](#gitleaks) は shallow clone には無い全履歴を必要とします。
+初回の実行で固定版のツールが入ります。コマンドもバージョンも両側が同じファイルを読むため、結果は CI と一致します。手元の環境で差が出る条件は [zizmor](#zizmor)（トークン）と [gitleaks](#gitleaks)（全履歴）の節にあります。
 
 タスクが無いジョブは、手元のチェックアウトだけでは動かないものです。[CodeQL](#codeql) と `pr-title` は GitHub 側を必要とし、[setup-script](#setup-script) はトークンと API を必要とし、[markdownlint-cli2](#markdownlint-cli2)・[renovate-config](renovate.md#設定の検証)・[osv-scanner](#osv-scanner) は前述の、mise を通さない 3 つの例外です。[アプリコードの検査](#アプリコードの検査)の 5 ジョブにもタスクはありませんが、こちらは CI と同じ make ターゲットで再現できます（前提は docker）。
 
@@ -145,14 +145,7 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 ## shellcheck
 
-[ci.yml](../.github/workflows/ci.yml) の `shellcheck` ジョブが、git 管理下の `*.sh` / `*.bash` を検査します。未クォートの変数展開、意図しない単語分割、常に真になる比較など、実行してもエラーにならず黙って誤動作する類の不備が対象です。整形（インデントなど）は見ません。そちらは [`format`](../README.md#書式の統一) ジョブの shfmt が担当します。コマンドは [mise.toml](../mise.toml) の `check:shellcheck` タスクにあります。
-
-| 指定 | 理由 |
-| --- | --- |
-| `git ls-files` | 追跡外のファイル（手元の一時スクリプトなど）は検査しない |
-| `-z` / `-0` | ファイル名を NUL 区切りで渡し、空白を含む名前でも壊れないようにする |
-| `-r` | 対象が 1 件も無いときに shellcheck を起動しない |
-| `--external-sources` | `source` で読み込む先のファイルも追跡する |
+[ci.yml](../.github/workflows/ci.yml) の `shellcheck` ジョブが、git 管理下の `*.sh` / `*.bash` を検査します。未クォートの変数展開、意図しない単語分割、常に真になる比較など、実行してもエラーにならず黙って誤動作する類の不備が対象です。整形（インデントなど）は見ません。そちらは [`format`](../README.md#書式の統一) ジョブの shfmt が担当します。コマンドは [mise.toml](../mise.toml) の `check:shellcheck` タスクにあります。対象を `git ls-files` で集めているのは、追跡外のファイル（手元の一時スクリプトなど）を検査しないためです。
 
 拡張子を持たないスクリプト（shebang だけのファイル）は対象外です。追加したら `git ls-files` のパターンを足してください。
 
@@ -160,7 +153,7 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 [ci.yml](../.github/workflows/ci.yml) の `hadolint` ジョブが、git 管理下の Dockerfile を検査します。ベースイメージのタグ未固定（`FROM node:latest`）、バージョン指定の無い `apt-get install`、最後の `USER` が root のままなど、**`docker build` は通るが再現性・サイズ・権限で損をする書き方**が対象です。`RUN` に書いたシェルも、同梱の ShellCheck が [shellcheck](#shellcheck) ジョブと同じ観点で見ます。コマンドは [mise.toml](../mise.toml) の `check:hadolint` タスクにあります。
 
-`git ls-files` / `-z` / `-0` の理由は [shellcheck](#shellcheck) と同じです。`-r` は、hadolint がファイル名を渡されないと標準入力を Dockerfile として読むため、空の実行をさせないために付けています。
+`git ls-files` の理由は [shellcheck](#shellcheck) と同じです。`xargs -r` は、hadolint がファイル名を渡されないと標準入力を Dockerfile として読むため、空の実行をさせないために付けています。
 
 **hadolint はディレクトリを辿らず、検査対象はファイル名で渡す必要があります。** タスクのパターンで `Dockerfile` / `Dockerfile.dev` / `api.Dockerfile` / `web.dockerfile` などを、サブディレクトリも含めて拾います。`Containerfile` のような別の名前を使う場合はパターンを足してください。
 
@@ -178,16 +171,11 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 設定は [.typos.toml](../.typos.toml) に書きます。入れてある設定は 3 つです。
 
-```toml
-[files]
-ignore-hidden = false
-```
+`ignore-hidden = false`: **typos は既定で `.` 始まりのファイルとディレクトリを飛ばします。** 外さないと `.github/` 配下がまるごと検査対象から外れます。`.git` 自体は [.gitignore](../.gitignore) に書いてあるため、gitignore を尊重する既定の動作で除外されます。
 
-**typos は既定で `.` 始まりのファイルとディレクトリを飛ばします。** 外さないと `.github/` 配下がまるごと検査対象から外れます。`.git` 自体は [.gitignore](../.gitignore) に書いてあるため、gitignore を尊重する既定の動作で除外されます。
+`extend-exclude`: 生成物と vendored のファイルを除外しています（理由は [.typos.toml](../.typos.toml) のコメントを参照）。
 
-もう 1 つは `extend-exclude` で、生成物と vendored のファイルを除外しています（理由は [.typos.toml](../.typos.toml) のコメントを参照）。
-
-最後の 1 つは `extend-ignore-re` で、この節の綴り間違いの例を除外しています（外すと typos 自身がこのファイルを誤字として弾きます）。
+`extend-ignore-re`: この節の綴り間違いの例を除外しています（外すと typos 自身がこのファイルを誤字として弾きます）。
 
 誤検出の抑止も同じファイルに足します（[全項目](https://github.com/crate-ci/typos/blob/master/docs/reference.md)）。
 
@@ -195,17 +183,7 @@ ignore-hidden = false
 
 [ci.yml](../.github/workflows/ci.yml) の `lychee` ジョブが、Markdown のリンク切れを検査します。このリポジトリのリンクの大半は見出しへのアンカーとリポジトリ内ファイルへの相対パスで、見出しの改名やファイルの移動で静かに切れます。このジョブはそれを PR で落とします。
 
-```bash
-lychee --offline --include-fragments --no-progress --exclude-path <vendored の Swagger UI 一式> .
-```
-
-| 指定 | 理由 |
-| --- | --- |
-| `--offline` | `file` スキーム以外を検査対象から外す（= 通信しない） |
-| `--include-fragments` | リンク先ファイルの中の `#アンカー` まで照合する |
-| `--no-progress` | 非対話シェル向けにプログレスバーを消す |
-| `--exclude-path` | vendored の Swagger UI 一式（api/internal/server/ の swagger-*）を走査から外す。中身の文字列をリンクとして拾ってしまうため。[外部リンクの定期検査](#外部リンクの定期検査)も同じものを除外している |
-| `.` | リポジトリのルートを再帰的にたどる（[.gitignore](../.gitignore) のものは除外） |
+コマンドは [mise.toml](../mise.toml) の `check:lychee` タスクにあります。`--exclude-path` で vendored の Swagger UI 一式（api/internal/server/ の swagger-ui-* と swagger.html）を走査から外しているのは、中身の文字列をリンクとして拾ってしまうためです（[外部リンクの定期検査](#外部リンクの定期検査)も同じものを除外しています）。
 
 **このジョブは外部 URL を検査しません。** `--offline` を外すと相手先の一時的な不調やレート制限で CI が落ち、コードと無関係に赤くなるためです。外部 URL は別ワークフローの定期実行で見ます（[外部リンクの定期検査](#外部リンクの定期検査)）。
 
@@ -223,11 +201,7 @@ lychee --offline --include-fragments --no-progress --exclude-path <vendored の 
 | 必須チェック | はい（`ci` の一部） | いいえ（別ワークフロー） |
 | 落ちたとき | PR がマージできない | issue が立つ |
 
-```bash
-lychee --no-progress --exclude 'OWNER/REPO' --exclude-path <vendored の Swagger UI 一式> .
-```
-
-CI ではこれに `--mode plain` を足し、出力を `tee` で控えます（ANSI エスケープを混ぜずに issue 本文へそのまま載せるため）。
+コマンドは [link-check.yml](../.github/workflows/link-check.yml) にあります。`--mode plain` は、出力を `tee` で控えて issue 本文へそのまま載せるとき、ANSI エスケープを混ぜないための指定です。
 
 `ci` に入れていないのは、リンク先はこちらが何もしなくても消え、一時的な不調でも落ちる — コードを変えなくても結果が変わる — ためです（[こうした検査を定期実行にしている理由](#ci-の検査ジョブ)）。
 
@@ -255,8 +229,6 @@ CI ではこれに `--mode plain` を足し、出力を `tee` で控えます（
 | 記法のスタイル（`MD003` `MD004` `MD029` `MD046` `MD048` `MD049` `MD050`） | `consistent` から具体値に固定 | `consistent` は 1 ファイルの中でしか揃わないため |
 
 **本文は途中で改行せず、1 段落を 1 行で書きます。** Markdown は段落内の改行を半角スペースに変換して表示するため、日本語の文を途中で折り返すと、表示された文の途中に空白が入ります。折り返しはソース側ではなく表示側で決めることでもあり、1 段落 1 行にしておけば差分が段落単位になって、語句を直しただけで以降の折り返し位置がずれる、といったことも起きません。`MD013` の本文の上限を 1000 文字まで上げているのはこのためです。
-
-行末の空白は `MD009` が見ます。[.editorconfig](../.editorconfig) が `*.md` を検査から外している分（[例外](../README.md#例外)）はここで埋まります。
 
 **このジョブだけは公式の [action](https://github.com/DavidAnson/markdownlint-cli2-action) を使い、mise を経由しません。** markdownlint-cli2 は npm でしか配布されておらず、mise で入れると実行用の node も別に要るためです。検査に使われるバージョンは action に同梱されたもので、action は commit SHA で固定してあります。
 
@@ -323,7 +295,7 @@ private リポジトリではこのジョブを走らせません（セットア
 
 結線もテストの対象です。フックは [.claude/settings.json](../.claude/settings.json) を通してしか呼ばれないため、設定を直さずにスクリプトの名前を変えた場合、答えるイベントと違うイベントに登録した場合、テストファイルのないフックスクリプトを足した場合は、いずれもこのジョブが落ちます。スクリプトだけを見るテストでは、どれも素通りします。
 
-prompt フックは中身も対象です。Conventional Commits の type 一覧は [ci.yml](../.github/workflows/ci.yml)（`PATTERN` とその隣の失敗メッセージ）、README の表、prompt フックに書き出されていて、どのコピーも他から導出されないため、テストが各コピーを `PATTERN`（`pr-title` ジョブが実際に強制するもの）と突き合わせます。
+prompt フックは中身も対象です。Conventional Commits の type 一覧は複数箇所に書き出されていて（どこにあるかは [PR タイトルの書式](../README.md#pr-タイトルの書式)）、どのコピーも他から導出されないため、テストが各コピーを `pr-title` ジョブの `PATTERN` と突き合わせます。
 
 ブランチ規則のテストは bats の一時ディレクトリに使い捨てのリポジトリを作るため、判定が runner のいるブランチに左右されることはありません。`jq` は GitHub ホストの runner に最初から入っていて、そもそも呼ぶのはフック自身なので、[mise.toml](../mise.toml) に足すのは bats だけです。
 
@@ -335,9 +307,7 @@ prompt フックは中身も対象です。Conventional Commits の type 一覧�
 
 ジョブの形は 2 つの制約が決めています。このスキーマは check-jsonschema に同梱されていないので実行時に SchemaStore から取得し、中身は Claude Code のリリースに追従するため、こちらのコードを変えなくても結果が変わりえます（[こうした検査を定期実行にしている理由](#ci-の検査ジョブ)）。また、スキーマは未知のトップレベルキーを許容する（`additionalProperties` が `false` なのは `sandbox` や `permissions` などの入れ子の中だけ）ため、トップレベルの綴り間違いは素通りします。
 
-```bash
-check-jsonschema --schemafile https://json.schemastore.org/claude-code-settings.json .claude/settings.json
-```
+コマンドは [claude-settings.yml](../.github/workflows/claude-settings.yml) にあります。
 
 落ちたときの通知は[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)です。`The Claude Code settings do not match the schema` という issue が `maintenance` ラベル付きで立ち、実行が通れば自動的に閉じます。定期実行なので[活動が無いと止まる](#定期実行が止まるとき)点も同じです。`.claude/` を手放すなら、このワークフローもフックや設定と一緒に削除してください。
 
@@ -345,10 +315,7 @@ check-jsonschema --schemafile https://json.schemastore.org/claude-code-settings.
 
 [ci.yml](../.github/workflows/ci.yml) の `script-tests` ジョブが、2 つの置き場にある [bats](https://bats-core.readthedocs.io/) のテストで、それぞれ隣にあるスクリプトを検査します。[.github/scripts/tests/](../.github/scripts/tests) は 1 つ上の [.github/scripts/](../.github/scripts) を検査します。定期実行のワークフローが、落ちた検査を issue として報告し、通ったら取り下げるために呼ぶ 2 つです。[scripts/tests/](../scripts/tests) は [scripts/](../scripts) にある [sync-repo-config.sh](../scripts/sync-repo-config.sh) を検査します。[設定のずれの検査](drift-check.md#設定のずれの検査)が OK / DRIFT / UNKNOWN の判定を頼っているスクリプトです。
 
-```bash
-git ls-files -z '.github/scripts/tests/*.bats' 'scripts/tests/*.bats' \
-  | xargs -0 -r bats --print-output-on-failure
-```
+コマンドは [mise.toml](../mise.toml) の `check:script-tests` タスクにあります。
 
 テストは `gh` をスタブに差し替えるので（仕組みは隣の `helper.bash` にあります）、GitHub には何も届かずトークンも要りません。だからこそ、その呼び出しの周りにある判断（各スクリプトの `--help` が説明している内容）をそもそも検査できます。このジョブが動かすのは [setup-script](#setup-script) が届かない部分です。dry run は判定にも書き込みにも進まないため、`--check` の OK / DRIFT / UNKNOWN の判定と適用の経路が動くのはここだけです。
 
@@ -387,20 +354,6 @@ git ls-files -z '.github/scripts/tests/*.bats' 'scripts/tests/*.bats' \
 | `schedule` | 毎日 06:00 JST | 新しく公開された脆弱性に気付く |
 | `push`（main） | 依存を触った PR のマージ | 次の定期実行を待たずに結果を出す。Code scanning のアラートの基準となる「デフォルトブランチの解析結果」を作る |
 | `workflow_dispatch` | 手動 | 設定を変えた直後の確認 |
-
-```yaml
-  osv-scanner:
-    permissions:
-      contents: read
-      actions: read
-      security-events: write
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@<commit sha> # v<タグ>
-    with:
-      scan-args: |-
-        -r
-        ./
-      fail-on-vuln: false
-```
 
 `fail-on-vuln: false` にしてあります（既定は `true`）。検出は Code scanning にアラートとして出るので、ジョブは落としません。落とすと同じ脆弱性で毎日赤くなり、「対応済み」「様子見」を個別に記録できないためです。アラートは毎回の実行で更新され、直った脆弱性のアラートは自動で閉じます。通知を受け取るにはリポジトリを watch して Code scanning のアラート通知を有効にしておきます。
 
@@ -447,7 +400,7 @@ osv-scanner は検査対象が 1 件も無いとき、「スキャンしたつ�
 
 ### 定期実行が止まるとき
 
-schedule はリポジトリの活動が 60 日間無いと GitHub 側で自動的に止まります（オーナーに通知が来ます）。止まったら Actions タブから有効化し直してください。動きの無いリポジトリでは黙って検査が止まる、という性質は覚えておいてください。
+[リポジトリの活動が 60 日間無いと GitHub が schedule を止めます](https://docs.github.com/ja/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)。有効化し直すのは Actions タブからで、動きの無いリポジトリでは黙って検査が止まる、という性質は覚えておいてください。
 
 ### 問い合わせ先
 

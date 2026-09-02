@@ -55,8 +55,8 @@ export const TodoSchema: GenMessage<Todo> = /*@__PURE__*/
  */
 export type CreateTodoRequest = Message<"todo.v1.CreateTodoRequest"> & {
   /**
-   * Title of the todo to create. Must not be blank and must be at most 1000
-   * characters. Leading and trailing whitespace is trimmed before storage.
+   * Title of the todo to create. Leading and trailing whitespace is trimmed
+   * before storage.
    *
    * @generated from field: string title = 1;
    */
@@ -228,8 +228,8 @@ export const DeleteTodoResponseSchema: GenMessage<DeleteTodoResponse> = /*@__PUR
 export const TodoService: GenService<{
   /**
    * Creates a new todo item from the given title and returns the stored
-   * record. Fails with the invalid_argument code when the title is blank or
-   * longer than 1000 characters.
+   * record. Fails with the invalid_argument code when the title breaks the
+   * rules declared on CreateTodoRequest.title.
    *
    * @generated from rpc todo.v1.TodoService.CreateTodo
    */
@@ -252,7 +252,7 @@ export const TodoService: GenService<{
    * Updates the todo identified by id and returns the updated record: done is
    * always applied, title only when present. Fails with the not_found code
    * when no todo has that id, and with the invalid_argument code when the
-   * title is present but blank or longer than 1000 characters.
+   * title is present but breaks its rules.
    *
    * @generated from rpc todo.v1.TodoService.UpdateTodo
    */

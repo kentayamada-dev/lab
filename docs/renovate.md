@@ -40,17 +40,15 @@ gh run watch
 
 **実行が失敗すると issue が立ちます**（[renovate.yml](../.github/workflows/renovate.yml) の `notify` ジョブ）。定期実行の失敗は見逃すと「更新 PR が来ない」だけの静かな状態になるためです。よくある原因は `RENOVATE_TOKEN` の失効・未登録・権限不足です（[トークンの登録](#トークンの登録)）。
 
-issue は `Renovate runs are failing` というタイトルで `maintenance` ラベル付きで立ち（[ラベル](../README.md#ラベル)）、本文に実行ログの URL と直し方が入ります。すでに同じ issue が open の間は何もせず（毎週同じ issue が積み上がらないように）、実行が成功すれば自動的に閉じます。
+通知の仕組みは[設定のずれの検査と同じ](drift-check.md#落ちたときの通知)です。issue のタイトルは `Renovate runs are failing` で、すでに open の間は何もしません（毎週同じ issue が積み上がらないように）。`RENOVATE_TOKEN` が失効していても通知が出るように、issue の操作にはワークフローの `GITHUB_TOKEN` を使います。
 
-issue の作成と close はワークフローの `GITHUB_TOKEN`（`issues: write`）で行います。`RENOVATE_TOKEN` が失効していても通知が出るように、通知には使いません。
-
-**schedule の自動停止はこの通知では拾えません。** [リポジトリの活動が 60 日間無いと GitHub が schedule を止めます](ci-jobs.md#定期実行が止まるとき)が、実行自体が起きないため issue も立ちません。GitHub からの停止通知メールが唯一の手掛かりです（[renovate.yml](../.github/workflows/renovate.yml) のコメントを参照）。
+**schedule の自動停止はこの通知では拾えません。** [schedule が止まる](ci-jobs.md#定期実行が止まるとき)と実行自体が起きないため issue も立ちません。GitHub からの停止通知メールが唯一の手掛かりです（[renovate.yml](../.github/workflows/renovate.yml) のコメントを参照）。
 
 ## 依存を解決できなかったとき
 
 **一部の依存の最新版を取得できなかったときは `Some dependencies cannot be resolved` という issue が立ちます**（[renovate.yml](../.github/workflows/renovate.yml) の `lookup` ジョブ）。この失敗は静かです。Renovate 自体は成功し、引けた依存の更新 PR は普通に作られ、引けなかった依存だけが「更新が来ない」状態になります。
 
-issue は `maintenance` ラベル付きで立ち、本文に Renovate が出した警告と実行ログの URL が入ります。すでに同じ issue が open の間は本文を書き換え（引けなかった依存は実行ごとに変わるため）、すべて引けるようになれば自動的に閉じます。
+通知の仕組みは[失敗時と同じ](#実行が失敗したとき)ですが、すでに open の間は本文を書き換えます（引けなかった依存は実行ごとに変わるため）。すべて引けるようになれば閉じます。
 
 よくある原因は `RENOVATE_TOKEN` の権限不足・失効（[トークンの登録](#トークンの登録)）と、配布元の一時的な不調です。後者なら次の実行で勝手に直ります。
 
@@ -60,11 +58,11 @@ issue は `maintenance` ラベル付きで立ち、本文に Renovate が出し�
 
 **更新できる依存があるときは `Dependency updates are available` という issue が立ちます**（[renovate.yml](../.github/workflows/renovate.yml) の `dashboard` ジョブ）。定期実行は週 1 回で、更新 PR が来たことに気づく入り口が別に必要なためです。
 
-issue は `dependencies` ラベル付きで立ち（[ラベル](../README.md#ラベル)）、本文に PR の一覧と実行ログの URL が入ります。すでに同じ issue が open の間は本文を書き換え、更新 PR が無くなれば自動的に閉じます。
+通知の仕組みは[失敗時と同じ](#実行が失敗したとき)ですが、ラベルは `maintenance` ではなく `dependencies` で（[ラベル](../README.md#ラベル)）、すでに open の間は本文を書き換え、更新 PR が無くなれば閉じます。
 
 つまり **issue 一覧に出ているときだけ、対応すべき更新があります**。この判定は実行時にしか行われないため、ワークフローは cron のほかに Renovate 自身の更新 PR のマージでも実行されます。全 PR をマージすればその実行で issue が閉じます。
 
-一覧に入るのは、open な PR のうちブランチ名が `renovate/` で始まるものです（`branchPrefix` は既定のまま。`dependencies` ラベルは人でも付けられるので目印にしていません）。issue の操作はワークフローの `GITHUB_TOKEN` で行い、`RENOVATE_TOKEN` は使いません。実行が失敗したときはこのジョブは走らず、一覧は前回のまま残ります。
+一覧に入るのは、open な PR のうちブランチ名が `renovate/` で始まるものです（`branchPrefix` は既定のまま。`dependencies` ラベルは人でも付けられるので目印にしていません）。実行が失敗したときはこのジョブは走らず、一覧は前回のまま残ります。
 
 ### 標準の Dependency Dashboard を使わない理由
 
@@ -75,7 +73,7 @@ Renovate には更新状況を issue にまとめる [Dependency Dashboard](http
 | 失うもの | 代わりの手段 |
 | --- | --- |
 | チェックボックスによる操作（保留中の PR を今すぐ作る / rebase・retry / 手動実行） | 保留は `prConcurrentLimit: 0` と `prHourlyLimit: 0` により起きません。rebase は PR 画面の Update branch、再実行は `gh workflow run renovate.yml` |
-| Detected Dependencies（更新対象として拾った依存の一覧） | `gh workflow run renovate.yml --field log_level=debug` の実行ログ |
+| Detected Dependencies（更新対象として拾った依存の一覧） | 手動実行（[冒頭](#renovate)）の詳細ログ |
 
 ## PR の文面
 
@@ -135,7 +133,7 @@ Renovate には更新状況を issue にまとめる [Dependency Dashboard](http
 
 ## PR と issue に付くラベル
 
-更新 PR には `dependencies` が付きます（[renovate.json5](../.github/renovate.json5) の `labels`）。[更新の一覧の issue](#更新の一覧の-issue) にも同じラベルを付けます。ラベルを誰が作り、変えるときに何を合わせて直すかは[ラベル](../README.md#ラベル)にあります。
+更新 PR と[更新の一覧の issue](#更新の一覧の-issue)に付く `dependencies` を誰が作り、変えるときに何を合わせて直すかは[ラベル](../README.md#ラベル)にあります。
 
 セルフホストでは PR の作成者が `RENOVATE_TOKEN` の持ち主（多くの場合あなた自身）になり、ホスト版のような `author:app/renovate` では絞れないため、このラベルが唯一の目印です。
 
@@ -153,7 +151,7 @@ gh variable set RENOVATE_GIT_AUTHOR --body 'Renovate Bot <bot@example.com>'
 
 [renovate.json5](../.github/renovate.json5) は [ci.yml](../.github/workflows/ci.yml) の `renovate-config` ジョブが PR ごとに検査します。Renovate に同梱されている `renovate-config-validator` を、[renovate.yml](../.github/workflows/renovate.yml) と同じイメージをジョブコンテナにして走らせています。
 
-設定のミスは他の検査では捕まらず、CI は緑のまま「更新 PR が来ない」という静かな失敗になります。このジョブはそれを PR の時点で落とします。`--strict` を付けているので、廃止された設定などの警告でも落ちます。ただし「意図した依存を拾えているか」は検査しません。バージョンの書き方を変えたときは、詳細ログ（`gh workflow run renovate.yml --field log_level=debug`）で別途確認してください。
+設定のミスは他の検査では捕まらず、CI は緑のまま「更新 PR が来ない」という静かな失敗になります。このジョブはそれを PR の時点で落とします。`--strict` を付けているので、廃止された設定などの警告でも落ちます。ただし「意図した依存を拾えているか」は検査しません。バージョンの書き方を変えたときは、手動実行の詳細ログ（[冒頭](#renovate)）で別途確認してください。
 
 実装上の注意点:
 
@@ -189,16 +187,19 @@ docker run --rm -v "$PWD:/repo:ro" -w /repo \
 
 | 書き方 | 拾う仕組み |
 | --- | --- |
-| `uses: actions/checkout@<commit sha> # v7.0.1` | github-actions マネージャ（自動） |
-| `uses: <owner>/<repo>/.github/workflows/<name>.yml@<commit sha> # v2.5.1` | 同上（自動） |
-| `uses: docker://<イメージ>:<タグ>@sha256:...` | 同上（自動） |
-| ジョブの `container:` — `image: <イメージ>:<タグ>@sha256:...` | 同上（自動） |
-| [mise.toml](../mise.toml) の `[tools]` | mise マネージャ（自動） |
-| `jdx/mise-action` の `version` 入力 | github-actions マネージャ（自動） |
+| `uses: actions/checkout@<commit sha> # v7.0.1` | github-actions マネージャ |
+| `uses: <owner>/<repo>/.github/workflows/<name>.yml@<commit sha> # v2.5.1` | 同上 |
+| `uses: docker://<イメージ>:<タグ>@sha256:...` | 同上 |
+| ジョブの `container:` — `image: <イメージ>:<タグ>@sha256:...` | 同上 |
+| `jdx/mise-action` の `version` 入力 | 同上 |
+| [mise.toml](../mise.toml) の `[tools]` | mise マネージャ |
+| Dockerfile（[api](../.devcontainer/api-container/Dockerfile) / [web](../.devcontainer/web-container/Dockerfile)）の `FROM <イメージ>:<タグ>@sha256:...` | dockerfile マネージャ |
+| [docker-compose.yml](../docker-compose.yml) の `image: <イメージ>:<タグ>@sha256:...` | docker-compose マネージャ |
+| [api/go.mod](../api/go.mod)、[web/package.json](../web/package.json) | gomod / npm マネージャ |
 
-すべて Renovate が標準で読む書き方に揃えてあり、`customManagers` は使っていません。Docker イメージは `uses: docker://` かジョブの `container:` で指定してください。`run:` の中に直接書いたイメージ名は誰も見てくれません。
+すべて Renovate が標準で読む書き方（`config:recommended` が有効にするマネージャ）に揃えてあり、`customManagers` は使っていません。Docker イメージは上の形で指定してください。`run:` の中に直接書いたイメージ名は誰も見てくれません。
 
-アプリコードを入れた後の `package.json` や `go.mod` なども、プリセット（`config:recommended`）が自動で検出するので設定の追加は不要です。
+**Renovate が見ないバージョンが 3 つあります。** [gen-buf-config.sh](../scripts/gen-buf-config.sh) の `CONNECT_OPENAPI`（buf の remote plugin。他の plugin は go.mod / package.json のバージョンに追随します）、[web の Dockerfile](../.devcontainer/web-container/Dockerfile) の `npm install -g pnpm@<version>`、[api の Dockerfile](../.devcontainer/api-container/Dockerfile) の `GOPLS_VERSION`（`latest` 指定）です。手で上げるか、`customManagers` を足してください。
 
 ## ダイジェストの固定
 

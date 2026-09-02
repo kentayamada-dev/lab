@@ -58,9 +58,6 @@ assert_decision() {
   assert_decision deny 'git commit -m x && git switch -c feat'
 }
 
-# The branch flag has to stand on its own to be read as one, so this branch is
-# created and the commit denied all the same. Writing it as -c feat is the way
-# through.
 @test "denies a commit behind a branch flag stuck to its value" {
   assert_decision deny 'git switch -cfeat && git commit -m x'
 }
@@ -87,8 +84,6 @@ assert_decision() {
   assert_decision '' 'git commit -m "message"'
 }
 
-# The hook fails closed: on main, a tool call it cannot read is denied rather
-# than waved through.
 @test "denies on main when the tool call carries no command" {
   assert_answer deny-commit-on-main.sh '{}' .hookSpecificOutput.permissionDecision deny
 }
@@ -102,8 +97,6 @@ assert_decision() {
   assert_answer deny-commit-on-main.sh 'not json' .hookSpecificOutput.permissionDecision deny
 }
 
-# Off main there is nothing for this hook to protect, so failing closed does
-# not reach there: even an unreadable tool call passes.
 @test "stays silent off main even for an unreadable tool call" {
   git switch -q -c feat
   assert_answer deny-commit-on-main.sh 'not json' .hookSpecificOutput.permissionDecision ''

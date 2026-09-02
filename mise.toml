@@ -61,7 +61,7 @@ run = "typos --color always"
 
 [tasks."check:lychee"]
 description = "Check for broken links and broken anchors in Markdown"
-# The vendored Swagger UI assets are full of strings lychee reads as links.
+# Why --exclude-path: docs/ci-jobs.md#lychee
 run = '''
 lychee --offline --include-fragments --no-progress \
   --exclude-path api/internal/server/swagger-ui-bundle.js \

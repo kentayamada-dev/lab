@@ -68,8 +68,6 @@ assert_decision() {
   assert_decision '' 'ls -la'
 }
 
-# The hook fails closed: a tool call it cannot read is denied, because a force
-# push or hard reset must not slip past on a guess.
 @test "denies when the tool call carries no command" {
   assert_answer deny-force-push-hard-reset.sh '{}' .hookSpecificOutput.permissionDecision deny
 }

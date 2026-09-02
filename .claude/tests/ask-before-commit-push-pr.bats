@@ -46,8 +46,6 @@ assert_decision() {
   assert_decision '' $'git log --oneline\ngrep push'
 }
 
-# git stash push is the local operation CLAUDE.md prefers over a hard reset,
-# so the push there is not a push.
 @test "stays silent for git stash push" {
   assert_decision '' 'git stash push -m wip'
   assert_decision '' 'git stash push && git switch main'
@@ -62,8 +60,6 @@ assert_decision() {
   assert_decision '' 'ls -la'
 }
 
-# The hook fails closed: a tool call it cannot read gets the same "ask",
-# because a command the hook cannot see must not slip past unconfirmed.
 @test "asks when the tool call carries no command" {
   assert_answer ask-before-commit-push-pr.sh '{}' .hookSpecificOutput.permissionDecision ask
 }
