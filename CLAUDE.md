@@ -3,6 +3,7 @@
 ## Critical rules
 
 - When the user's intent or the implementation approach is unclear, or you are torn between approaches, ask the user right away instead of guessing
+- Never state anything as fact without first verifying it in the repo, the tool output, or an authoritative reference; when verification is impossible, say so explicitly instead of guessing
 - Claude edits files only; do not commit, push, or create a PR unless explicitly asked
 - Documentation and the issue/PR templates are written in Japanese; anything a tool emits or matches on stays English — the notification issue titles, the scripts' `--help` and runtime output, workflow step names, and code comments
 
