@@ -34,7 +34,7 @@ gh run watch
 
 権限の過不足は実行するまで分かりません。足りなければ Actions のログに、どの権限が必要かが出ます。
 
-**既定の `GITHUB_TOKEN` では代用できません。** ワークフローファイルを書き換える権限が無く（このリポジトリの更新対象はほぼワークフローです）、さらに `GITHUB_TOKEN` が作った PR では他のワークフローが起動しないため、必須チェックの `ci` が報告されずマージできない PR ができます。
+**既定の `GITHUB_TOKEN` では代用できません。** ワークフローファイルを書き換える権限が無く、さらに `GITHUB_TOKEN` が作った PR では他のワークフローが起動しないため、必須チェックの `ci` が報告されずマージできない PR ができます。
 
 ## 実行が失敗したとき
 
@@ -52,7 +52,7 @@ gh run watch
 
 よくある原因は `RENOVATE_TOKEN` の権限不足・失効（[トークンの登録](#トークンの登録)）と、配布元の一時的な不調です。後者なら次の実行で勝手に直ります。
 
-仕組みは実行ログの拾い読みです。Renovate はこの警告をログに `Package lookup failures` と出すだけで、終了コードにも PR 本文にも出しません（`warnings` を外したためです。[本文](#本文)）。`renovate` ジョブがログを保存してこの行に続く警告を job の output に載せ、`lookup` ジョブが issue にします。判定はこの文字列だけに依存しているため、ログの書式が変わると警告の中身は取り出せなくなりますが、そのときも issue は立ちます（本文が「実行ログを見てください」になります）。
+仕組みは実行ログの拾い読みです。Renovate はこの警告をログに `Package lookup failures` と出すだけで、終了コードにも PR 本文にも出しません（`warnings` を外したためです。[本文](#本文)）。`renovate` ジョブがログを保存してこの行に続く警告を job の output に載せ、`lookup` ジョブが issue にします。判定はこの文字列だけに依存しているため、見出し行 `Package lookup failures` が変わると検出自体が止まります。それに続く詳細行の書式だけが変わった場合は issue は立ちますが、本文が「実行ログを見てください」になります。
 
 ## 更新の一覧の issue
 
@@ -98,7 +98,7 @@ Renovate には更新状況を issue にまとめる [Dependency Dashboard](http
 
 ### 本文
 
-`prBodyTemplate` を `{{{header}}}{{{table}}}{{{footer}}}` にして、Renovate が生成する部分のうち更新の表だけを残し、それ以外を外しました。表の前後の文面は `prHeader`（この PR をどうするか、`{{#if isReplacement}}` で出し分ける置き換えの PR にだけ出る注記）と `prFooter`（遅れた PR の追いつかせ方、閉じたらどうなるか、Renovate が作った PR であること、設定とこの文書の場所）に書いたものだけになります。
+`prBodyTemplate` を `{{{header}}}{{{table}}}{{{footer}}}` にして、Renovate が生成する部分のうち更新の表だけを残し、それ以外を外しました。表の前後の文面は `prHeader` と `prFooter` に書いたものだけになります。
 
 外したものは次の 5 つです。戻すときは `prBodyTemplate` に書き足すだけです。
 
@@ -125,9 +125,7 @@ Renovate には更新状況を issue にまとめる [Dependency Dashboard](http
 | [jdx/mise](https://github.com/jdx/mise) | patch | `2026.8.8` → `2026.9.1` |
 ```
 
-- `Update` は `updateType` のうち pin 系の 2 値だけを平易な語に置き換えます（`pin` → `pin version`、`pinDigest` → `pin digest`）。それ以外の値（`major` / `minor` / `patch` / `digest` など）はもともと平易な語なのでそのまま出します。
-- Renovate の既定の表にある `Type` と `Pending` の列は落としました。`Type`（`depType`）は値がマネージャ側の識別子で、それだけ見てもほとんど意味がないためです。`Pending` は更新を遅らせるオプション（`minimumReleaseAge` など）を使うときにだけ値が入り、この設定では使っていないためです。
-- `Change` は更新前が空のとき（バージョンの固定など）に更新後だけを出します。
+Renovate の既定の表にある `Type` と `Pending` の列は落としました。`Type`（`depType`）は値がマネージャ側の識別子で、それだけ見てもほとんど意味がないためです。`Pending` は更新を遅らせるオプション（`minimumReleaseAge` など）を使うときにだけ値が入り、この設定では使っていないためです。
 
 **文面の間違いは[設定の検証](#設定の検証)では捕まりません。** validator が見るのはキーと値の書式で、テンプレートを展開した結果までは見ないためです。変えたときは `gh workflow run renovate.yml` で実際に PR を作って確認してください。
 
@@ -155,7 +153,7 @@ gh variable set RENOVATE_GIT_AUTHOR --body 'Renovate Bot <bot@example.com>'
 
 実装上の注意点:
 
-- コンテナは `--user root` で動かしています。理由は [renovate.yml](../.github/workflows/renovate.yml) と同じで、イメージの非 root ユーザーでは runner が持つものに書けないためです。こちらで落ちるのは `actions/checkout` で、作業ディレクトリにファイルを作れません。
+- コンテナは `--user root` で動かしています。理由は[冒頭](#renovate)と同じです。こちらで落ちるのは `actions/checkout` で、作業ディレクトリにファイルを作れません。
 - validator にファイル名を渡していません。渡すと「bot 側の全体設定」として検査するモードになり、リポジトリ設定には書けないオプション（`token` など）を通してしまいます。代わりに、設定ファイルを別の名前に変えたときに検査対象 0 件のまま緑にならないよう、ジョブ側で存在確認を先に行っています。
 
 手元で走らせるには、CI と同じイメージを使います（タグは最新で構いません。CI 側はダイジェストまで固定してあり、更新は Renovate 自身が提案します）。

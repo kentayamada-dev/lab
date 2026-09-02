@@ -31,21 +31,13 @@ ruleset で突き合わせるのは定義に書いた項目だけです。API �
 
 **検査が落ちると issue が立ちます。** 定期実行の失敗は Actions の画面か通知メールでしか分からず、見落とすとずれたまま運用が続いてしまうためです。
 
-issue は `Repository settings have drifted` というタイトルで `maintenance` ラベル付きで立ち（[ラベル](../README.md#ラベル)）、本文に検査の出力と実行ログの URL、直し方が入ります。すでに同じ issue が open の間は作り直さずに最新の検査の出力をコメントで追記し、検査が通れば自動的に閉じます。
+issue は `Repository settings have drifted` というタイトルで `maintenance` ラベル付きで立ち（[ラベル](../README.md#ラベル)）、本文に検査の出力と実行ログの URL、直し方が入ります。検査が通れば自動的に閉じます。すでに同じ issue が open の間は作り直しません。そのときの扱い（放置 / コメント追記 / 本文の書き換え）はワークフローごとに `--on-existing` で選んでおり、選択肢の意味は [upsert-issue.sh](../.github/scripts/upsert-issue.sh) の `--help` にあります。この検査はコメント追記です。
 
 issue の作成・コメント・close はワークフローの `GITHUB_TOKEN`（`issues: write`）で行います。`SETTINGS_TOKEN` は読み取り専用のままで構いません。
 
-## ci.yml と分けている理由
-
-コードを変えなくても結果が変わる検査を `ci` に入れない方針は [CI の検査ジョブ](ci-jobs.md#ci-の検査ジョブ)の冒頭にあります。
-
 ## トークンについて
 
-**既定の `GITHUB_TOKEN` では読めない項目があり、`UNKNOWN` になります**（下の表で Administration が要るもの）。Actions から実行するには、Administration の read を持つ fine-grained PAT を secret `SETTINGS_TOKEN` に登録してください。登録があればワークフローはそちらを使います。
-
-```bash
-gh secret set SETTINGS_TOKEN
-```
+**既定の `GITHUB_TOKEN` では読めない項目があり、`UNKNOWN` になります**（下の表で Administration が要るもの）。Actions から実行するには、Administration の read を持つ fine-grained PAT を secret `SETTINGS_TOKEN` に登録してください（[作成手順](#settings_token-の作成)）。登録があればワークフローはそちらを使います。
 
 **マージ関連の設定は GraphQL で読んでいます。** REST の `GET /repos/{owner}/{repo}` は、`allow_*` と `squash_merge_commit_title` を書き込み権限が無いと応答に含めません（エラーではなく、フィールドが黙って消えます）。読み取りだけのトークンで確認するため、リポジトリ設定の項目はすべて GraphQL の `Repository` から取っています。
 

@@ -99,6 +99,8 @@ jobs:
 
 `check-jsonschema` は Python 製で aqua に無いため、[mise.toml](../mise.toml) では `"pipx:check-jsonschema"` とバックエンドを明示し、PyPI から入れています。PyPI は公開済みファイルの差し替えを許さないため、バージョンを固定すれば中身は確定します。実体は runner のイメージに入っている Python と pipx で、`mise.toml` に `python` を足す必要はありません。ただし **check-jsonschema は Python 3.10 以上を要求します**（macOS 標準の Python は 3.9）。古い Python しか無い環境では、このツールだけが入りません。
 
+runner のイメージに同梱されているもの（`gh` / `jq` / `yq`）はそのまま使い、[mise.toml](../mise.toml) には足していません。
+
 mise 本体のバージョンは [mise-action](https://github.com/jdx/mise-action) の `version` 入力で固定しています（Renovate がこの入力を標準で見ます）。action 自体は他と同じく commit SHA 固定です。`mise.lock` は置いていません（理由は [mise.toml](../mise.toml) のコメントを参照）。
 
 キャッシュの書き込みは `cache_save: ${{ github.event_name == 'push' }}` として main への push のときだけに限っています。キャッシュはブランチスコープで、PR ブランチに保存したものはマージ後は誰も使わないまま 7 日間残るためです。main のキャッシュは全ブランチから読めるので、[mise.toml](../mise.toml) を変えない PR ではヒットし、速度は落ちません。
@@ -126,7 +128,7 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 注意点:
 
-- **default setup と併用できません。** 本テンプレートはワークフローを自分で持つ advanced setup 方式です。リポジトリ側で default setup が有効なら先に切ります。
+- **default setup と併用できません。** このリポジトリはワークフローを自分で持つ advanced setup 方式です。リポジトリ側で default setup が有効なら先に切ります。
 
   ```bash
   gh api repos/OWNER/REPO/code-scanning/default-setup --jq .state
@@ -187,7 +189,7 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 **このジョブは外部 URL を検査しません。** `--offline` を外すと相手先の一時的な不調やレート制限で CI が落ち、コードと無関係に赤くなるためです。外部 URL は別ワークフローの定期実行で見ます（[外部リンクの定期検査](#外部リンクの定期検査)）。
 
-アンカーの照合は、lychee が見出しから生成する ID で行います。生成規則は GitHub の描画と一致し、日本語の見出しもそのまま ID になります（`### CodeQL` → `#codeql`、`#### 2 つの例外` → `#2-つの例外`。同じ文言の見出しには 2 つ目以降に `-1`、`-2` が付きます）。
+アンカーの照合は、lychee が見出しから生成する ID で行います。生成規則は GitHub の描画と一致し、日本語の見出しもそのまま ID になります（`### CodeQL` → `#codeql`、`### 対象が 0 件でも黙って通ります` → `#対象が-0-件でも黙って通ります`。同じ文言の見出しには 2 つ目以降に `-1`、`-2` が付きます）。
 
 ### 外部リンクの定期検査
 
@@ -202,8 +204,6 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 | 落ちたとき | PR がマージできない | issue が立つ |
 
 コマンドは [link-check.yml](../.github/workflows/link-check.yml) にあります。`--mode plain` は、出力を `tee` で控えて issue 本文へそのまま載せるとき、ANSI エスケープを混ぜないための指定です。
-
-`ci` に入れていないのは、リンク先はこちらが何もしなくても消え、一時的な不調でも落ちる — コードを変えなくても結果が変わる — ためです（[こうした検査を定期実行にしている理由](#ci-の検査ジョブ)）。
 
 **アンカーは見ません**（`--include-fragments` を付けていません）。外部ページの見出し ID は描画側の都合で決まり（GitHub は README の見出しに `user-content-` を付けます）、誤検出にしかならないためです。リポジトリ内のアンカーは `ci` 側が見ています。
 
@@ -283,7 +283,7 @@ excludes:
 
 `--dry-run` は読み取りだけで完結し、何も変更しません。スクリプトは送信内容を表示するだけです。`.github/rulesets/*.json` が壊れていればここで落ちるため、ruleset の JSON の構文ミスも PR で捕まります。あわせて `--help` の出力が空でないことも確かめています（ヘルプはスクリプト冒頭のコメントを awk で切り出しているため、コメントを消すと黙って空になります）。
 
-`gh` と `jq` は GitHub ホストの runner に最初から入っているため、[mise.toml](../mise.toml) には足していません。認証はワークフローの `GITHUB_TOKEN` で足ります。
+認証はワークフローの `GITHUB_TOKEN` で足ります。
 
 private リポジトリではこのジョブを走らせません（セットアップスクリプトが public 以外を拒否するため、回せば必ず落ちます）。スキップは `ci` 側で成功扱いになるので、private でも PR は止まりません。
 
@@ -297,7 +297,7 @@ private リポジトリではこのジョブを走らせません（セットア
 
 prompt フックは中身も対象です。Conventional Commits の type 一覧は複数箇所に書き出されていて（どこにあるかは [PR タイトルの書式](../README.md#pr-タイトルの書式)）、どのコピーも他から導出されないため、テストが各コピーを `pr-title` ジョブの `PATTERN` と突き合わせます。
 
-ブランチ規則のテストは bats の一時ディレクトリに使い捨てのリポジトリを作るため、判定が runner のいるブランチに左右されることはありません。`jq` は GitHub ホストの runner に最初から入っていて、そもそも呼ぶのはフック自身なので、[mise.toml](../mise.toml) に足すのは bats だけです。
+ブランチ規則のテストは bats の一時ディレクトリに使い捨てのリポジトリを作るため、判定が runner のいるブランチに左右されることはありません。[mise.toml](../mise.toml) に足すのは bats だけです（フックが呼ぶ `jq` は runner に同梱。[ツールの導入と検証](#ツールの導入と検証)）。
 
 テストを独立した `tests/` ではなく `.claude/` の下に置いてあるのは、フックを削除すればテストも一緒に消えるようにするためと、テンプレートから作ったリポジトリが自分のテストに一番自然な置き場を空けておくためです。その後もこのジョブが緑のままなのはタスクの `xargs` に付けた `-r` のおかげで、`.bats` が 1 つも残らなければ bats は起動しません。フックを手放すなら、ジョブ自体もフックと一緒に削除してください。
 
@@ -321,7 +321,7 @@ prompt フックは中身も対象です。Conventional Commits の type 一覧�
 
 このロジックをワークフローに直接書かず `.github/scripts/` に置いてあるのは、テストから触れるようにするためです。`run:` の中身は囲んでいるワークフローを起動しないと動かせず、この 2 つの場合それは定期実行の検査が落ちるのを待つことを意味します。
 
-[hooks](#hooks) と同じく、[mise.toml](../mise.toml) に足すのは bats だけです。[shellcheck](#shellcheck) と [format](../README.md#書式の統一) はどちらも `git ls-files` で `*.sh` と `*.bash` を辿るため、何もしなくてもこのスクリプトを拾います。
+[hooks](#hooks) と同じく、[mise.toml](../mise.toml) に足すのは bats だけです。[shellcheck](#shellcheck) と [format](../README.md#書式の統一) はどちらも `git ls-files` で `*.sh` と `*.bash` を辿るため、何もしなくてもこれらのスクリプトを拾います。
 
 ## osv-scanner
 
@@ -396,7 +396,7 @@ gh api repos/OWNER/REPO/commits/<sha>/check-runs \
 
 見るのはリポジトリにコミットされた lockfile / マニフェストです（[対応形式の一覧](https://google.github.io/osv-scanner/supported-languages-and-lockfiles/)）。`-r` を付けてあるのでサブディレクトリも辿り、`api/go.mod` と `web/pnpm-lock.yaml` が対象になります。
 
-osv-scanner は検査対象が 1 件も無いとき、「スキャンしたつもりで何もスキャンしていない」状態を黙って成功にしないよう終了コード 128 で失敗します。lockfile を `.gitignore` に入れてしまったといった取りこぼしは、この失敗でその場で表面化します（アプリコードが無い間この状態を許可していたテンプレート由来の `--allow-no-lockfiles` は、lockfile が入った時点で外してあります）。
+osv-scanner は検査対象が 1 件も無いとき、「スキャンしたつもりで何もスキャンしていない」状態を黙って成功にしないよう終了コード 128 で失敗します。lockfile を `.gitignore` に入れてしまったといった取りこぼしは、この失敗でその場で表面化します。
 
 ### 定期実行が止まるとき
 
