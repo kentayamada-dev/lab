@@ -125,7 +125,7 @@ Renovate には更新状況を issue にまとめる [Dependency Dashboard](http
 | [jdx/mise](https://github.com/jdx/mise) | patch | `2026.8.8` → `2026.9.1` |
 ```
 
-Renovate の既定の表にある `Type` と `Pending` の列は落としました。`Type`（`depType`）は値がマネージャ側の識別子で、それだけ見てもほとんど意味がないためです。`Pending` は更新を遅らせるオプション（`minimumReleaseAge` など）を使うときにだけ値が入り、この設定では使っていないためです。
+Renovate の既定の表にある `Type` と `Pending` の列は落としました。`Type`（`depType`）は値がマネージャ側の識別子で、それだけ見てもほとんど意味がないためです。`Pending` は [`minimumReleaseAge`](#このリポジトリに合わせてある設定) の待ち時間中で保留になっている新しいバージョンが入る列で、保留が明ければ次回の実行で PR になるため、その PR の中で先回りして見せる意味が薄いためです。
 
 **文面の間違いは[設定の検証](#設定の検証)では捕まりません。** validator が見るのはキーと値の書式で、テンプレートを展開した結果までは見ないためです。変えたときは `gh workflow run renovate.yml` で実際に PR を作って確認してください。
 
@@ -177,6 +177,7 @@ docker run --rm -v "$PWD:/repo:ro" -w /repo \
 | `dependencyDashboard: false` | 標準のダッシュボードを止め、一覧を自前の issue にする（[理由](#標準の-dependency-dashboard-を使わない理由)） | `Dependency Dashboard` issue が立ち、自前の issue と二重になる |
 | `pinDigests: true` | タグは差し替え可能なので、ダイジェストまで固定する（[ダイジェストの固定](#ダイジェストの固定)） | タグ指定だけになり、中身の差し替えを追えなくなる |
 | `extends` の `helpers:pinGitHubActionDigestsToSemver` | 固定した SHA に添えるコメントを `# v7.0.1` のような厳密なバージョンに保つ（[ダイジェストの固定](#ダイジェストの固定)） | `# v7` のような可動する major タグが書かれ、上流がタグを付け替えるとコメントが固定した commit を指さなくなり、[`zizmor`](ci-jobs.md#zizmor) が `ref-version-mismatch` として報告する |
+| `extends` の `security:minimumReleaseAgeNpm` | npm パッケージは公開から 3 日経つまで更新に含めない（`internalChecksFilter: 'strict'` 付きなので、最新版が若すぎるときは条件を満たす直近の版を提案する）。[`web`](ci-jobs.md#アプリコードの検査) の pnpm が公開 24 時間未満の版を拒否するため、Renovate 側も待たせて提案した版が拒否されないようにする | 公開から 24 時間未満の版が PR に入り、24 時間経つまで `web` が落ちる |
 | `packageRules` の `non-major` | major 以外は 1 本の PR にまとめる | 更新ごとに PR が立ち、本数が増える |
 | `commitMessage*` / `pr*` の文面 | 更新 PR のタイトルと本文を自前で書く（[PR の文面](#pr-の文面)） | 自動生成の既定の文面に戻り、自動 issue と体裁が揃わない |
 | `fetchChangeLogs: 'off'` | リリースノートを PR に出さないので取得しない（[本文](#本文)） | 表示しないリリースノートを実行ごとに取りに行く |
