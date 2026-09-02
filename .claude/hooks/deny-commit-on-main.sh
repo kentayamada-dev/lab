@@ -5,14 +5,14 @@
 # a PR from a working branch).
 #
 # A compound command may create the branch and commit in one Bash call, so the
-# first branch creation (checkout -b / switch -c / switch --create) is compared
-# by offset against the first commit: branching first is allowed. The flag has
-# to stand on its own (-c feat, not -cfeat) to count as one. [^|;&\n] keeps
-# each match inside one pipeline segment (a newline separates commands just as
-# ; does). Matching is textual, not a shell parse (docs/ci-jobs.md#hooks), and
-# the branch is the one of the checkout the hook runs in, so a command that
-# commits in another repository (cd elsewhere, git -C) is judged against this
-# checkout all the same.
+# first branch creation (checkout -b/-B / switch -c/-C / switch --create) is
+# compared by offset against the first commit: branching first is allowed. The
+# flag has to stand on its own (-c feat, not -cfeat) to count as one. [^|;&\n]
+# keeps each match inside one pipeline segment (a newline separates commands
+# just as ; does). Matching is textual, not a shell parse
+# (docs/ci-jobs.md#hooks), and the branch is the one of the checkout the hook
+# runs in, so a command that commits in another repository (cd elsewhere,
+# git -C) is judged against this checkout all the same.
 #
 # The hook fails closed: on main, a tool call it cannot read (not JSON, or no
 # command string) is denied rather than waved through — a verdict must never
@@ -37,7 +37,7 @@ fi
 if jq -e '
     .tool_input.command as $c
     | ([$c | match("\\bgit\\b[^|;&\\n]*\\bcommit\\b").offset] + [null])[0] as $commit
-    | ([$c | match("\\bgit\\b[^|;&\\n]*\\b(checkout|switch)\\b[^|;&\\n]*\\s(-b|-c|--create)\\b").offset] + [null])[0] as $branch
+    | ([$c | match("\\bgit\\b[^|;&\\n]*\\b(checkout|switch)\\b[^|;&\\n]*\\s(-b|-B|-c|-C|--create)\\b").offset] + [null])[0] as $branch
     | ($commit != null) and ($branch == null or $branch > $commit)
   ' <<<"${input}" >/dev/null; then
   deny "CLAUDE.md: never commit on main — create a working branch from the latest remote main first."

@@ -46,6 +46,13 @@ assert_decision() {
   assert_decision '' $'git log --oneline\ngrep push'
 }
 
+# git stash push is the local operation CLAUDE.md prefers over a hard reset,
+# so the push there is not a push.
+@test "stays silent for git stash push" {
+  assert_decision '' 'git stash push -m wip'
+  assert_decision '' 'git stash push && git switch main'
+}
+
 @test "stays silent for a read-only git or gh command" {
   assert_decision '' 'git status'
   assert_decision '' 'gh pr list'
