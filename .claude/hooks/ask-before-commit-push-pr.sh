@@ -5,8 +5,10 @@
 # (CLAUDE.md: those need an explicit user request).
 #
 # [^|;&\n] keeps each match inside one pipeline segment (a newline separates
-# commands just as ; does), so "git log | grep push" does not trigger. Matching
-# is textual, not a shell parse (docs/ci-jobs.md#hooks).
+# commands just as ; does), so "git log | grep push" does not trigger. A push
+# right after stash is git stash push, the local operation CLAUDE.md prefers
+# over a hard reset, so it is left alone. Matching is textual, not a shell parse
+# (docs/ci-jobs.md#hooks).
 #
 # The hook fails closed: a tool call it cannot read (not JSON, or no command
 # string) gets the same "ask" — confirmation is the gate, and a command the
@@ -24,7 +26,7 @@ if ! jq -e '.tool_input.command | type == "string"' <<<"${input}" >/dev/null 2>&
 fi
 
 if jq -e '.tool_input.command
-    | test("\\bgit\\b[^|;&\\n]*\\b(commit|push)\\b|\\bgh\\b[^|;&\\n]*\\bpr\\b[^|;&\\n]*\\bcreate\\b")
+    | test("\\bgit\\b[^|;&\\n]*\\b(commit|(?<!stash\\s)push)\\b|\\bgh\\b[^|;&\\n]*\\bpr\\b[^|;&\\n]*\\bcreate\\b")
   ' <<<"${input}" >/dev/null; then
   ask "CLAUDE.md: commit/push/PR creation requires an explicit user request — confirm before running."
 fi

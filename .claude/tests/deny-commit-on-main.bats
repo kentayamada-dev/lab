@@ -49,6 +49,11 @@ assert_decision() {
   assert_decision '' $'git switch -c feat\ngit commit -m x'
 }
 
+@test "allows a commit that force-creates its branch first" {
+  assert_decision '' 'git checkout -B feat && git commit -m x'
+  assert_decision '' 'git switch -C feat && git commit -m x'
+}
+
 @test "denies a commit that switches branches only afterwards" {
   assert_decision deny 'git commit -m x && git switch -c feat'
 }
