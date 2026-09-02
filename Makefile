@@ -9,11 +9,20 @@ ATLAS_DIR := file:///workspace/db/migrations
 
 RUN_ATLAS := $(RUN) --env ATLAS_SRC='$(ATLAS_SRC)' --env ATLAS_DIR='$(ATLAS_DIR)' atlas
 
-BUF_AGAINST_REF := origin/main
+BASE_REF        := origin/main
+BUF_AGAINST_REF := $(BASE_REF)
 BUF_AGAINST     := .git\#ref=$(BUF_AGAINST_REF)
 
 GEN_CONFIG_SCRIPT := scripts/gen-buf-config.sh
 GEN_CHECK_DIR     := .gen-check.tmp
+
+# The connect-openapi buf plugin has no runtime library whose version it could
+# follow (unlike the other plugins in the script), so it is pinned here, in the
+# form Renovate's makefileVersions preset reads (docs/renovate.md). Exported so
+# every invocation of the script sees it.
+# renovate: datasource=github-releases depName=sudorandom/protoc-gen-connect-openapi
+CONNECT_OPENAPI_VERSION := v0.25.7
+export CONNECT_OPENAPI_VERSION
 
 DEVCONTAINER_DIR := $(CURDIR)/.devcontainer
 DEVCONTAINERS    := $(patsubst .devcontainer/%-container/devcontainer.json,%,\
@@ -37,7 +46,7 @@ require-any-service = $(call check-service,$(COMPOSE_ALL))
 .PHONY: help up down restart build rebuild clean logs \
         proto-check proto-lint proto-fmt proto-fmt-check proto-breaking \
         gen gen-check gen-config-check gen-code-check \
-        db-check db-inspect db-validate db-diff db-diff-check db-migrate \
+        db-check db-inspect db-validate db-diff db-diff-check db-lint db-migrate \
         init code
 
 # ---- Setup -------------------------------------------------------------------
@@ -126,12 +135,12 @@ gen-code-check: ## Fail if the generated code is out of date
 	done; \
 	test $$rc -eq 0 \
 	  || { echo "generated code is out of date. Run 'make gen' and commit the result." >&2; exit 1; }
-buf.gen.yaml: $(GEN_CONFIG_SCRIPT) api/go.mod web/package.json
+buf.gen.yaml: $(GEN_CONFIG_SCRIPT) Makefile api/go.mod web/package.json
 	./$(GEN_CONFIG_SCRIPT) > $@.tmp || { rm -f $@.tmp; exit 1; }
 	mv -f $@.tmp $@
 
 # ---- DB ------------------------------------------------------------------------
-db-check: db-validate db-diff-check ## Run every DB check
+db-check: db-validate db-diff-check db-lint ## Run every DB check
 db-inspect: ## Print the current schema as SQL
 	$(RUN_ATLAS) schema inspect --env $(ATLAS_ENV) --format '{{ sql . }}'
 db-validate: ## Fail if the migrations do not match atlas.sum
@@ -154,6 +163,23 @@ db-diff-check: ## Fail if schema.sql and the migrations have diverged
 	  printf '%s\n' "$$out"; \
 	  echo "schema.sql and db/migrations have diverged. Run 'make db-diff NAME=<name>' and commit the result." >&2; \
 	  exit 1; }
+# The atlas image has no git, so the files added since the base ref are counted
+# here and passed as --latest (the directory is version-ordered, so the newest N
+# files are the added ones). Counted against the checkout rather than the index
+# so a freshly generated, not yet added migration is linted too.
+db-lint: ## Fail if the migrations added since the base ref make dangerous changes, override with BASE_REF=
+	@if ! git rev-parse --quiet --verify '$(BASE_REF)^{commit}' >/dev/null; then \
+	  echo "skipping the migration lint: '$(BASE_REF)' is missing" >&2; exit 0; \
+	fi; \
+	n=0; \
+	for f in db/migrations/*.sql; do \
+	  git cat-file -e '$(BASE_REF):'"$$f" 2>/dev/null || n=$$((n + 1)); \
+	done; \
+	if [ "$$n" -eq 0 ]; then \
+	  echo "skipping the migration lint: no migration added since '$(BASE_REF)'" >&2; exit 0; \
+	fi; \
+	echo "$(RUN_ATLAS) migrate lint --env $(ATLAS_ENV) --latest $$n"; \
+	$(RUN_ATLAS) migrate lint --env $(ATLAS_ENV) --latest "$$n"
 db-migrate: ## Apply the pending migrations
 	$(RUN_ATLAS) migrate apply --env $(ATLAS_ENV)
 

@@ -412,7 +412,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Check the migrations against schema.sql
+          # migrate lint needs origin/main (docs/ci-jobs.md).
+          fetch-depth: 0
+      - name: Check the migrations
         run: |
           USER_UID="$(id -u)" USER_GID="$(id -g)"
           export USER_UID USER_GID

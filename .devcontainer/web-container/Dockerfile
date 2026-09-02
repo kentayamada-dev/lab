@@ -14,7 +14,10 @@ RUN sh /tmp/create-user.sh "${USER_NAME}" "${USER_UID}" "${USER_GID}" \
 ENV PNPM_HOME=/pnpm \
   PATH=/pnpm/bin:/pnpm:$PATH
 
-RUN npm install -g pnpm@11.24.0
+# renovate: datasource=npm depName=pnpm
+ARG PNPM_VERSION=11.24.0
+
+RUN npm install -g pnpm@${PNPM_VERSION}
 
 RUN mkdir -p /workspace/web/node_modules \
   && chown -R ${USER_NAME}:${USER_NAME} /workspace \

@@ -64,9 +64,9 @@ jobs:
 
 | ジョブ | 実行するもの |
 | --- | --- |
-| `proto` | `make proto-check`。breaking は origin/main と比較するため、このジョブだけ `fetch-depth: 0` で checkout します |
+| `proto` | `make proto-check`。breaking は origin/main と比較するため、`fetch-depth: 0` で checkout します |
 | `gen` | `make gen-check` |
-| `db` | `make db-check` |
+| `db` | `make db-check`。lint は origin/main 以降に増えたマイグレーションだけを見るため、`proto` と同じく `fetch-depth: 0` で checkout します |
 | `api` | `make db-migrate` でスキーマを適用してから `make api-check`。sqlc の `db-prepare` ルールが実 DB に対してクエリを prepare するため、先にテーブルが要ります |
 | `web` | `make web-check` |
 
