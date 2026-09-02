@@ -15,7 +15,7 @@ ENV PNPM_HOME=/pnpm \
   PATH=/pnpm/bin:/pnpm:$PATH
 
 # renovate: datasource=npm depName=pnpm
-ARG PNPM_VERSION=11.24.0
+ARG PNPM_VERSION=11.25.0
 
 RUN npm install -g pnpm@${PNPM_VERSION}
 

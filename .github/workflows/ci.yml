@@ -351,7 +351,7 @@ jobs:
     permissions:
       contents: read
     container:
-      image: renovate/renovate:44.52.1@sha256:6922c734849f2ed1c01e3a7924bd60e25e0ea904731a67bad72b02d563c0c3c3
+      image: renovate/renovate:44.57.3@sha256:83c5397b74d53788532949cccd56669768800ac30e43e3861d6ee416aeccf14c
       options: --user root
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

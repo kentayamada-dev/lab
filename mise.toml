@@ -14,7 +14,7 @@ hadolint = "2.15.1"
 lychee = "0.24.2"
 shellcheck = "0.11.0"
 shfmt = "3.14.0"
-typos = "1.50.0"
+typos = "1.50.1"
 zizmor = "1.30.0"
 
 # One task per check job in ci.yml that can run from a local checkout, named after

@@ -3,7 +3,7 @@ module example/app
 go 1.26.6
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.9-20250912141014-52f32327d4b0.1
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.1
 	connectrpc.com/connect v1.20.0
 	connectrpc.com/validate v0.6.0
 	github.com/google/go-cmp v0.7.0
