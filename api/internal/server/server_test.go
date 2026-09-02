@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -79,6 +80,54 @@ func TestNewEnforcesProtoValidation(t *testing.T) {
 	)
 	if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
 		t.Errorf("CreateTodo() code = %v, want %v", got, connect.CodeInvalidArgument)
+	}
+}
+
+// The proto rules apply to the trimmed title, the same value the service
+// checks, so surrounding whitespace does not count towards the limit. The
+// full-width space pins the trimming to Unicode whitespace, as in the
+// service's strings.TrimSpace, rather than ASCII only.
+func TestNewProtoValidationTrimsTitle(t *testing.T) {
+	srv := newTestServer(t, stubHandler{})
+
+	client := todov1connect.NewTodoServiceClient(srv.Client(), srv.URL)
+
+	tests := map[string]struct {
+		title    string
+		wantCode connect.Code
+	}{
+		"at the limit with surrounding whitespace": {
+			title:    " " + strings.Repeat("あ", 1000) + "\n",
+			wantCode: 0,
+		},
+		"at the limit with surrounding full-width spaces": {
+			title:    "　" + strings.Repeat("あ", 1000) + "　",
+			wantCode: 0,
+		},
+		"one over the limit": {
+			title:    strings.Repeat("あ", 1001),
+			wantCode: connect.CodeInvalidArgument,
+		},
+		"blank after trimming full-width spaces": {
+			title:    "　　",
+			wantCode: connect.CodeInvalidArgument,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := client.CreateTodo(
+				t.Context(),
+				connect.NewRequest(&todov1.CreateTodoRequest{Title: tt.title}),
+			)
+			if tt.wantCode == 0 {
+				if err != nil {
+					t.Errorf("CreateTodo() error = %v, want nil", err)
+				}
+			} else if got := connect.CodeOf(err); got != tt.wantCode {
+				t.Errorf("CreateTodo() code = %v, want %v", got, tt.wantCode)
+			}
+		})
 	}
 }
 

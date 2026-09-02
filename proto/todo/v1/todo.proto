@@ -2,6 +2,7 @@ syntax = "proto3";
 package todo.v1;
 
 import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
 
 // A single todo item.
 message Todo {
@@ -11,18 +12,24 @@ message Todo {
   string title = 2;
   // Whether the item has been completed.
   bool done = 3;
+  // When the item was created, assigned by the database.
+  google.protobuf.Timestamp created_at = 4;
 }
 
 // Request to create a new todo.
 message CreateTodoRequest {
   // Title of the todo to create. Leading and trailing whitespace is trimmed
-  // before storage.
+  // before storage, and the rules below apply to the trimmed value.
   string title = 1 [
-    (buf.validate.field).string.max_len = 1000,
     (buf.validate.field).cel = {
       id: "title.not_blank"
       message: "title must not be blank"
-      expression: "!this.matches('^\\\\s*$')"
+      expression: "this.trim() != ''"
+    },
+    (buf.validate.field).cel = {
+      id: "title.max_len"
+      message: "title must be at most 1000 characters"
+      expression: "this.trim().size() <= 1000"
     }
   ];
 }
@@ -46,16 +53,20 @@ message ListTodosResponse {
 message UpdateTodoRequest {
   // Identifier of the todo to update.
   int64 id = 1;
-  // Desired completion state.
-  bool done = 2;
+  // Desired completion state. Left unchanged when absent.
+  optional bool done = 2;
   // New title for the todo. Left unchanged when absent. Subject to the same
   // rules as CreateTodoRequest.title.
   optional string title = 3 [
-    (buf.validate.field).string.max_len = 1000,
     (buf.validate.field).cel = {
       id: "title.not_blank"
       message: "title must not be blank"
-      expression: "!this.matches('^\\\\s*$')"
+      expression: "this.trim() != ''"
+    },
+    (buf.validate.field).cel = {
+      id: "title.max_len"
+      message: "title must be at most 1000 characters"
+      expression: "this.trim().size() <= 1000"
     }
   ];
 }
@@ -85,10 +96,11 @@ service TodoService {
   // Returns all todo items. The list is empty when no todos exist.
   rpc ListTodos(ListTodosRequest) returns (ListTodosResponse);
 
-  // Updates the todo identified by id and returns the updated record: done is
-  // always applied, title only when present. Fails with the not_found code
-  // when no todo has that id, and with the invalid_argument code when the
-  // title is present but breaks its rules.
+  // Updates the todo identified by id and returns the updated record: done and
+  // title are each applied only when present, so a request carrying neither
+  // returns the record unchanged. Fails with the not_found code when no todo
+  // has that id, and with the invalid_argument code when the title is present
+  // but breaks its rules.
   rpc UpdateTodo(UpdateTodoRequest) returns (UpdateTodoResponse);
 
   // Deletes the todo identified by id. Fails with the not_found code when no
