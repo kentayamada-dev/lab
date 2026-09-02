@@ -196,10 +196,9 @@ docker run --rm -v "$PWD:/repo:ro" -w /repo \
 | Dockerfile（[api](../.devcontainer/api-container/Dockerfile) / [web](../.devcontainer/web-container/Dockerfile)）の `FROM <イメージ>:<タグ>@sha256:...` | dockerfile マネージャ |
 | [docker-compose.yml](../docker-compose.yml) の `image: <イメージ>:<タグ>@sha256:...` | docker-compose マネージャ |
 | [api/go.mod](../api/go.mod)、[web/package.json](../web/package.json) | gomod / npm マネージャ |
+| Dockerfile / [Makefile](../Makefile) の `# renovate: datasource=... depName=...` 直下の `<名前>_VERSION` 変数 | `customManagers:dockerfileVersions` / `customManagers:makefileVersions` プリセット |
 
-すべて Renovate が標準で読む書き方（`config:recommended` が有効にするマネージャ）に揃えてあり、`customManagers` は使っていません。Docker イメージは上の形で指定してください。`run:` の中に直接書いたイメージ名は誰も見てくれません。
-
-**Renovate が見ないバージョンが 3 つあります。** [gen-buf-config.sh](../scripts/gen-buf-config.sh) の `CONNECT_OPENAPI`（buf の remote plugin。他の plugin は go.mod / package.json のバージョンに追随します）、[web の Dockerfile](../.devcontainer/web-container/Dockerfile) の `npm install -g pnpm@<version>`、[api の Dockerfile](../.devcontainer/api-container/Dockerfile) の `GOPLS_VERSION`（`latest` 指定）です。手で上げるか、`customManagers` を足してください。
+すべて Renovate が標準で読む書き方（`config:recommended` と上のプリセット）に揃えてあり、自前の `customManagers` は書いていません。Docker イメージは上の形で指定してください。`run:` の中に直接書いたイメージ名は誰も見てくれません。
 
 ## ダイジェストの固定
 

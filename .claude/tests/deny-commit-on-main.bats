@@ -58,6 +58,39 @@ assert_decision() {
   assert_decision deny 'git commit -m x && git switch -c feat'
 }
 
+@test "denies a commit that switches to main first, even from a working branch" {
+  git switch -q -c feat
+  assert_decision deny 'git switch main && git commit -m x'
+  assert_decision deny 'git checkout main && git commit -m x'
+  assert_decision deny 'git switch main; git commit -m x'
+  assert_decision deny 'git switch main&&git commit -m x'
+  assert_decision deny $'git switch main\ngit commit -m x'
+}
+
+@test "denies a commit that force-creates main first" {
+  git switch -q -c feat
+  assert_decision deny 'git checkout -B main && git commit -m x'
+}
+
+@test "allows a commit that branches off again after switching to main" {
+  git switch -q -c feat
+  assert_decision '' 'git switch main && git pull && git switch -c fix && git commit -m x'
+}
+
+@test "denies a commit that returns to main after branching off" {
+  assert_decision deny 'git switch -c feat && git switch main && git commit -m x'
+}
+
+@test "allows a commit that only restores files from main" {
+  git switch -q -c feat
+  assert_decision '' 'git checkout main -- README.md && git commit -m x'
+}
+
+@test "allows a commit after switching to a branch whose name only starts with main" {
+  git switch -q -c feat
+  assert_decision '' 'git switch main-fix && git commit -m x'
+}
+
 @test "denies a commit behind a branch flag stuck to its value" {
   assert_decision deny 'git switch -cfeat && git commit -m x'
 }

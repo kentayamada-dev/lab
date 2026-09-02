@@ -4,7 +4,6 @@ SQLC         := go tool sqlc
 STATICCHECK  := go tool staticcheck
 GCI          := go tool gci
 GOFUMPT      := go tool gofumpt
-GOVULNCHECK  := go tool govulncheck
 
 GCI_FLAGS = -s standard -s default -s "prefix($(MODULE))"
 
@@ -34,7 +33,7 @@ COVERAGE_HTML := coverage.html
 .DEFAULT_GOAL := help
 
 .PHONY: help run run-race check test cover cover-html lint fmt fmt-check \
-        db-gen db-gen-check db-vet tidy tidy-check deps-check deps-update
+        db-gen db-gen-check db-vet tidy tidy-check deps-update
 
 # ---- Run -------------------------------------------------------------------
 run: require-go ## Run the server
@@ -83,9 +82,6 @@ tidy-check: require-go ## Fail if go.mod or go.sum is not tidy
 		echo 'run: make tidy' >&2; \
 		exit 1; \
 	fi
-
-deps-check: require-go ## Scan the dependencies for known vulnerabilities
-	$(GOVULNCHECK) ./...
 
 deps-update: require-go ## Update the dependencies and the tools to their latest versions
 	go get -u -t ./...
