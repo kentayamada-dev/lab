@@ -1,4 +1,4 @@
-# Once GitHub disables the schedule (60 days without activity), this workflow stays
+# Once GitHub disables the schedule (docs/ci-jobs.md#定期実行が止まるとき), this workflow stays
 # dormant until re-enabled from the Actions tab: unlike the others it has no push: main,
 # and its pull_request trigger only fires on Renovate's own PRs, which stop arriving.
 name: renovate

@@ -15,8 +15,8 @@ message Todo {
 
 // Request to create a new todo.
 message CreateTodoRequest {
-  // Title of the todo to create. Must not be blank and must be at most 1000
-  // characters. Leading and trailing whitespace is trimmed before storage.
+  // Title of the todo to create. Leading and trailing whitespace is trimmed
+  // before storage.
   string title = 1 [
     (buf.validate.field).string.max_len = 1000,
     (buf.validate.field).cel = {
@@ -78,8 +78,8 @@ message DeleteTodoResponse {}
 // Operations on todo items.
 service TodoService {
   // Creates a new todo item from the given title and returns the stored
-  // record. Fails with the invalid_argument code when the title is blank or
-  // longer than 1000 characters.
+  // record. Fails with the invalid_argument code when the title breaks the
+  // rules declared on CreateTodoRequest.title.
   rpc CreateTodo(CreateTodoRequest) returns (CreateTodoResponse);
 
   // Returns all todo items. The list is empty when no todos exist.
@@ -88,7 +88,7 @@ service TodoService {
   // Updates the todo identified by id and returns the updated record: done is
   // always applied, title only when present. Fails with the not_found code
   // when no todo has that id, and with the invalid_argument code when the
-  // title is present but blank or longer than 1000 characters.
+  // title is present but breaks its rules.
   rpc UpdateTodo(UpdateTodoRequest) returns (UpdateTodoResponse);
 
   // Deletes the todo identified by id. Fails with the not_found code when no

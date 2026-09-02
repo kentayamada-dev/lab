@@ -452,8 +452,7 @@ jobs:
           # owned by root, and the container user could not write to it.
           mkdir -p "$GO_MOD_CACHE" "$GO_BUILD_CACHE"
           make init
-          # sqlc's db-prepare rule prepares every query against the live
-          # schema, so apply the migrations first.
+          # Migrations first (docs/ci-jobs.md).
           make db-migrate
           make api-check
       # Save only on push (docs/ci-jobs.md).
@@ -488,8 +487,7 @@ jobs:
           export USER_UID USER_GID
           PNPM_STORE="$HOME/.cache/lab/pnpm-store"
           export PNPM_STORE
-          # Pre-create the mount source: docker would create a missing one
-          # owned by root, and the container user could not write to it.
+          # Pre-create the mount source (see the api job).
           mkdir -p "$PNPM_STORE"
           make init
           make web-check

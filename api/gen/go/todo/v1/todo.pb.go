@@ -89,8 +89,8 @@ func (x *Todo) GetDone() bool {
 // Request to create a new todo.
 type CreateTodoRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Title of the todo to create. Must not be blank and must be at most 1000
-	// characters. Leading and trailing whitespace is trimmed before storage.
+	// Title of the todo to create. Leading and trailing whitespace is trimmed
+	// before storage.
 	Title         string `protobuf:"bytes,1,opt,name=title,proto3" json:"title,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

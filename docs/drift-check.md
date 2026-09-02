@@ -21,7 +21,7 @@ ruleset で突き合わせるのは定義に書いた項目だけです。API �
 
 期待値は[スクリプト](../scripts/sync-repo-config.sh)の `REPO_SETTINGS_EXPECTED` / `REPO_SETTINGS_ENDPOINTS` / `SECURITY_ANALYSIS_EXPECTED` / `ACTIONS_WORKFLOW_EXPECTED` / `LABELS_EXPECTED` にあり、適用と確認の両方がそこを読むため、片方だけ直って食い違うことは起きません。設定を増やすときもここに 1 行足すだけで、`--check` と `--dry-run` の対象に自動的に入ります。
 
-`REPO_SETTINGS=false` を付けた場合、リポジトリ設定の確認は飛ばして ruleset だけを見ます。ずれていたら、引数なしで実行すれば適用されます。
+ずれていたら、引数なしで実行すれば適用されます（オプションと環境変数は `--help` にあります）。
 
 ```bash
 ./scripts/sync-repo-config.sh
@@ -37,11 +37,11 @@ issue の作成・コメント・close はワークフローの `GITHUB_TOKEN`�
 
 ## ci.yml と分けている理由
 
-必須チェックにすると、誰かが設定を触った時点で無関係な PR まで止まるためです。コードを変えなくても結果が変わる検査を `ci` に入れない方針は [CI の検査ジョブ](ci-jobs.md#ci-の検査ジョブ)の冒頭にあります。
+コードを変えなくても結果が変わる検査を `ci` に入れない方針は [CI の検査ジョブ](ci-jobs.md#ci-の検査ジョブ)の冒頭にあります。
 
 ## トークンについて
 
-**既定の `GITHUB_TOKEN` では immutable releases と Dependabot alerts、secret scanning の push protection、Actions の既定権限を読めず、`UNKNOWN` になります**。Actions から実行するには、Administration の read を持つ fine-grained PAT を secret `SETTINGS_TOKEN` に登録してください。登録があればワークフローはそちらを使います。
+**既定の `GITHUB_TOKEN` では読めない項目があり、`UNKNOWN` になります**（下の表で Administration が要るもの）。Actions から実行するには、Administration の read を持つ fine-grained PAT を secret `SETTINGS_TOKEN` に登録してください。登録があればワークフローはそちらを使います。
 
 ```bash
 gh secret set SETTINGS_TOKEN

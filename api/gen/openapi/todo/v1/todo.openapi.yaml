@@ -9,8 +9,8 @@ paths:
       summary: CreateTodo
       description: |-
         Creates a new todo item from the given title and returns the stored
-         record. Fails with the invalid_argument code when the title is blank or
-         longer than 1000 characters.
+         record. Fails with the invalid_argument code when the title breaks the
+         rules declared on CreateTodoRequest.title.
       operationId: todo.v1.TodoService.CreateTodo
       parameters:
         - name: Connect-Protocol-Version
@@ -124,7 +124,7 @@ paths:
         Updates the todo identified by id and returns the updated record: done is
          always applied, title only when present. Fails with the not_found code
          when no todo has that id, and with the invalid_argument code when the
-         title is present but blank or longer than 1000 characters.
+         title is present but breaks its rules.
       operationId: todo.v1.TodoService.UpdateTodo
       parameters:
         - name: Connect-Protocol-Version
@@ -234,8 +234,8 @@ components:
           title: title
           maxLength: 1000
           description: |
-            Title of the todo to create. Must not be blank and must be at most 1000
-             characters. Leading and trailing whitespace is trimmed before storage.
+            Title of the todo to create. Leading and trailing whitespace is trimmed
+             before storage.
             title.not_blank // title must not be blank
       title: CreateTodoRequest
       additionalProperties: false

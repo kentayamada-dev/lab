@@ -44,7 +44,7 @@ jobs:
         run: |
           set -eo pipefail
           # pipefail is set above because otherwise tee's exit code hides a failed check.
-          # The vendored Swagger UI assets are full of strings lychee reads as links.
+          # Why --exclude-path: docs/ci-jobs.md#lychee
           lychee \
             --no-progress \
             --mode plain \
