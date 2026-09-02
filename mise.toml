@@ -17,7 +17,8 @@ shfmt = "3.14.0"
 typos = "1.50.0"
 zizmor = "1.30.0"
 
-# One task per check job in ci.yml, named after it (docs/ci-jobs.md).
+# One task per check job in ci.yml that can run from a local checkout, named after
+# it (docs/ci-jobs.md#検査を手元で再現する).
 [tasks.check]
 description = "Run every CI check that works from a local checkout"
 depends = ["check:*"]
@@ -33,11 +34,11 @@ git ls-files -z '*.sh' '*.bash' \
 '''
 
 [tasks."check:actionlint"]
-description = "Syntax and expression errors in workflow definitions"
+description = "Lint workflow files"
 run = "actionlint -color"
 
 [tasks."check:shellcheck"]
-description = "Shell-script patterns that misbehave silently"
+description = "Lint shell scripts"
 shell = "bash -c"
 run = '''
 set -euo pipefail
@@ -46,7 +47,7 @@ git ls-files -z '*.sh' '*.bash' \
 '''
 
 [tasks."check:hadolint"]
-description = "Dockerfile patterns that cost reproducibility, size, or privilege"
+description = "Lint Dockerfiles"
 shell = "bash -c"
 run = '''
 set -euo pipefail
@@ -55,11 +56,11 @@ git ls-files -z '*Dockerfile' '*Dockerfile.*' '*.dockerfile' \
 '''
 
 [tasks."check:typos"]
-description = "Typos"
+description = "Check for typos"
 run = "typos --color always"
 
 [tasks."check:lychee"]
-description = "Broken links and broken anchors in Markdown"
+description = "Check for broken links and broken anchors in Markdown"
 # The vendored Swagger UI assets are full of strings lychee reads as links.
 run = '''
 lychee --offline --include-fragments --no-progress \
@@ -71,19 +72,19 @@ lychee --offline --include-fragments --no-progress \
 '''
 
 [tasks."check:ghalint"]
-description = "Workflow security (how they are written)"
+description = "Lint workflow files for security policies"
 run = "ghalint run"
 
 [tasks."check:zizmor"]
-description = "Workflow security (attack paths)"
+description = "Audit workflow files for security issues"
 run = "zizmor --color=always --strict-collection ."
 
 [tasks."check:gitleaks"]
-description = "Secrets that crept into the commit history"
+description = "Scan git history for secrets"
 run = "gitleaks git --redact --verbose --no-banner"
 
 [tasks."check:hooks"]
-description = "The Claude Code hooks still allow and refuse what CLAUDE.md says"
+description = "Test the Claude Code hooks"
 shell = "bash -c"
 run = '''
 set -euo pipefail
@@ -92,7 +93,7 @@ git ls-files -z '.claude/tests/*.bats' \
 '''
 
 [tasks."check:script-tests"]
-description = "The scripts the workflows call still decide the same way"
+description = "Test the scripts the workflows call"
 shell = "bash -c"
 run = '''
 set -euo pipefail
@@ -101,7 +102,7 @@ git ls-files -z '.github/scripts/tests/*.bats' 'scripts/tests/*.bats' \
 '''
 
 [tasks."check:issue-forms"]
-description = "The issue forms follow the schema"
+description = "Validate issue forms"
 shell = "bash -c"
 run = '''
 set -euo pipefail

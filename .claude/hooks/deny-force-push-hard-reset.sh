@@ -10,9 +10,7 @@
 # the safer variants have no job here either. A refspec that starts with + is
 # a force push carrying no flag at all, so \s\+\S counts as one. [^|;&\n]
 # keeps each match inside one pipeline segment (a newline separates commands
-# just as ; does). Matching is textual, not a shell parse, so a command that
-# merely quotes the words (echo "git push --force") is denied too — a cheap
-# false positive.
+# just as ; does). Matching is textual, not a shell parse (docs/ci-jobs.md#hooks).
 #
 # The hook fails closed: a tool call it cannot read (not JSON, or no command
 # string) is denied rather than waved through — the guarded operations destroy
