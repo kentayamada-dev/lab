@@ -24,6 +24,17 @@ assert_decision() {
   assert_decision deny 'git push origin HEAD -f'
 }
 
+@test "denies the flag bundled with other short flags" {
+  assert_decision deny 'git push -fu origin HEAD'
+  assert_decision deny 'git push origin HEAD -uf'
+  assert_decision deny 'git push -quf origin HEAD'
+}
+
+@test "denies the flag followed directly by a separator" {
+  assert_decision deny 'git push -f; echo done'
+  assert_decision deny 'git push origin HEAD -uf|cat'
+}
+
 @test "denies the with-lease and if-includes variants" {
   assert_decision deny 'git push --force-with-lease origin main'
   assert_decision deny 'git push origin main --force-if-includes'
@@ -58,6 +69,8 @@ assert_decision() {
 @test "stays silent for an ordinary push or reset" {
   assert_decision '' 'git push origin HEAD'
   assert_decision '' 'git push --follow-tags origin main'
+  assert_decision '' 'git push -u origin HEAD'
+  assert_decision '' 'git push -qu origin feature/force-field'
   assert_decision '' 'git reset --soft HEAD~1'
   assert_decision '' 'git reset HEAD~1'
 }
