@@ -47,7 +47,7 @@ require-any-service = $(call check-service,$(COMPOSE_ALL))
         proto-check proto-lint proto-fmt proto-fmt-check proto-breaking \
         gen gen-check gen-config-check gen-code-check \
         db-check db-inspect db-validate db-diff db-diff-check db-lint db-migrate \
-        init code
+        init code run-api run-web
 
 # ---- Setup -------------------------------------------------------------------
 init: ## Create .env from .env.example if it is missing
@@ -92,6 +92,12 @@ logs-%: FORCE ## Follow the logs of one service
 	$(COMPOSE) logs --follow $*
 clean: ## Remove containers, volumes and locally built images
 	$(COMPOSE_ALL) down --volumes --rmi local --remove-orphans
+
+# ---- Run ---------------------------------------------------------------------
+run-api: ## Run the api server in the api container started by 'make up'
+	$(COMPOSE) exec --workdir /workspace/api api make run
+run-web: ## Run the web dev server in the web container started by 'make up'
+	$(COMPOSE) exec --workdir /workspace/web web make dev
 
 # ---- Proto -------------------------------------------------------------------
 proto-check: proto-fmt-check proto-lint proto-breaking ## Run every proto check

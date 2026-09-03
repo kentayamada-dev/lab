@@ -21,8 +21,10 @@ services:
         USER_UID: *uid
         USER_GID: *gid
         USER_NAME: *user_name
+    ports:
+      - "127.0.0.1:${API_PORT:?}:${API_PORT:?}"
     environment:
-      API_PORT: "${API_PORT:?}"
+      PORT: "${API_PORT:?}"
       DB_URL: *app_db_url
     volumes:
       - .:/workspace
@@ -44,8 +46,11 @@ services:
         USER_UID: *uid
         USER_GID: *gid
         USER_NAME: *user_name
+    ports:
+      - "127.0.0.1:${WEB_PORT:?}:${WEB_PORT:?}"
     environment:
       NEXT_TELEMETRY_DISABLED: 1
+      PORT: "${WEB_PORT:?}"
       API_PORT: "${API_PORT:?}"
     volumes:
       - .:/workspace

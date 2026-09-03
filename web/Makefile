@@ -1,6 +1,10 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help check install build
+.PHONY: help check install build dev
+
+# ---- Run -------------------------------------------------------------------
+dev: require-pnpm ## Run the dev server
+	pnpm dev
 
 # ---- CI aggregate ----------------------------------------------------------
 check: install build ## Run every CI check
