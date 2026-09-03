@@ -14,10 +14,12 @@ RUN sh /tmp/create-user.sh "${USER_NAME}" "${USER_UID}" "${USER_GID}" \
 ENV PNPM_HOME=/pnpm \
   PATH=/pnpm/bin:/pnpm:$PATH
 
-# renovate: datasource=npm depName=pnpm
-ARG PNPM_VERSION=11.25.0
-
-RUN npm install -g pnpm@${PNPM_VERSION}
+# The standalone build from the official pnpm image; a digest-pinned image is
+# the only pnpm install that Scorecard's Pinned-Dependencies accepts (npm install
+# has no hash to pin to). The executable loads dist/ relative to itself, so the
+# whole directory comes along and only the symlink goes in PATH.
+COPY --from=ghcr.io/pnpm/pnpm:11.25.0@sha256:cd0af9b2fb00829b31175672b2f1fab91e0efe708444d2da8930e73b2d4d9987 /opt/pnpm /opt/pnpm
+RUN ln -s /opt/pnpm/pnpm /usr/local/bin/pnpm
 
 RUN mkdir -p /workspace/web/node_modules \
   && chown -R ${USER_NAME}:${USER_NAME} /workspace \

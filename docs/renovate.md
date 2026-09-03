@@ -194,7 +194,7 @@ docker run --rm -v "$PWD:/repo:ro" -w /repo \
 | ジョブの `container:` — `image: <イメージ>:<タグ>@sha256:...` | 同上 |
 | `jdx/mise-action` の `version` 入力 | 同上 |
 | [mise.toml](../mise.toml) の `[tools]` | mise マネージャ |
-| Dockerfile（[api](../.devcontainer/api-container/Dockerfile) / [web](../.devcontainer/web-container/Dockerfile)）の `FROM <イメージ>:<タグ>@sha256:...` | dockerfile マネージャ |
+| Dockerfile（[api](../.devcontainer/api-container/Dockerfile) / [web](../.devcontainer/web-container/Dockerfile)）の `FROM <イメージ>:<タグ>@sha256:...` と `COPY --from=<イメージ>:<タグ>@sha256:...` | dockerfile マネージャ |
 | [docker-compose.yml](../docker-compose.yml) の `image: <イメージ>:<タグ>@sha256:...` | docker-compose マネージャ |
 | [api/go.mod](../api/go.mod)、[web/package.json](../web/package.json) | gomod / npm マネージャ。go.mod の `// indirect` な依存は Renovate の既定どおり通常の更新には含めず、脆弱性の修正 PR だけ立つ（上の `vulnerabilityAlerts`） |
 | Dockerfile / [Makefile](../Makefile) の `# renovate: datasource=... depName=...` 直下の `<名前>_VERSION` 変数 | `customManagers:dockerfileVersions` / `customManagers:makefileVersions` プリセット |
