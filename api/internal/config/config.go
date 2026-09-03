@@ -17,9 +17,9 @@ func Load() (Config, error) {
 		return Config{}, errors.New("DB_URL is not set")
 	}
 
-	port := os.Getenv("API_PORT")
+	port := os.Getenv("PORT")
 	if port == "" {
-		return Config{}, errors.New("API_PORT is not set")
+		return Config{}, errors.New("PORT is not set")
 	}
 
 	return Config{

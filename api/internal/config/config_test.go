@@ -8,7 +8,7 @@ import (
 
 func TestLoad(t *testing.T) {
 	t.Setenv("DB_URL", "postgres://user:pass@db:5432/app")
-	t.Setenv("API_PORT", "8080")
+	t.Setenv("PORT", "8080")
 
 	cfg, err := Load()
 	if err != nil {
@@ -29,15 +29,15 @@ func TestLoadMissingEnv(t *testing.T) {
 		dbURL   string
 		apiPort string
 	}{
-		"DB_URL unset":   {dbURL: "", apiPort: "8080"},
-		"API_PORT unset": {dbURL: "postgres://db", apiPort: ""},
-		"both unset":     {dbURL: "", apiPort: ""},
+		"DB_URL unset": {dbURL: "", apiPort: "8080"},
+		"PORT unset":   {dbURL: "postgres://db", apiPort: ""},
+		"both unset":   {dbURL: "", apiPort: ""},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv("DB_URL", tt.dbURL)
-			t.Setenv("API_PORT", tt.apiPort)
+			t.Setenv("PORT", tt.apiPort)
 
 			cfg, err := Load()
 			if err == nil {

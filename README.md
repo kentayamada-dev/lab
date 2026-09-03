@@ -8,9 +8,10 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 
 ## 読み方
 
-最初に読むのは次の 2 つだけです。
+最初に読むのは次の 3 つだけです。
 
 - [セットアップ](#セットアップ) — テンプレートからリポジトリを作った直後の一度きりの作業
+- [起動](#起動) — アプリを手元で動かす手順
 - [開発フロー](#開発フロー) — 普段の PR の回し方
 
 残りは、必要になったときに引くリファレンスです。
@@ -31,6 +32,7 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 | [web/](web) | Next.js のフロントエンド（生成コードは web/src/gen/） |
 | [db/](db) | Atlas のマイグレーションと設定 |
 | [docker-compose.yml](docker-compose.yml) | ローカル開発と CI のアプリ検査が使うサービス定義 |
+| [.env.example](.env.example) | docker-compose.yml が読む `.env` の雛形（`make init` が複製する） |
 | [Makefile](Makefile) | サービス操作と proto / 生成コード / DB / api / web の検査の入口（`make help`） |
 | [.devcontainer/](.devcontainer) | api / web の devcontainer 定義 |
 | [.github/rulesets/main.json](.github/rulesets/main.json) | main のブランチ保護（GitHub Repository Ruleset）の定義 |
@@ -116,6 +118,30 @@ JSON から読み取りにくい点だけ補足します。承認は 0 人でセ
 コミットの署名は必須にしていません。ルールが見るのはマージ時に GitHub が作って署名する squash コミットだけでなく PR に含まれるすべてのコミットなので、必須にすると未署名のコミットで作られる Renovate の更新 PR がマージできなくなるためです。
 
 承認 0 人は、管理者が 1 人であることを前提にした設定です。2 人以上で開発するようになったら JSON の `pull_request` ルールを変えてください。`required_approving_review_count` を 1 に、`dismiss_stale_reviews_on_push` と `require_last_push_approval` を `true` にします。変更箇所の担当者のレビューを必須にするなら、`CODEOWNERS` を置いて `require_code_owner_review` も有効にします。
+
+## 起動
+
+前提は docker だけです。
+
+```bash
+make init         # .env.example から .env を作る
+make up           # db / api / web / db_gui を起動する（初回はイメージを build する）
+make db-migrate   # スキーマを適用する
+make web-install  # web の依存を入れる（初回と、lockfile が変わったとき）
+```
+
+api と web のコンテナは待機しているだけで、サーバは自動では起動しません。ターミナルを 2 つ使い、それぞれで起動します（Ctrl-C で止まります）。
+
+```bash
+make run-api   # http://localhost:${API_PORT} で待ち受け、/docs に Swagger UI
+make run-web   # http://localhost:${WEB_PORT} で待ち受け、/rpc/* を api に転送する（next.config.ts）
+```
+
+ポートは .env の `API_PORT` / `WEB_PORT` / `DB_PORT` と db_gui の 8978 で、[docker-compose.yml](docker-compose.yml) が 127.0.0.1 にだけ公開しています（.env.example では api が 8080、web が 3000）。db_gui は [CloudBeaver](https://dbeaver.com/docs/cloudbeaver/) で、アプリの DB への接続は [initial-data-sources.conf](.devcontainer/db_gui-container/initial-data-sources.conf) で登録済みです。
+
+コンテナ内のユーザーは `USER_UID` / `USER_GID`（既定 1000）で作られます。ホストの `id -u` / `id -g` と違うと、依存キャッシュのボリュームや bind mount したチェックアウトの所有者がずれ、`make run-api` や `make run-web` が権限エラーで落ちることがあります。.env に 2 つを足して `make rebuild` してください（CI も runner の uid / gid に合わせています）。
+
+VS Code で編集するなら、`make code-api` / `make code-web` で同じコンテナに devcontainer として接続できます。devcontainer を開かずに api / web の Makefile のターゲットを 1 つ実行するには `make api-<target>` / `make web-<target>` を使います（`make api-test` など）。止めるのは `make down`、DB のデータも含めて消すのは `make clean` です。残りのターゲットは `make help` にあります。
 
 ## 開発フロー
 
