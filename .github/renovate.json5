@@ -6,6 +6,9 @@
     // Hand-pinned versions in Dockerfiles and the Makefile (docs/renovate.md).
     'customManagers:dockerfileVersions',
     'customManagers:makefileVersions',
+    // Wait 3 days for npm releases so Renovate never proposes a version that
+    // pnpm's default minimumReleaseAge (24 h) rejects in the web job (docs/renovate.md).
+    'security:minimumReleaseAgeNpm',
   ],
   dependencyDashboard: false,
   labels: ['dependencies'],

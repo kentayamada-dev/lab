@@ -68,7 +68,7 @@ jobs:
 | `gen` | `make gen-check` |
 | `db` | `make db-check`。lint は origin/main 以降に増えたマイグレーションだけを見るため、`proto` と同じく `fetch-depth: 0` で checkout します |
 | `api` | `make db-migrate` でスキーマを適用してから `make api-check`。sqlc の `db-prepare` ルールが実 DB に対してクエリを prepare するため、先にテーブルが要ります |
-| `web` | `make web-check` |
+| `web` | `make web-check`。`pnpm install --frozen-lockfile` は pnpm 11 の既定 `minimumReleaseAge`（1440 分）により、lockfile の全エントリを見て公開から 24 時間未満の版を `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` で拒否します。Renovate がそうした版を提案しないようにする設定は [renovate.md](renovate.md#このリポジトリに合わせてある設定) にあります |
 
 各ターゲットの内容は `make help` にあります。各ジョブは `USER_UID` / `USER_GID` を runner の uid / gid に合わせてから make を呼びます。bind mount したチェックアウトをコンテナ側が読み書きできるようにするためで、buf が `.git` を読むときの dubious ownership 判定もこれで避けます。`api` ジョブは `API_BUILD_TARGET=base` でイメージを build します（dev target が足す gopls は検査で使わず、コンパイルに時間がかかるためです）。
 
