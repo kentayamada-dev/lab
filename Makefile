@@ -21,7 +21,7 @@ GEN_CHECK_DIR     := .gen-check.tmp
 # form Renovate's makefileVersions preset reads (docs/renovate.md). Exported so
 # every invocation of the script sees it.
 # renovate: datasource=github-releases depName=sudorandom/protoc-gen-connect-openapi
-CONNECT_OPENAPI_VERSION := v0.25.7
+CONNECT_OPENAPI_VERSION := v0.25.8
 export CONNECT_OPENAPI_VERSION
 
 DEVCONTAINER_DIR := $(CURDIR)/.devcontainer

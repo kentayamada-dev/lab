@@ -20,11 +20,11 @@ plugins:
   - remote: buf.build/connectrpc/go:v1.20.0
     out: api/gen/go
     opt: paths=source_relative
-  - remote: buf.build/bufbuild/es:v2.14.0
+  - remote: buf.build/bufbuild/es:v2.14.1
     out: web/src/gen
     opt: target=ts
     # The generated TS imports the descriptors of every proto dependency
     # (buf/validate) by a relative path, so those must be generated too.
     include_imports: true
-  - remote: buf.build/community/sudorandom-connect-openapi:v0.25.7
+  - remote: buf.build/community/sudorandom-connect-openapi:v0.25.8
     out: api/gen/openapi
