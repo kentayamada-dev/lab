@@ -21,6 +21,9 @@
   // Indirect Go modules are disabled by the gomod manager; forcing enabled here lets
   // vulnerability-fix PRs cover them too (docs/renovate.md).
   vulnerabilityAlerts: { enabled: true },
+  // Without tidy, a Go update leaves the old module's go.sum lines behind and the api
+  // job's tidy-check fails (docs/renovate.md).
+  postUpdateOptions: ['gomodTidy'],
   commitMessageAction: '',
   commitMessageExtra: '',
   commitMessageTopic: 'update {{{depName}}} to {{#if isPinDigest}}{{{newDigestShort}}}{{else}}{{#if isMajor}}{{{prettyNewMajor}}}{{else}}{{#if isSingleVersion}}{{{prettyNewVersion}}}{{else}}{{#if newValue}}{{{newValue}}}{{else}}{{{newDigestShort}}}{{/if}}{{/if}}{{/if}}{{/if}}',
