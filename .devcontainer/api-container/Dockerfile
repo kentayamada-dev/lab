@@ -1,4 +1,4 @@
-FROM golang:1.27.1-trixie@sha256:137ca8442e368f5f5bb4d4f84d8cc1f6c2d898edf8a380459eb407f89d149b0d AS base
+FROM golang:1.27.1-trixie@sha256:9baa6b4187bbb98d240372a8a235ac0bb6b5ddd52bba1431dc2f7c0705862728 AS base
 
 ARG USER_NAME
 ARG USER_UID
@@ -15,7 +15,7 @@ RUN mkdir -p /go/pkg/mod /go/cache \
 
 USER ${USER_NAME}
 
-FROM golang:1.27.1-trixie@sha256:137ca8442e368f5f5bb4d4f84d8cc1f6c2d898edf8a380459eb407f89d149b0d AS gopls
+FROM golang:1.27.1-trixie@sha256:9baa6b4187bbb98d240372a8a235ac0bb6b5ddd52bba1431dc2f7c0705862728 AS gopls
 
 # renovate: datasource=go depName=golang.org/x/tools/gopls
 ARG GOPLS_VERSION=v0.23.0
