@@ -35,6 +35,8 @@ issue は `Repository settings have drifted` というタイトルで `maintenan
 
 issue の作成・コメント・close はワークフローの `GITHUB_TOKEN`（`issues: write`）で行います。`SETTINGS_TOKEN` は読み取り専用のままで構いません。
 
+他の定期実行（[link-check](ci-jobs.md#外部リンクの定期検査) / [claude-settings](ci-jobs.md#claude-code-設定の定期検査) / [osv-scanner](ci-jobs.md#osv-scanner) / [Scorecard](ci-jobs.md#scorecard) / [Renovate](renovate.md#実行が失敗したとき)）も同じ形で通知し、どれも定期実行なので[活動が無いと止まります](ci-jobs.md#定期実行が止まるとき)。ワークフロー側の書き方は 2 通りあり、条件の理由は共通です。検査と同じジョブで通知するもの（repo-settings / link-check / claude-settings）は、issue を立てる step の `if` に `steps.check.outcome == 'failure'` を含めます。`failure()` だけだと checkout など別の step の失敗でも「検査が落ちた」issue が立つためです。検査の出力を `tee` で控えて issue 本文に載せるので、tee の終了コードが検査の失敗を隠さないよう `pipefail` も要ります。検査が別ジョブのもの（osv-scanner / scorecard / renovate）は、通知ジョブに `if: ${{ !cancelled() }}` を付けます。既定では前のジョブが落ちると後続がスキップされ、issue が立たないためです。cancelled のように success でも failure でもない結果では issue を開きも閉じもしません。通知ジョブはリポジトリ内のスクリプトを呼ぶので checkout も要ります。
+
 ## トークンについて
 
 **既定の `GITHUB_TOKEN` では読めない項目があり、`UNKNOWN` になります**（下の表で Administration が要るもの）。Actions から実行するには、Administration の read を持つ fine-grained PAT を secret `SETTINGS_TOKEN` に登録してください（[作成手順](#settings_token-の作成)）。登録があればワークフローはそちらを使います。
@@ -51,7 +53,7 @@ issue の作成・コメント・close はワークフローの `GITHUB_TOKEN`�
 | secret scanning の push protection | REST（`security_and_analysis`） | **Administration: Read-only** |
 | Actions の `GITHUB_TOKEN` の既定権限 | REST | **Administration: Read-only** |
 
-Dependabot alerts の `404` は admin 権限の無いトークンでも返り、「無効」と区別できません。そのため「無効」と判定するのは呼び出し元に admin 権限があるときだけで、無いときは `UNKNOWN` として報告します。
+Dependabot alerts の `404` は admin 権限の無いトークンでも返り（`403` になるのは GitHub App のトークンだけです）、「無効」と区別できません。そのため「無効」と判定するのは呼び出し元に admin 権限があるときだけで、無いときは `UNKNOWN` として報告します。
 
 適用側（引数なしの実行）は REST の `PATCH` を使います。こちらは admin 権限のある本人が手元から動かすため問題になりません。
 

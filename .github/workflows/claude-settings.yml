@@ -40,13 +40,12 @@ jobs:
         id: check
         run: |
           set -eo pipefail
-          # pipefail is set above because otherwise tee's exit code hides a failed check.
+          # Why pipefail: docs/drift-check.md#落ちたときの通知
           check-jsonschema \
             --schemafile https://json.schemastore.org/claude-code-settings.json \
             .claude/settings.json 2>&1 | tee "${RUNNER_TEMP}/check.log"
 
-      # steps.check.outcome is part of the condition so that a failure in another
-      # step, such as checkout, does not open a bogus "settings are invalid" issue.
+      # Why this condition: docs/drift-check.md#落ちたときの通知
       - name: Report the mismatch as an issue
         if: failure() && steps.check.outcome == 'failure'
         env:

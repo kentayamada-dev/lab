@@ -43,7 +43,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -eo pipefail
-          # pipefail is set above because otherwise tee's exit code hides a failed check.
+          # Why pipefail: docs/drift-check.md#落ちたときの通知
           # Why --exclude-path: docs/ci-jobs.md#lychee
           lychee \
             --no-progress \
@@ -55,8 +55,7 @@ jobs:
             --exclude-path api/internal/server/swagger.html \
             . 2>&1 | tee "${RUNNER_TEMP}/lychee.log"
 
-      # steps.check.outcome is part of the condition so that a failure in another
-      # step, such as checkout, does not open a bogus "broken links" issue.
+      # Why this condition: docs/drift-check.md#落ちたときの通知
       - name: Open an issue on broken links
         if: failure() && steps.check.outcome == 'failure'
         env:
