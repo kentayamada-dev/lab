@@ -21,9 +21,7 @@ permissions:
 
 jobs:
   analysis:
-    # The Scorecard API rejects published results unless this job stays within its
-    # restrictions (see "Scorecard" in docs/ci-jobs.md) — adding a step here breaks
-    # publishing. Put anything extra in a separate job, like notify below.
+    # Adding a step here breaks publishing; put extras in notify below (docs/ci-jobs.md#公開スコアとワークフローの制約).
     #
     # scorecard-action is a docker (linux/amd64) action, so use an x64 runner.
     runs-on: ubuntu-24.04
@@ -48,9 +46,7 @@ jobs:
           sarif_file: results.sarif
 
   notify:
-    # This job inspects the analysis job's result and behaves accordingly, so it must
-    # run on failure too (without !cancelled() the whole job is skipped on failure
-    # and no issue is opened).
+    # Why !cancelled(): docs/drift-check.md#落ちたときの通知
     if: ${{ !cancelled() }}
     needs: [analysis]
     runs-on: ubuntu-24.04-arm
@@ -59,7 +55,6 @@ jobs:
       contents: read
       issues: write
     steps:
-      # The issue is reported by a script in the repository, so it has to be checked out.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -93,8 +88,6 @@ jobs:
             --label maintenance \
             --on-existing skip
 
-      # For results that are neither success nor failure, such as cancelled, neither
-      # open nor close the issue.
       - name: Close the issue when the analysis passes
         if: needs.analysis.result == 'success'
         env:

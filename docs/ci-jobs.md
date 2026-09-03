@@ -54,7 +54,7 @@ jobs:
 - 可能なら、ジョブのコマンドは [mise.toml](../mise.toml) の `check:<ジョブ名>` タスクに置き、ジョブはそれを呼ぶ形にしてください。検査を手元で再現できる状態が保たれます（[検査を手元で再現する](#検査を手元で再現する)）。
 - ワークフロー全体に `paths` フィルタを付けないこと。対象外の PR で `ci` が報告されず、必須チェック待ちのままマージ不能になります。絞るならジョブ側の `if` を使います。
 - `ci` ジョブの名前を変えるときは、[main.json](../.github/rulesets/main.json) の `context` も合わせて変更してください。
-- **CI を GitHub Actions 以外から報告するようにしないこと。** `context` と一緒に `integration_id`（GitHub Actions の App ID）を指定してあり、他の App やトークンが報告した同名のチェックは無視されます。外部 CI へ移行する場合はこの値も移行先の App ID に変えないと、必須チェック待ちで止まります（[確認方法](troubleshooting.md#トラブルシューティング)）。
+- **CI を GitHub Actions 以外から報告するようにしないこと。** `context` と一緒に `integration_id`（GitHub Actions の App ID）を指定してあり、他の App やトークンが報告した同名のチェックは無視されます。外部 CI へ移行する場合はこの値も移行先の App ID に変えないと、必須チェック待ちで止まります（[確認方法](troubleshooting.md#pr-が必須チェック待ちで止まる)）。
 - CI は 1 つの変更につき 2 回走ります（PR 上と、マージ後の main）。base を最新化するたびに PR 側はさらに走ります。実行時間の長いジョブを追加するときはこのコストを見込んでください。main 側の run は、CodeQL がアラートの基準として使う「デフォルトブランチの解析結果」を作ります。
 - 同じ PR への連続 push では古い実行を打ち切りますが、**main への push では打ち切りません**（`concurrency` の `cancel-in-progress` を `github.event_name == 'pull_request'` にしてあります）。連続マージで前のコミットの実行がキャンセルされると、そのコミットに `cancelled` が残り、[CodeQL](#codeql) の解析も欠けるためです。
 
@@ -211,7 +211,7 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 `GITHUB_TOKEN` を渡しています。lychee は github.com のリンクを GitHub API 経由で確認するため、渡さないと未認証のレート制限に当たり、実在するリンクが落ちます。
 
-落ちたときの通知は[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)です。`External links are broken` という issue が `maintenance` ラベル付きで立ち、直れば次の実行で自動的に閉じます。定期実行なので[活動が無いと止まる](#定期実行が止まるとき)点も同じです。
+落ちたときの通知は[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)です（issue タイトルは `External links are broken`）。
 
 ## markdownlint-cli2
 
@@ -309,7 +309,7 @@ prompt フックは中身も対象です。Conventional Commits の type 一覧�
 
 コマンドは [claude-settings.yml](../.github/workflows/claude-settings.yml) にあります。
 
-落ちたときの通知は[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)です。`The Claude Code settings do not match the schema` という issue が `maintenance` ラベル付きで立ち、実行が通れば自動的に閉じます。定期実行なので[活動が無いと止まる](#定期実行が止まるとき)点も同じです。`.claude/` を手放すなら、このワークフローもフックや設定と一緒に削除してください。
+落ちたときの通知は[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)です（issue タイトルは `The Claude Code settings do not match the schema`）。`.claude/` を手放すなら、このワークフローもフックや設定と一緒に削除してください。
 
 ## script-tests
 
@@ -357,7 +357,7 @@ prompt フックは中身も対象です。Conventional Commits の type 一覧�
 
 `fail-on-vuln: false` にしてあります（既定は `true`）。検出は Code scanning にアラートとして出るので、ジョブは落としません。落とすと同じ脆弱性で毎日赤くなり、「対応済み」「様子見」を個別に記録できないためです。アラートは毎回の実行で更新され、直った脆弱性のアラートは自動で閉じます。通知を受け取るにはリポジトリを watch して Code scanning のアラート通知を有効にしておきます。
 
-実行そのものが落ちたとき（脆弱性が見つかったときではなく）は、`notify` ジョブが[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)で `osv-scanner runs are failing` という issue を `maintenance` ラベル付きで立て、実行が通れば自動的に閉じます。issue なしではこの失敗は見えません。何も見つからなかった走査と走らなかった走査は、Security タブからは同じに見えます。
+実行そのものが落ちたとき（脆弱性が見つかったときではなく）は、`notify` ジョブが[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)で通知します（issue タイトルは `osv-scanner runs are failing`）。issue なしではこの失敗は見えません。何も見つからなかった走査と走らなかった走査は、Security タブからは同じに見えます。
 
 ### 差分検査（PR 側）
 
@@ -433,4 +433,4 @@ osv-scanner は検査対象が 1 件も無いとき、「スキャンしたつ�
 
 ### 実行が落ちたとき
 
-実行そのものが落ちたとき — Scorecard API の障害や、上の制約を破る編集をしたとき — は、`notify` ジョブが[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)で `scorecard runs are failing` という issue を `maintenance` ラベル付きで立て、実行が通れば自動的に閉じます。
+実行そのものが落ちたとき — Scorecard API の障害や、上の制約を破る編集をしたとき — は、`notify` ジョブが[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)で通知します（issue タイトルは `scorecard runs are failing`）。

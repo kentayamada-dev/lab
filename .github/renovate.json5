@@ -6,8 +6,7 @@
     // Hand-pinned versions in Dockerfiles and the Makefile (docs/renovate.md).
     'customManagers:dockerfileVersions',
     'customManagers:makefileVersions',
-    // Wait 3 days for npm releases so Renovate never proposes a version that
-    // pnpm's default minimumReleaseAge (24 h) rejects in the web job (docs/renovate.md).
+    // Why: docs/renovate.md#このリポジトリに合わせてある設定
     'security:minimumReleaseAgeNpm',
   ],
   dependencyDashboard: false,
@@ -18,11 +17,9 @@
   prConcurrentLimit: 0,
   rebaseWhen: 'behind-base-branch',
   fetchChangeLogs: 'off',
-  // Indirect Go modules are disabled by the gomod manager; forcing enabled here lets
-  // vulnerability-fix PRs cover them too (docs/renovate.md).
+  // Why: docs/renovate.md#このリポジトリに合わせてある設定
   vulnerabilityAlerts: { enabled: true },
-  // Without tidy, a Go update leaves the old module's go.sum lines behind and the api
-  // job's tidy-check fails (docs/renovate.md).
+  // Why: docs/renovate.md#このリポジトリに合わせてある設定
   postUpdateOptions: ['gomodTidy'],
   commitMessageAction: '',
   commitMessageExtra: '',
