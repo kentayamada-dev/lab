@@ -66,6 +66,17 @@
     "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1"
   },
   "sandbox": {
+    "filesystem": {
+      "allowRead": [
+        "./.env",
+        "./.env.example"
+      ]
+    },
+    "network": {
+      "allowUnixSockets": [
+        "~/.docker/run/docker.sock"
+      ]
+    },
     "enabled": true,
     "failIfUnavailable": true,
     "allowUnsandboxedCommands": false,
