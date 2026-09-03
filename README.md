@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/kentayamada-dev/lab/actions/workflows/ci.yml/badge.svg)](https://github.com/kentayamada-dev/lab/actions/workflows/ci.yml) [![OpenSSF Scorecard](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.scorecard.dev%2Fprojects%2Fgithub.com%2Fkentayamada-dev%2Flab&query=%24.score&label=openssf%20scorecard)](https://scorecard.dev/viewer/?uri=github.com/kentayamada-dev/lab)
 
-Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js のフロントエンド（[web/](web)）、Atlas で管理する Postgres スキーマ（[db/](db)）からなり、リポジトリ運用の土台（ブランチ保護と CI）はテンプレート由来です（[アプリコードの検査](docs/ci-jobs.md#アプリコードの検査)）。
+Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js のフロントエンド（[web/](web)）、Atlas で管理する Postgres スキーマ（[db/](db)）からなります。ブランチ保護や CI などのリポジトリ運用の定義も同じリポジトリに置いています。
 
 **public リポジトリ専用です**（private では ruleset や Code scanning の利用条件が異なるため）。
 
@@ -10,7 +10,7 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 
 最初に読むのは次の 3 つだけです。
 
-- [セットアップ](#セットアップ) — テンプレートからリポジトリを作った直後の一度きりの作業
+- [セットアップ](#セットアップ) — リポジトリ設定と ruleset をスクリプトで適用する手順
 - [起動](#起動) — アプリを手元で動かす手順
 - [開発フロー](#開発フロー) — 普段の PR の回し方
 
@@ -74,12 +74,11 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 
 ## セットアップ
 
-テンプレートから自分のリポジトリを作った直後に行う、一度きりの作業です。
+リポジトリの作成時に一度行った作業です。設定や ruleset の定義を変えたとき、[設定のずれの検査](docs/drift-check.md#設定のずれの検査)がずれを報告したときは、スクリプトだけを再実行します。
 
 1. **セットアップスクリプトを実行する**（このすぐ下）
-2. **スクリプトが書き換えた [config.yml](.github/ISSUE_TEMPLATE/config.yml) をコミットする**（[issue のテンプレート](#issue-のテンプレート)）
-3. **secret `SETTINGS_TOKEN` を登録する**（[作成手順](docs/drift-check.md#settings_token-の作成)） — 未登録だと[設定のずれの検査](docs/drift-check.md#設定のずれの検査)が `UNKNOWN` で落ちて issue が立ちます
-4. **[Renovate](docs/renovate.md#renovate) を使うなら secret `RENOVATE_TOKEN` を登録する**（[作成手順](docs/renovate.md#トークンの登録)） — 未登録だと月曜の定期実行が落ちて issue が立ちます
+2. **secret `SETTINGS_TOKEN` を登録する**（[作成手順](docs/drift-check.md#settings_token-の作成)） — 未登録だと[設定のずれの検査](docs/drift-check.md#設定のずれの検査)が `UNKNOWN` で落ちて issue が立ちます
+3. **[Renovate](docs/renovate.md#renovate) を使うなら secret `RENOVATE_TOKEN` を登録する**（[作成手順](docs/renovate.md#トークンの登録)） — 未登録だと月曜の定期実行が落ちて issue が立ちます
 
 前提: [gh](https://cli.github.com/) と [jq](https://jqlang.github.io/jq/)、および `gh auth login` 済みであること。
 
@@ -96,7 +95,7 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 - squash 時のコミットタイトルを常に PR タイトルにする（[PR タイトルの書式](#pr-タイトルの書式)）
 - Discussions・Issues・Projects の有効化（GitHub の既定値に依存させず明示します）
 - issue と PR のラベルを無いものだけ作成（[ラベル](#ラベル)）
-- Wiki の無効化（main の保護も CI も掛からず、テンプレートからも複製されないため使いません）
+- Wiki の無効化（main の保護も CI も掛からないため使いません）
 - immutable releases（[リリース](#リリース)）
 - 脆弱性の非公開報告（public issue ではなく非公開の窓口で受け取る）
 - Dependabot alerts（依存に既知の脆弱性が公表された時点で GitHub が通知します。毎日の [osv-scanner](docs/ci-jobs.md#osv-scanner) と違い、[schedule が止まった後](docs/ci-jobs.md#定期実行が止まるとき)も動き続けます）
@@ -247,7 +246,7 @@ Makefile と Go はインデントの検査そのものを外しています。m
 
 **セキュリティ上の問題は issue に書かないでください。** 脆弱性の非公開報告を有効にしているので、Security タブから非公開で報告できます（[SECURITY.md](SECURITY.md)）。
 
-`config.yml` の `contact_links` には絶対 URL しか書けないため、テンプレートには `https://github.com/OWNER/REPO/discussions/new/choose` と置いてあり、[セットアップ](#セットアップ)のスクリプトが実際のリポジトリ名へ書き換えます。**書き換わった `config.yml` はコミットが必要です。** 手で直しても構いません。その場合スクリプトは何もしません。
+`config.yml` の `contact_links` には絶対 URL しか書けないため、Discussions へのリンクにはこのリポジトリの URL を直接書いてあります。[セットアップ](#セットアップ)のスクリプトは `https://github.com/OWNER/REPO/...` というプレースホルダーが残っている場合だけ実際のリポジトリ名へ書き換え、コミットを促します。今の `config.yml` にプレースホルダーは無いので、スクリプトはこのファイルには何もしません。
 
 書式は `ci` の `issue-forms` ジョブが [check-jsonschema](https://github.com/python-jsonschema/check-jsonschema) で検査します。`type` の綴り違いや `validations` の位置違いは GitHub 側では実行時にしか分からず、**issue の作成画面からテンプレートが消える**という形で現れるためです。当てるスキーマは [SchemaStore](https://www.schemastore.org/) のものがツール本体に同梱されていて、GitHub 側の変更への追随はツールのバージョン更新に含まれます。
 

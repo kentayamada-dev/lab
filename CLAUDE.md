@@ -9,7 +9,7 @@
 
 ## Project overview
 
-A Todo app monorepo built on template groundwork for repository operations (branch protection, CI, Renovate): a Connect API in Go (api/), a Next.js frontend (web/), protobuf definitions (proto/), and a Postgres schema managed with Atlas (api/schema.sql, db/migrations). Local development and the app-code CI jobs share the same entry point — the root Makefile, which runs everything inside docker compose services.
+A Todo app monorepo: a Connect API in Go (api/), a Next.js frontend (web/), protobuf definitions (proto/), and a Postgres schema managed with Atlas (api/schema.sql, db/migrations). Repository operations (branch protection, CI, Renovate) are defined in the repo as well (.github/, scripts/). Local development and the app-code CI jobs share the same entry point — the root Makefile, which runs everything inside docker compose services.
 
 ## Documentation
 

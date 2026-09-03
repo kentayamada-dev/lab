@@ -109,7 +109,7 @@ notify_issue_config() {
  So far this change exists only in your local working tree.
 
  GitHub reads the config.yml on main, so until you commit it and get it
- onto main, this link keeps pointing at the template's own repository.
+ onto main, this link keeps pointing at the OWNER/REPO placeholder.
 
    git switch -c fix/discussions-link
    git add ${ISSUE_CONFIG_REL}

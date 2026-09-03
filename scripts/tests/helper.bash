@@ -16,9 +16,9 @@ REPO_ROOT="${BATS_TEST_DIRNAME}/../.."
 # setup_repo
 #
 # Copies the script and the ruleset it reads into a throwaway repository root, kept
-# in REPO_COPY. config.yml is written rather than copied: in a repository created
-# from the template the real one has already been rewritten, and the rewrite is one
-# of the things under test.
+# in REPO_COPY. config.yml is written rather than copied: the real one has already
+# been rewritten to this repository's name, and the rewrite is one of the things
+# under test.
 setup_repo() {
   REPO_COPY="${BATS_TEST_TMPDIR}/repo"
   mkdir -p "${REPO_COPY}/scripts" "${REPO_COPY}/.github/rulesets" "${REPO_COPY}/.github/ISSUE_TEMPLATE"
