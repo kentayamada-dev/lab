@@ -64,8 +64,7 @@ setup() {
   [[ "${output}" == *SETTINGS_TOKEN* ]]
 }
 
-# The endpoint answers 404 both for "disabled" and for "not allowed to read", and
-# only admin access lets the check call it drift (docs/drift-check.md).
+# Why a 404 splits into DRIFT and UNKNOWN: docs/drift-check.md#トークンについて
 @test "a 404 on vulnerability-alerts is DRIFT with admin access, UNKNOWN without" {
   fail_endpoint repos/owner/repo/vulnerability-alerts 1 'HTTP 404: Not Found'
   run -1 run_sync --check

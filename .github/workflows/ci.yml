@@ -529,7 +529,6 @@ jobs:
           persist-credentials: false
       # The reverse direction (listed in needs but no such job) is caught by
       # actionlint as part of workflow validation.
-      # yq and jq ship with GitHub-hosted runners, so they are not added to mise.
       - name: Check that needs lists every job
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
