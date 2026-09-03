@@ -18,6 +18,9 @@
   prConcurrentLimit: 0,
   rebaseWhen: 'behind-base-branch',
   fetchChangeLogs: 'off',
+  // Indirect Go modules are disabled by the gomod manager; forcing enabled here lets
+  // vulnerability-fix PRs cover them too (docs/renovate.md).
+  vulnerabilityAlerts: { enabled: true },
   commitMessageAction: '',
   commitMessageExtra: '',
   commitMessageTopic: 'update {{{depName}}} to {{#if isPinDigest}}{{{newDigestShort}}}{{else}}{{#if isMajor}}{{{prettyNewMajor}}}{{else}}{{#if isSingleVersion}}{{{prettyNewVersion}}}{{else}}{{#if newValue}}{{{newValue}}}{{else}}{{{newDigestShort}}}{{/if}}{{/if}}{{/if}}{{/if}}',

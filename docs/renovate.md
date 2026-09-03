@@ -22,7 +22,7 @@ gh workflow run renovate.yml
 | Pull requests: Read and write | PR の作成・更新 |
 | Workflows: Read and write | `.github/workflows/` 配下の更新 |
 | Issues: Read and write | 設定に問題があるときの警告 issue の作成 |
-| Dependabot alerts: Read-only | [セットアップ](../README.md#セットアップ)で有効化した alerts の読み取り。既知の脆弱性がある依存には、次の実行時にまとめ PR とは別の単独の修正 PR が立ちます（Renovate の `vulnerabilityAlerts`。既定で有効）。権限が無いとき Renovate 自身は警告を出して飛ばすだけなので、実行は成功したままになります |
+| Dependabot alerts: Read-only | [セットアップ](../README.md#セットアップ)で有効化した alerts の読み取り。既知の脆弱性がある依存には、次の実行時にまとめ PR とは別の単独の修正 PR が立ちます（Renovate の `vulnerabilityAlerts`。[go.mod の `// indirect` な依存も対象](#このリポジトリに合わせてある設定)）。権限が無いとき Renovate 自身は警告を出して飛ばすだけなので、実行は成功したままになります |
 
 トークンを secret に登録し、実際に動かして確認します（更新があれば PR が作られます）。
 
@@ -181,6 +181,7 @@ docker run --rm -v "$PWD:/repo:ro" -w /repo \
 | `packageRules` の `non-major` | major 以外は 1 本の PR にまとめる | 更新ごとに PR が立ち、本数が増える |
 | `commitMessage*` / `pr*` の文面 | 更新 PR のタイトルと本文を自前で書く（[PR の文面](#pr-の文面)） | 自動生成の既定の文面に戻り、自動 issue と体裁が揃わない |
 | `fetchChangeLogs: 'off'` | リリースノートを PR に出さないので取得しない（[本文](#本文)） | 表示しないリリースノートを実行ごとに取りに行く |
+| `vulnerabilityAlerts: { enabled: true }` | gomod マネージャは `// indirect` な依存を無効にしていて、脆弱性の修正 PR も既定ではそれを上書きしない。ここで `enabled` を書くと修正 PR の設定として強制され、indirect な依存の脆弱性にも修正 PR が立つ（通常の更新には indirect を含めないまま） | Dependabot alerts が `// indirect` な依存（Go では大半）に出ても修正 PR が立たず、アラートが残り続ける |
 
 ## 何が更新対象になるか
 
@@ -194,7 +195,7 @@ docker run --rm -v "$PWD:/repo:ro" -w /repo \
 | [mise.toml](../mise.toml) の `[tools]` | mise マネージャ |
 | Dockerfile（[api](../.devcontainer/api-container/Dockerfile) / [web](../.devcontainer/web-container/Dockerfile)）の `FROM <イメージ>:<タグ>@sha256:...` | dockerfile マネージャ |
 | [docker-compose.yml](../docker-compose.yml) の `image: <イメージ>:<タグ>@sha256:...` | docker-compose マネージャ |
-| [api/go.mod](../api/go.mod)、[web/package.json](../web/package.json) | gomod / npm マネージャ |
+| [api/go.mod](../api/go.mod)、[web/package.json](../web/package.json) | gomod / npm マネージャ。go.mod の `// indirect` な依存は Renovate の既定どおり通常の更新には含めず、脆弱性の修正 PR だけ立つ（上の `vulnerabilityAlerts`） |
 | Dockerfile / [Makefile](../Makefile) の `# renovate: datasource=... depName=...` 直下の `<名前>_VERSION` 変数 | `customManagers:dockerfileVersions` / `customManagers:makefileVersions` プリセット |
 
 すべて Renovate が標準で読む書き方（`config:recommended` と上のプリセット）に揃えてあり、自前の `customManagers` は書いていません。Docker イメージは上の形で指定してください。`run:` の中に直接書いたイメージ名は誰も見てくれません。
