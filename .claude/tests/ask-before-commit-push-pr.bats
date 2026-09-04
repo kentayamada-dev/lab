@@ -37,6 +37,16 @@ assert_decision() {
   assert_decision ask 'echo "git push"'
 }
 
+@test "asks when the command is continued onto the next line" {
+  assert_decision ask $'git \\\n  commit -m x'
+  assert_decision ask $'git \\\n  push origin HEAD'
+  assert_decision ask $'gh pr \\\n  create --fill'
+}
+
+@test "stays silent for git stash push continued onto the next line" {
+  assert_decision '' $'git stash \\\n  push -m wip'
+}
+
 @test "stays silent when the words fall in different pipeline segments" {
   assert_decision '' 'git log --oneline | grep push'
   assert_decision '' 'gh pr view 1 | grep create'
@@ -54,6 +64,14 @@ assert_decision() {
 @test "stays silent for a read-only git or gh command" {
   assert_decision '' 'git status'
   assert_decision '' 'gh pr list'
+}
+
+@test "stays silent for a path whose name carries the subcommand" {
+  assert_decision '' 'git show HEAD:.claude/hooks/deny-commit-on-main.sh'
+  assert_decision '' 'git log --oneline -- .claude/hooks/ask-before-commit-push-pr.sh'
+  assert_decision '' 'git diff .claude/tests/deny-commit-on-main.bats'
+  assert_decision '' 'git show HEAD:.claude/hooks/deny-force-push-hard-reset.sh'
+  assert_decision '' 'git log -p -- .github/workflows/pre-commit.yml'
 }
 
 @test "stays silent for an unrelated command" {
