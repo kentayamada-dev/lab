@@ -20,9 +20,9 @@ A Todo app monorepo: a Connect API in Go (api/), a Next.js frontend (web/), prot
 - PR titles must follow Conventional Commits
 - main cannot be pushed to; every change lands through a PR, squash merge only
 - Never force-push or hard-reset: pushed history and uncommitted work must survive (prefer git stash or a soft reset)
-- Before committing, fetch and integrate the latest remote main, then create a working branch from it, as a command of its own: a commit chained onto its own branch creation is denied, so run the two separately
+- Before committing, fetch and integrate the latest remote main, then create a working branch from it
 - Write commit messages and PR titles/bodies in Japanese, keeping the Conventional Commits type in the title (on squash the PR title becomes, verbatim, the commit title on main, and the messages are concatenated into its body)
-- Pass commit messages and PR bodies via a file (`git commit -F`, `gh pr create --body-file`), not inline: prose that quotes a guarded command inside a command string trips the deny hooks
+- Pass commit messages and PR bodies via a file (`git commit -F`, `gh pr create --body-file`), not inline: prose that quotes a guarded command inside a command string trips the deny hook
 
 ## References
 

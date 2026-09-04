@@ -13,6 +13,9 @@
       "Bash(git show *)",
       "Bash(git branch *)",
       "Bash(git fetch *)",
+      "Bash(git stash push *)",
+      "Bash(git stash list*)",
+      "Bash(git stash show *)",
       "Bash(gh pr view *)",
       "Bash(gh pr list *)",
       "Bash(gh pr diff *)",
@@ -26,6 +29,7 @@
       "Bash(git push --force*)",
       "Bash(git push -f*)",
       "Bash(git push *--force*)",
+      "Bash(git push * -f*)",
       "Bash(git reset --hard*)",
       "Bash(git reset *--hard*)",
       "Bash(git clean*)",
@@ -45,20 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/ask-before-commit-push-pr.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/deny-commit-on-main.sh"
-          },
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/deny-force-push-hard-reset.sh"
-          },
-          {
-            "type": "prompt",
-            "if": "Bash(gh *)",
-            "prompt": "If this command creates a pull request (gh pr create), check that the --title value follows Conventional Commits: type(optional scope): description, where type is one of feat, fix, docs, refactor, test, build, ci, perf, chore, revert (CLAUDE.md: PR titles become the squash-commit title on main verbatim). The description is written in Japanese (CLAUDE.md), so non-ASCII there is expected and is never a reason to block: judge the format alone, not the language. Block if the title does not conform or if a PR is created without an explicit --title. If the command does not create a pull request, allow. $ARGUMENTS"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/deny-hard-reset-clean.sh"
           }
         ]
       }
