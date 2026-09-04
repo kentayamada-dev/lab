@@ -4,9 +4,10 @@
 # say why. This is how the scheduled workflows retract the issue they opened once the
 # check behind it passes again; with no such issue open it does nothing.
 #
-# The title is the whole identity of the issue here, so it has to be the one the issue
-# was opened with, character for character. Only the first 100 open issues are looked
-# at, the same window upsert-issue.sh searches before it opens one.
+# The title identifies the issue here, so it has to be the one the issue was opened with,
+# character for character, and it has to be an issue github-actions[bot] opened (why the
+# author is part of the identity: upsert-issue.sh). Only the first 100 open issues are
+# looked at, the same window upsert-issue.sh searches before it opens one.
 #
 # Usage:
 #   ./.github/scripts/close-issues-by-title.sh <title> <comment>
@@ -34,7 +35,7 @@ comment="$2"
 
 # Captured rather than piped straight into the loop so that a failing gh aborts the
 # run: inside a process substitution its exit status would go unseen.
-numbers="$(gh issue list --state open --limit 100 --json number,title |
+numbers="$(gh issue list --state open --limit 100 --author 'github-actions[bot]' --json number,title |
   jq -r --arg t "$title" '.[] | select(.title == $t) | .number')"
 
 # With nothing to close the command substitution above is empty, which still reaches
