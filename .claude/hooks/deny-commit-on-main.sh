@@ -4,24 +4,26 @@
 # commit while the checkout is on main (CLAUDE.md: every change lands through
 # a PR from a working branch).
 #
-# The branch of the checkout the hook runs in is only the starting point: a
-# compound command may move between branches before it commits, so the branch
-# creations (checkout -b/-B / switch -c/-C / switch --create) and the switches
-# to main (checkout main / switch main) that precede the first commit are
-# replayed by offset, and the commit is denied if that leaves the command on
-# main. Branching off first is allowed; switching to main first is denied even
-# from a working branch. A creation flag has to stand on its own (-c feat, not
-# -cfeat) to count, and "checkout main -- <path>" restores files rather than
-# switching. [^|;&\n] keeps each match inside one pipeline segment (a newline
-# separates commands just as ; does). Matching is textual, not a shell parse
+# The branch of the checkout is one of the two things that decide it: a
+# compound command may switch to main before it commits, so a checkout main /
+# switch main that precedes the first commit is denied as well, even from a
+# working branch. What the hook does not do is credit a branch the same command
+# creates: "git switch -c feat && git commit" is refused on main, and the two
+# halves are run as two commands instead. Crediting it took replaying every
+# branch event in the command by offset, and what that bought was a flow any
+# two commands already express. "checkout main -- <path>" restores files rather
+# than switching, and is left alone. A word right after a hyphen or a slash is
+# part of a name rather than a subcommand, so reading this file by path is not
+# a commit. Matching is textual, not a shell parse
 # (docs/ci-jobs.md#hooks), and the starting branch is the one of this checkout,
 # so a command that commits in another repository (cd elsewhere, git -C) is
 # judged against this checkout all the same.
 #
 # The hook fails closed: on main, a tool call it cannot read (not JSON, or no
 # command string) is denied rather than waved through — a verdict must never
-# rest on a guess, and here the guess would open the gate. Off main there is
-# nothing for this hook to protect, so it stays silent whatever the input —
+# rest on a guess, and here the guess would open the gate. Off main an
+# unreadable call is let through: a plain commit there is allowed, and the
+# switch to main that would make it one is exactly what cannot be seen —
 # silence that leans on ask-before-commit-push-pr.sh asking about the same
 # unreadable input; without that hook it would pass unconfirmed.
 
@@ -41,18 +43,19 @@ if ! jq -e '.tool_input.command | type == "string"' <<<"${input}" >/dev/null 2>&
   exit 0
 fi
 
-# At an equal offset (checkout -B main is both) the switch to main wins: sort_by
-# orders false before true, and the reduce keeps the last event.
-if jq -e --argjson on_main "${on_main}" '
-    .tool_input.command as $c
-    | ([$c | match("\\bgit\\b[^|;&\\n]*\\bcommit\\b").offset] + [null])[0] as $commit
-    | ($commit != null) and (
-        [ ($c | match("\\bgit\\b[^|;&\\n]*\\b(checkout|switch)\\b[^|;&\\n]*\\s(-b|-B|-c|-C|--create)\\b"; "g") | {offset, main: false}),
-          ($c | match("\\bgit\\b[^|;&\\n]*\\b(checkout|switch)\\b[^|;&\\n]*\\smain(?![^\\s;|&])(?![^|;&\\n]*\\s--(\\s|$))"; "g") | {offset, main: true}) ]
-        | map(select(.offset < $commit))
-        | sort_by(.offset, .main)
-        | reduce .[].main as $m ($on_main; $m)
-      )
+# What the patterns below read: the command normalized as
+# docs/ci-jobs.md#hooks describes. The class is the two quote characters, the
+# single one written \x27 so the filter itself stays a single-quoted word. Both
+# offsets are taken from this one normalized string.
+normalized='.tool_input.command | gsub("[ \t]*\\\\\n[ \t]*"; " ") | gsub("[\"\\x27]"; "")'
+
+if jq -e --argjson on_main "${on_main}" "${normalized}"'
+    as $c
+    | ([$c | match("\\bgit\\b[^|;&\\n]*(?<![-/])\\bcommit\\b").offset] + [null])[0] as $commit
+    | ($commit != null)
+      and ($on_main
+           or ([$c | match("\\bgit\\b[^|;&\\n]*\\b(checkout|switch)\\b[^|;&\\n]*\\smain(?![^\\s;|&])(?![^|;&\\n]*\\s--(\\s|$))"; "g").offset]
+               | any(. < $commit)))
   ' <<<"${input}" >/dev/null; then
-  deny "CLAUDE.md: never commit on main — create a working branch from the latest remote main first."
+  deny "CLAUDE.md: never commit on main — switch to a working branch created from the latest remote main, as a command of its own, and commit after that."
 fi

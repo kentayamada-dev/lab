@@ -1,8 +1,7 @@
 #!/usr/bin/env bats
 
-# The hook reads the branch of the checkout it runs in, so each test gets a
-# throwaway repository. An unborn HEAD still reports its branch name, which is
-# why no commit is needed here.
+# An unborn HEAD still reports its branch name, so the throwaway repository
+# needs no commit.
 setup() {
   load helper
   git init -q -b main "${BATS_TEST_TMPDIR}/repo"
@@ -42,16 +41,17 @@ assert_decision() {
   assert_decision '' 'git commit -m "message"'
 }
 
-@test "allows a commit that creates its branch first" {
-  assert_decision '' 'git switch -c feat && git commit -m x'
-  assert_decision '' 'git checkout -b feat && git commit -m x'
-  assert_decision '' 'git switch --create feat && git commit -m x'
-  assert_decision '' $'git switch -c feat\ngit commit -m x'
+@test "denies a commit whose branch the same command creates" {
+  assert_decision deny 'git switch -c feat && git commit -m x'
+  assert_decision deny 'git checkout -b feat && git commit -m x'
+  assert_decision deny 'git switch --create feat && git commit -m x'
+  assert_decision deny 'git checkout -B feat && git commit -m x'
+  assert_decision deny $'git switch -c feat\ngit commit -m x'
 }
 
-@test "allows a commit that force-creates its branch first" {
-  assert_decision '' 'git checkout -B feat && git commit -m x'
-  assert_decision '' 'git switch -C feat && git commit -m x'
+@test "allows the same commit once the branch is a command of its own" {
+  git switch -q -c feat
+  assert_decision '' 'git commit -m x'
 }
 
 @test "denies a commit that switches branches only afterwards" {
@@ -72,9 +72,9 @@ assert_decision() {
   assert_decision deny 'git checkout -B main && git commit -m x'
 }
 
-@test "allows a commit that branches off again after switching to main" {
+@test "denies a commit that branches off again after switching to main" {
   git switch -q -c feat
-  assert_decision '' 'git switch main && git pull && git switch -c fix && git commit -m x'
+  assert_decision deny 'git switch main && git pull && git switch -c fix && git commit -m x'
 }
 
 @test "denies a commit that returns to main after branching off" {
@@ -91,12 +91,30 @@ assert_decision() {
   assert_decision '' 'git switch main-fix && git commit -m x'
 }
 
-@test "denies a commit behind a branch flag stuck to its value" {
-  assert_decision deny 'git switch -cfeat && git commit -m x'
-}
-
 @test "denies a merely quoted mention" {
   assert_decision deny 'echo "git commit"'
+}
+
+@test "denies a commit continued onto the next line" {
+  assert_decision deny $'git \\\n  commit -m x'
+  git switch -q -c feat
+  assert_decision deny $'git switch main && \\\n  git commit -m x'
+}
+
+@test "allows a file restore continued onto the next line" {
+  git switch -q -c feat
+  assert_decision '' $'git checkout main -- \\\n  README.md && git commit -m x'
+}
+
+@test "reads a quoted branch name as the branch name" {
+  git switch -q -c feat
+  assert_decision deny "git switch 'main' && git commit -m x"
+  assert_decision '' "git switch 'main-fix' && git commit -m x"
+}
+
+@test "allows a commit whose message merely mentions switching to main" {
+  git switch -q -c feat
+  assert_decision '' 'git commit -m "switch to main"'
 }
 
 @test "leaves push and PR creation to the other hook" {
@@ -106,6 +124,12 @@ assert_decision() {
 
 @test "stays silent when the words fall in different pipeline segments" {
   assert_decision '' 'git log --oneline | grep commit'
+}
+
+@test "stays silent for a path whose name carries the subcommand" {
+  assert_decision '' 'git show HEAD:.claude/hooks/deny-commit-on-main.sh'
+  assert_decision '' 'git log --oneline -- .claude/hooks/ask-before-commit-push-pr.sh'
+  assert_decision '' 'git blame .claude/tests/deny-commit-on-main.bats'
 }
 
 @test "stays silent when the words fall on different lines" {

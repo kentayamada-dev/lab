@@ -25,7 +25,9 @@
     "deny": [
       "Bash(git push --force*)",
       "Bash(git push -f*)",
+      "Bash(git push *--force*)",
       "Bash(git reset --hard*)",
+      "Bash(git reset *--hard*)",
       "Bash(git clean*)",
       "Read(**/.env)",
       "Read(**/.env.*)",

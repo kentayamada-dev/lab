@@ -30,11 +30,6 @@ assert_decision() {
   assert_decision deny 'git push -quf origin HEAD'
 }
 
-@test "denies the flag followed directly by a separator" {
-  assert_decision deny 'git push -f; echo done'
-  assert_decision deny 'git push origin HEAD -uf|cat'
-}
-
 @test "denies the with-lease and if-includes variants" {
   assert_decision deny 'git push --force-with-lease origin main'
   assert_decision deny 'git push origin main --force-if-includes'
@@ -64,6 +59,45 @@ assert_decision() {
 
 @test "denies a merely quoted mention" {
   assert_decision deny 'echo "git push --force"'
+}
+
+@test "denies a command continued onto the next line" {
+  assert_decision deny $'git push origin HEAD \\\n  --force'
+  assert_decision deny $'git reset \\\n  --hard HEAD~1'
+  assert_decision deny $'git \\\n  clean -fdx'
+}
+
+@test "denies a quoted flag, refspec, or alias definition" {
+  assert_decision deny 'git push origin HEAD "-f"'
+  assert_decision deny "git push origin '+HEAD:main'"
+  assert_decision deny "git reset '--hard'"
+  assert_decision deny "git config alias.pf 'push -f'"
+}
+
+@test "asks about a push or reset whose flag only an expansion spells out" {
+  assert_decision ask 'f=--force; git push origin HEAD "$f"'
+  assert_decision ask 'h=--hard; git reset $h'
+  assert_decision ask 'git push origin HEAD $FLAGS'
+  assert_decision ask 'git reset $(git merge-base main HEAD)'
+  assert_decision ask 'git push `cat flag` origin main'
+}
+
+@test "denies rather than asks when the expansion sits next to a named flag" {
+  assert_decision deny 'git push --force origin $BRANCH'
+  assert_decision deny 'git reset --hard $BASE'
+  assert_decision deny 'git clean -fdx $DIR'
+}
+
+@test "stays silent for a reset that names a mode the expansion cannot be" {
+  assert_decision '' 'git reset --soft $BASE'
+  assert_decision '' 'git reset --mixed $BASE'
+  assert_decision '' 'git reset --keep $BASE'
+  assert_decision '' 'git reset $h --soft'
+}
+
+@test "stays silent for an expansion outside a push or reset" {
+  assert_decision '' 'git log --oneline $BASE'
+  assert_decision '' 'git status | grep $x'
 }
 
 @test "stays silent for an ordinary push or reset" {
