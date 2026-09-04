@@ -231,8 +231,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -eo pipefail
-          gh pr list --state open --limit 100 --json number,title,headRefName \
-            | jq '[.[] | select(.headRefName | startswith("renovate/"))]' >"${RUNNER_TEMP}/prs.json"
+          # A renovate/* branch says Renovate created the PR only when the branch is one
+          # of this repository, which takes write access. A fork's branch name is the
+          # fork owner's to choose, so isCrossRepository leaves those PRs out.
+          gh pr list --state open --limit 100 --json number,title,headRefName,isCrossRepository \
+            | jq '[.[] | select(.isCrossRepository == false and (.headRefName | startswith("renovate/")))]' >"${RUNNER_TEMP}/prs.json"
           echo "count=$(jq 'length' "${RUNNER_TEMP}/prs.json")" >>"${GITHUB_OUTPUT}"
 
       - name: Open or update the issue

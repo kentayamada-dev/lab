@@ -62,7 +62,7 @@ gh run watch
 
 つまり **issue 一覧に出ているときだけ、対応すべき更新があります**。この判定は実行時にしか行われないため、ワークフローは cron のほかに Renovate 自身の更新 PR のマージでも実行されます。全 PR をマージすればその実行で issue が閉じます。
 
-一覧に入るのは、open な PR のうちブランチ名が `renovate/` で始まるものです（`branchPrefix` は既定のまま。`dependencies` ラベルは人でも付けられるので目印にしていません）。実行が失敗したときはこのジョブは走らず、一覧は前回のまま残ります。
+一覧に入るのは、open な PR のうち、このリポジトリの `renovate/` で始まるブランチから出ているものです（`branchPrefix` は既定のまま）。`dependencies` ラベルも fork 側のブランチ名も誰でも選べるので、目印には使いません。issue の操作はワークフローの `GITHUB_TOKEN` で行い、`RENOVATE_TOKEN` は使いません。実行が失敗したときはこのジョブは走らず、一覧は前回のまま残ります。
 
 ### 標準の Dependency Dashboard を使わない理由
 

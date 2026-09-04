@@ -4,6 +4,13 @@
 # instead of opening a second one. This is how the scheduled workflows report a failing
 # check; close-issues-by-title.sh retracts it once the check passes.
 #
+# Only what github-actions[bot] opened counts as already open. The API route accepts a
+# title from anyone (README.md#issue-のテンプレート), so without the author an outsider's
+# issue under one of these titles would take the report's place: suppressing it,
+# collecting the check output, or having its body rewritten. The author is what the
+# search is narrowed by rather than the label, because a label that could not be applied
+# costs a warning only (below) and would then hide the issue from the next run.
+#
 # What to do with an issue that is already open is the caller's choice, because the
 # calling workflows want different things out of it:
 #   skip     leave it alone (the report would say the same thing again)
@@ -97,7 +104,7 @@ for file in "$BODY_FILE" "${COMMENT_FILE:-$BODY_FILE}"; do
   fi
 done
 
-existing="$(gh issue list --state open --limit 100 --json number,title |
+existing="$(gh issue list --state open --limit 100 --author 'github-actions[bot]' --json number,title |
   jq -r --arg t "$TITLE" 'map(select(.title == $t)) | if length > 0 then .[0].number else empty end')"
 
 if [[ -n "$existing" ]]; then

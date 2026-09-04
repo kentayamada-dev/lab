@@ -33,8 +33,6 @@ setup() {
   assert_gh_not_called 'issue close'
 }
 
-# Two issues under one title is not what the workflows aim for, but a race between
-# runs can leave that behind, and a leftover open issue would never close again.
 @test "closes every issue that carries the title" {
   open_issue 12 'External links are broken' 13 'External links are broken'
   run -0 run_script close-issues-by-title.sh 'External links are broken' 'the check passed'
@@ -50,6 +48,14 @@ setup() {
   assert_gh_not_called 'issue close'
   run -0 run_script close-issues-by-title.sh '"quoted" $(and) unquoted' 'the check passed'
   assert_gh_called 'issue close 13'
+}
+
+# The counterpart of the same test in upsert-issue.bats: an issue somebody else opened
+# under this title must not be closed with "the check passed".
+@test "looks only at issues github-actions[bot] opened" {
+  open_issue 12 'External links are broken'
+  run -0 run_script close-issues-by-title.sh 'External links are broken' 'the check passed'
+  assert_gh_called "issue list --state open --limit 100 --author github-actions[bot]"
 }
 
 @test "fails when gh does" {
