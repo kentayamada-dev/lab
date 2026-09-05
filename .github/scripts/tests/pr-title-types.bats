@@ -1,14 +1,14 @@
 #!/usr/bin/env bats
 
 # Pins every copy of the Conventional Commits type list to the PATTERN the
-# pr-title job enforces (docs/ci-jobs.md#hooks).
+# pr-title job enforces (docs/ci-jobs.md#script-tests).
 #
 # Each extractor is anchored to the current wording of its source. When a
 # rewording empties one, the comparison against the non-empty PATTERN list
 # fails, which is the cue to update the extractor rather than a real drift.
 
 setup() {
-  REPO_ROOT="${BATS_TEST_DIRNAME}/../.."
+  REPO_ROOT="${BATS_TEST_DIRNAME}/../../.."
   CI_YML="${REPO_ROOT}/.github/workflows/ci.yml"
 }
 
