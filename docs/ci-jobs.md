@@ -17,8 +17,7 @@
 | `zizmor` | ワークフローのセキュリティ（攻撃経路） | [zizmor](#zizmor) |
 | `gitleaks` | コミット履歴に混ざった秘密情報 | [gitleaks](#gitleaks) |
 | `setup-script` | 一度だけ実行するスクリプトの実行確認 | [setup-script](#setup-script) |
-| `hooks` | Claude Code のフックが CLAUDE.md どおりに許可・拒否するか | [hooks](#hooks) |
-| `script-tests` | ワークフローが呼ぶスクリプトの判断が変わっていないか | [script-tests](#script-tests) |
+| `script-tests` | ワークフローが呼ぶスクリプトの判断と、ci.yml が強制する type 一覧のコピー | [script-tests](#script-tests) |
 | `issue-forms` | issue フォームがスキーマに沿っているか | [issue のテンプレート](../README.md#issue-のテンプレート) |
 | `renovate-config` | Renovate 設定の検証 | [設定の検証](renovate.md#設定の検証) |
 | `proto` | proto ファイルの整形・lint・破壊的変更 | [アプリコードの検査](#アプリコードの検査) |
@@ -287,26 +286,6 @@ excludes:
 
 private リポジトリではこのジョブを走らせません（セットアップスクリプトが public 以外を拒否するため、回せば必ず落ちます）。スキップは `ci` 側で成功扱いになるので、private でも PR は止まりません。
 
-## hooks
-
-[ci.yml](../.github/workflows/ci.yml) の `hooks` ジョブが、[.claude/tests/](../.claude/tests) にある [bats](https://bats-core.readthedocs.io/) のテストで、隣の [.claude/hooks/](../.claude/hooks) にあるフックスクリプトを検査します。フックは標準入力に JSON でツール呼び出しを受け取り、標準出力に JSON で判定を返すフィルタなので、テストはコマンドを 1 つ流し込んで判定を読むだけです。コマンドは [mise.toml](../mise.toml) の `check:hooks` タスクにあります。
-
-フックに残された領分は狭く、それは意図した結果です。[main.json](../.github/rulesets/main.json) の ruleset は、main への非早送り push と、pull request を経由しないすべての push を、bypass 対象なしで拒否します。つまり force push も main に着地するコミットも、害になる場所では既に不可能です。書式の崩れた PR タイトルも、`pr-title` が必須チェックの一部である以上マージできません。これらの手前にローカルの番人を置くのは、サーバが既に閉めている扉に鍵をもう 1 つ掛けることです。どの ruleset も届かないのはこのマシンの作業ツリーであり、そこだけが [deny-hard-reset-clean.sh](../.claude/hooks/deny-hard-reset-clean.sh) の領分です。hard reset と `git clean` が消すのはどこにも push されていない作業で、返してくれるものが存在しません。
-
-テストが押さえるのは当たり前の場合ではなく境目です。`--hard` はコマンドのどこにあっても拒否する。`git status --porcelain | grep clean` は clean ではない。この境目はシェルを解析せず文字列で判定しますが、その前にフックがコマンドを正規化します。バックスラッシュで継続した行は 1 行に畳みます。そこでの改行はコマンドではなくトークンの区切りだからです。クォート文字は落とします。クォートした `"--hard"` も git にはフラグ `--hard` として届くからです。残ったものを `[^|;&\n]` で 1 つのパイプライン区間に閉じ、素の改行は `;` と同じ区切りとして扱います。
-
-正規化をここで止めているため、シェルが展開して初めて生まれるフラグ（`h=--hard; git reset $h`）だけは解決できません。文字列判定ではそれが何になるか分からないので、`$` やバッククォートを含む reset は判定せず確認を求めます。ただしコマンド自身が答えを決めるモードを既に名指ししている場合は除きます。`git reset --soft $BASE` が破壊的なものになることはないからです。この段も、文字列判定の代償である誤検知（引用しただけの `echo "git clean -fdx"` も拒否される）も、あわせて固定してあります。どちらが落ちたときも、挙動が良くなったのではなく変わったということです。
-
-誤検知には 1 つだけ境界を引いてあり、これも固定してあります。ハイフンやスラッシュの直後のキーワードはサブコマンドではなく名前の一部なので、`git show HEAD:.claude/hooks/deny-hard-reset-clean.sh` はファイルを読むだけとして通ります。フックは自分が守る対象にちなんだ名前を持っており、読めない番人は保守できない番人だからです。
-
-結線もテストの対象です。フックは [.claude/settings.json](../.claude/settings.json) を通してしか呼ばれないため、設定を直さずにスクリプトの名前を変えた場合、答えるイベントと違うイベントに登録した場合、テストファイルのないフックスクリプトを足した場合は、いずれもこのジョブが落ちます。スクリプトだけを見るテストでは、どれも素通りします。
-
-フック以外にもう 1 つ、Conventional Commits の type 一覧のコピーがこのジョブの対象です。一覧は複数箇所に書き出されていて（どこにあるかは [PR タイトルの書式](../README.md#pr-タイトルの書式)）、どのコピーも他から導出されないため、テストが各コピーを `pr-title` ジョブの `PATTERN` と突き合わせます。
-
-[mise.toml](../mise.toml) に足すのは bats だけです（フックが呼ぶ `jq` は runner に同梱。[ツールの導入と検証](#ツールの導入と検証)）。
-
-テストを独立した `tests/` ではなく `.claude/` の下に置いてあるのは、フックを削除すればテストも一緒に消えるようにするためです。消した後もこのジョブが緑のままなのはタスクの `xargs` に付けた `-r` のおかげで、`.bats` が 1 つも残らなければ bats は起動しません。フックを手放すなら、ジョブ自体もフックと一緒に削除してください。
-
 ## Claude Code 設定の定期検査
 
 [claude-settings.yml](../.github/workflows/claude-settings.yml) が、[.claude/settings.json](../.claude/settings.json) を [SchemaStore](https://www.schemastore.org/) にある Claude Code 設定のスキーマと突き合わせます。使うのは [issue-forms](../README.md#issue-のテンプレート) ジョブと同じ [check-jsonschema](https://github.com/python-jsonschema/check-jsonschema) です。Claude Code は知らないキーを黙って無視するため、キーの綴りを間違えても実行時には何も落ちません — そのキーで加えたつもりの挙動が、ただ静かに欠けるだけです。気づけるのは検証だけです。
@@ -315,11 +294,13 @@ private リポジトリではこのジョブを走らせません（セットア
 
 コマンドは [claude-settings.yml](../.github/workflows/claude-settings.yml) にあります。
 
-落ちたときの通知は[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)です（issue タイトルは `The Claude Code settings do not match the schema`）。`.claude/` を手放すなら、このワークフローもフックや設定と一緒に削除してください。
+落ちたときの通知は[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)です（issue タイトルは `The Claude Code settings do not match the schema`）。`.claude/` を手放すなら、このワークフローも設定と一緒に削除してください。
 
 ## script-tests
 
 [ci.yml](../.github/workflows/ci.yml) の `script-tests` ジョブが、2 つの置き場にある [bats](https://bats-core.readthedocs.io/) のテストで、それぞれ隣にあるスクリプトを検査します。[.github/scripts/tests/](../.github/scripts/tests) は 1 つ上の [.github/scripts/](../.github/scripts) を検査します。定期実行のワークフローが、落ちた検査を issue として報告し、通ったら取り下げるために呼ぶ 2 つです。[scripts/tests/](../scripts/tests) は [scripts/](../scripts) にある [sync-repo-config.sh](../scripts/sync-repo-config.sh) を検査します。[設定のずれの検査](drift-check.md#設定のずれの検査)が OK / DRIFT / UNKNOWN の判定を頼っているスクリプトです。
+
+スクリプト以外にもう 1 つ、Conventional Commits の type 一覧のコピーが [.github/scripts/tests/](../.github/scripts/tests) の対象です。一覧は複数箇所に書き出されていて（どこにあるかは [PR タイトルの書式](../README.md#pr-タイトルの書式)）、どのコピーも他から導出されないため、テストが各コピーを `pr-title` ジョブの `PATTERN` と突き合わせます。`pr-title` 自身が見るのは PR タイトルだけなので、type を足して `PATTERN` だけ直した場合、CI は緑のまま README と失敗メッセージの一覧が古くなります。
 
 コマンドは [mise.toml](../mise.toml) の `check:script-tests` タスクにあります。
 
@@ -327,7 +308,7 @@ private リポジトリではこのジョブを走らせません（セットア
 
 このロジックをワークフローに直接書かず `.github/scripts/` に置いてあるのは、テストから触れるようにするためです。`run:` の中身は囲んでいるワークフローを起動しないと動かせず、この 2 つの場合それは定期実行の検査が落ちるのを待つことを意味します。
 
-[hooks](#hooks) と同じく、[mise.toml](../mise.toml) に足すのは bats だけです。[shellcheck](#shellcheck) と [format](../README.md#書式の統一) はどちらも `git ls-files` で `*.sh` と `*.bash` を辿るため、何もしなくてもこれらのスクリプトを拾います。
+[mise.toml](../mise.toml) に足すのは bats だけです。[shellcheck](#shellcheck) と [format](../README.md#書式の統一) はどちらも `git ls-files` で `*.sh` と `*.bash` を辿るため、何もしなくてもこれらのスクリプトを拾います。
 
 ## osv-scanner
 

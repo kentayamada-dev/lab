@@ -83,17 +83,8 @@ run = "zizmor --color=always --strict-collection ."
 description = "Scan git history for secrets"
 run = "gitleaks git --redact --verbose --no-banner"
 
-[tasks."check:hooks"]
-description = "Test the Claude Code hooks"
-shell = "bash -c"
-run = '''
-set -euo pipefail
-git ls-files -z '.claude/tests/*.bats' \
-  | xargs -0 -r bats --print-output-on-failure
-'''
-
 [tasks."check:script-tests"]
-description = "Test the scripts the workflows call"
+description = "Test the scripts the workflows call, and the type list ci.yml enforces"
 shell = "bash -c"
 run = '''
 set -euo pipefail

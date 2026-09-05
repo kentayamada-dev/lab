@@ -46,15 +46,13 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 | [.github/workflows/claude-settings.yml](.github/workflows/claude-settings.yml) | Claude Code 設定のスキーマ照合の定期検査（毎日 / [Claude Code 設定の定期検査](docs/ci-jobs.md#claude-code-設定の定期検査)） |
 | [.github/workflows/renovate.yml](.github/workflows/renovate.yml) | Renovate の実行（[更新の一覧の issue](docs/renovate.md#更新の一覧の-issue)） |
 | [.github/scripts/](.github/scripts) | 上記の定期実行ワークフローが、落ちた検査を issue として報告し、取り下げるために呼ぶスクリプト |
-| [.github/scripts/tests/](.github/scripts/tests) | 上記スクリプトのテスト。CI で実行される（[script-tests](docs/ci-jobs.md#script-tests)） |
+| [.github/scripts/tests/](.github/scripts/tests) | 上記スクリプトと、ci.yml が強制する type 一覧のコピーのテスト。CI で実行される（[script-tests](docs/ci-jobs.md#script-tests)） |
 | [.github/renovate.json5](.github/renovate.json5) | Renovate の設定 |
 | [.github/pull_request_template.md](.github/pull_request_template.md) | PR の本文テンプレート |
 | [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE) | issue のテンプレート（バグ報告 / 作業項目） |
 | [CLAUDE.md](CLAUDE.md) | Claude Code が読み込む指示書 |
-| [.claude/settings.json](.claude/settings.json) | Claude Code の設定。破壊的な git コマンドを拒否する権限ルールと、下のフックスクリプトの配線 |
-| [.claude/hooks/](.claude/hooks) | 権限ルールで名指しできない CLAUDE.md の規則を補うフックスクリプト。見えるのは Claude が実行するコマンドだけで、自分のターミナルで打つコマンドは通らない |
+| [.claude/settings.json](.claude/settings.json) | Claude Code の設定。破壊的な git コマンドを拒否する権限ルール |
 | [.claude/skills/docs-check/SKILL.md](.claude/skills/docs-check/SKILL.md) | 重複・ドキュメント陳腐化チェックの手順（`/docs-check` で実行） |
-| [.claude/tests/](.claude/tests) | フックスクリプトと、それを呼び出す設定のテスト。CI で実行される（[hooks](docs/ci-jobs.md#hooks)） |
 | [mise.toml](mise.toml) | CI で使う検査ツールのバージョンと、同じ検査を手元で回すタスク（`mise run check`） |
 | [.markdownlint-cli2.jsonc](.markdownlint-cli2.jsonc) | Markdown の書式検査 markdownlint-cli2 の設定 |
 | [.typos.toml](.typos.toml) | 誤字検査 typos の設定 |
@@ -187,7 +185,7 @@ feat!: 設定ファイルの形式を TOML に変更
 
 タイトルを縛るのは、squash 時のコミットタイトルを常に PR タイトルにする設定（`squash_merge_commit_title=PR_TITLE`）により、**main に残るコミットのタイトルが PR タイトル**になるためです。縛るのはタイトルだけで、本文は検査しません。ローカルで積んだコミットメッセージは squash コミットの本文に連結されて main に残ります。
 
-検証は CI の `pr-title` ジョブが行い、必須チェック `ci` に含まれるため回避できません。落ちた場合は PR タイトルを直せば自動で再検証されます（再 push は不要）。type を増減する場合は [ci.yml](.github/workflows/ci.yml) の `PATTERN` と上の表を合わせて直してください。各コピー（ci.yml 内の失敗メッセージも含む）が `PATTERN` と一致することは [hooks](docs/ci-jobs.md#hooks) ジョブが検査するため、直し漏れは CI で落ちます。
+検証は CI の `pr-title` ジョブが行い、必須チェック `ci` に含まれるため回避できません。落ちた場合は PR タイトルを直せば自動で再検証されます（再 push は不要）。type を増減する場合は [ci.yml](.github/workflows/ci.yml) の `PATTERN` と上の表を合わせて直してください。各コピー（ci.yml 内の失敗メッセージも含む）が `PATTERN` と一致することは [script-tests](docs/ci-jobs.md#script-tests) ジョブが検査するため、直し漏れは CI で落ちます。
 
 再検証が効くのは、`pull_request` の `types` に `edited` を足してあるためです。既定のままだとタイトルを直してもワークフローが起動せず、落ちたままになります。代償としてタイトルの編集ごとに [CodeQL](docs/ci-jobs.md#codeql) まで回りますが、`codeql` だけ `if` でスキップすると、`skipped` を成功として扱うゲートジョブ `ci` が前回の失敗を緑で上書きしてしまうため、そうしていません。
 
