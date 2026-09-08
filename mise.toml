@@ -35,7 +35,14 @@ git ls-files -z '*.sh' '*.bash' \
 
 [tasks."check:actionlint"]
 description = "Lint workflow files"
-run = "actionlint -color"
+# actionlint 1.7.12 does not know the self-repository form of `uses:` (`$/...`, the
+# way ci.yml reaches the composite action next to it) and reports every occurrence as
+# a malformed action reference. The pattern below is narrow enough that a third-party
+# action which really is missing its ref is still reported. Drop this flag once
+# actionlint understands `$/` (docs/ci-jobs.md#actionlint).
+run = '''
+actionlint -color -ignore 'specifying action "\$/[^"]+" in invalid format'
+'''
 
 [tasks."check:shellcheck"]
 description = "Lint shell scripts"
