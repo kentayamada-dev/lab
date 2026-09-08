@@ -35,6 +35,13 @@ upsert() {
   run -2 upsert replace
 }
 
+@test "refuses an option that is missing its value" {
+  run -2 run_script upsert-issue.sh --title
+  [[ "${output}" == *'--title needs a value'* ]]
+  run -2 run_script upsert-issue.sh --title "${TITLE}" --body-file
+  [[ "${output}" == *'--body-file needs a value'* ]]
+}
+
 # The two are one option short of each other, and getting it wrong either way would
 # only show up as a comment that never arrives.
 @test "refuses comment without a comment file, and a comment file without comment" {

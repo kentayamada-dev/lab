@@ -52,11 +52,12 @@ fixture_path() {
 
 # stub_gh
 #
-# Puts the stub first on PATH, starts an empty call log, and lays down fixtures that
-# answer every read the script performs with exactly what it expects, so --check
-# reports no drift until a test states a deviation with edit_fixture or
-# fail_endpoint. Call setup_repo first: the ruleset fixtures are derived from the
-# copied definition, so the two sides of the comparison start in agreement.
+# Puts the stub first on PATH, starts an empty call log, records every body sent with
+# --input so gh_sent can read it back, and lays down fixtures that answer every read
+# the script performs with exactly what it expects, so --check reports no drift until
+# a test states a deviation with edit_fixture or fail_endpoint. Call setup_repo first:
+# the ruleset fixtures are derived from the copied definition, so the two sides of the
+# comparison start in agreement.
 stub_gh() {
   export GH_LOG="${BATS_TEST_TMPDIR}/gh.log"
   export GH_FIXTURES="${BATS_TEST_TMPDIR}/fixtures"
@@ -85,7 +86,7 @@ case "${1:-}" in
     ;;
 esac
 
-endpoint='' jq_filter='' method=GET silent=false
+endpoint='' jq_filter='' method=GET silent=false input_src=''
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --jq)
@@ -100,7 +101,11 @@ while [[ $# -gt 0 ]]; do
       silent=true
       shift
       ;;
-    --input | -F | -f)
+    --input)
+      input_src="$2"
+      shift 2
+      ;;
+    -F | -f)
       shift 2
       ;;
     --paginate)
@@ -116,6 +121,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 fixture="${GH_FIXTURES}/${endpoint//[^A-Za-z0-9._-]/_}"
+if [[ -n "${input_src}" ]]; then
+  if [[ "${input_src}" == - ]]; then
+    cat >"${fixture}.sent"
+  else
+    cat "${input_src}" >"${fixture}.sent"
+  fi
+fi
 if [[ -f "${fixture}.exit" ]]; then
   if [[ -f "${fixture}.err" ]]; then
     cat "${fixture}.err" >&2
@@ -232,6 +244,14 @@ pass_endpoint() {
   file="$(fixture_path "$1")"
   rm -f "${file}.exit" "${file}.err"
   echo '{}' >"${file}.json"
+}
+
+# gh_sent <endpoint> -> the body the script sent to that endpoint with --input
+#
+# Only the calls that carry a body this way are recorded. What the others send sits in
+# the call log, because gh spells it out on the command line (-F key=value).
+gh_sent() {
+  cat "$(fixture_path "$1").sent"
 }
 
 # assert_gh_called <pattern>, assert_gh_not_called <pattern>

@@ -87,6 +87,23 @@ setup() {
   [[ "${output}" == *'rule pull_request parameter required_review_thread_resolution'* ]]
 }
 
+@test "--check reports a ruleset whose enforcement, target or bypass actors differ" {
+  edit_fixture repos/owner/repo/rulesets/1 \
+    '.enforcement = "evaluate" | .target = "tag" | .bypass_actors = [{actor_id: 1}]'
+  run -1 run_sync --check
+  [[ "${output}" == *'ruleset main: enforcement = evaluate'* ]]
+  [[ "${output}" == *'ruleset main: target = tag'* ]]
+  [[ "${output}" == *'ruleset main: bypass_actors = 1 entries'* ]]
+}
+
+@test "--check reports a ruleset that covers different branches" {
+  edit_fixture repos/owner/repo/rulesets/1 \
+    '.conditions.ref_name = {include: ["refs/heads/other"], exclude: ["refs/heads/tmp"]}'
+  run -1 run_sync --check
+  [[ "${output}" == *'conditions.ref_name.include'* ]]
+  [[ "${output}" == *'conditions.ref_name.exclude'* ]]
+}
+
 @test "--check reports rules that are missing and rules that are not in the definition" {
   edit_fixture repos/owner/repo/rulesets/1 \
     '.rules |= map(select(.type != "code_scanning")) + [{type: "creation"}]'
@@ -129,6 +146,36 @@ setup() {
   assert_gh_called '--method PATCH repos/owner/repo'
   assert_gh_called '--method PUT repos/owner/repo/immutable-releases'
   assert_gh_called '--method PUT repos/owner/repo/actions/permissions/workflow'
+}
+
+# The call log says which endpoint was hit; these are the payloads themselves.
+@test "sends the ruleset definition and the settings values unchanged" {
+  run -0 run_sync
+  [ "$(gh_sent repos/owner/repo/rulesets/1)" = "$(cat "${REPO_COPY}/.github/rulesets/main.json")" ]
+  [ "$(gh_sent repos/owner/repo | jq -r '.security_and_analysis.secret_scanning_push_protection.status')" = enabled ]
+  assert_gh_called '-F allow_auto_merge=true'
+  assert_gh_called '-F has_wiki=false'
+  assert_gh_called '-F squash_merge_commit_title=PR_TITLE'
+  assert_gh_called '-F default_workflow_permissions=read'
+}
+
+@test "REPO_SETTINGS=false applies the rulesets and touches nothing else" {
+  REPO_SETTINGS=false run -0 run_sync
+  assert_gh_called '--method PUT repos/owner/repo/rulesets/1'
+  assert_gh_not_called '--method PATCH repos/owner/repo'
+  assert_gh_not_called '--method PUT repos/owner/repo/actions/permissions/workflow'
+  grep -q 'github\.com/OWNER/REPO/' "${REPO_COPY}/.github/ISSUE_TEMPLATE/config.yml"
+}
+
+@test "every definition in the directory is applied, RULESET_FILE narrows it to one" {
+  jq '.name = "tags"' "${REPO_COPY}/.github/rulesets/main.json" >"${REPO_COPY}/.github/rulesets/tags.json"
+  run -0 run_sync
+  assert_gh_called '--method PUT repos/owner/repo/rulesets/1'
+  assert_gh_called '--method POST repos/owner/repo/rulesets'
+  : >"${GH_LOG}"
+  RULESET_FILE="${REPO_COPY}/.github/rulesets/main.json" run -0 run_sync
+  assert_gh_called '--method PUT repos/owner/repo/rulesets/1'
+  assert_gh_not_called '--method POST repos/owner/repo/rulesets'
 }
 
 @test "stops when the existing rulesets cannot be listed, instead of creating a duplicate" {
@@ -178,4 +225,13 @@ setup() {
   run -1 run_sync
   [[ "${output}" == *'Only part of the configuration was applied'* ]]
   [[ "${output}" == *'Action required: commit'* ]]
+}
+
+# The other side of that trap: nothing has been written yet while the script is still
+# reading, so a failure there must not send the reader looking for half-applied settings.
+@test "a failure before the first write is not called a partial application" {
+  fail_endpoint repos/owner/repo 1
+  run -1 run_sync
+  assert_gh_not_called '--method'
+  [[ "${output}" != *'Only part of the configuration'* ]]
 }

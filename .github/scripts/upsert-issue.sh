@@ -37,26 +37,41 @@ COMMENT_FILE=""
 LABEL=""
 ON_EXISTING=""
 
+# Every option below takes a value. Without this check a missing one would end the run
+# on the exit status of a shift that had nothing to consume, which says nothing about
+# what was wrong.
+need_value() {
+  [[ $# -ge 2 ]] || {
+    echo "${1} needs a value" >&2
+    exit 2
+  }
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --title)
-      TITLE="${2:-}"
+      need_value "$@"
+      TITLE="$2"
       shift 2
       ;;
     --body-file)
-      BODY_FILE="${2:-}"
+      need_value "$@"
+      BODY_FILE="$2"
       shift 2
       ;;
     --comment-file)
-      COMMENT_FILE="${2:-}"
+      need_value "$@"
+      COMMENT_FILE="$2"
       shift 2
       ;;
     --label)
-      LABEL="${2:-}"
+      need_value "$@"
+      LABEL="$2"
       shift 2
       ;;
     --on-existing)
-      ON_EXISTING="${2:-}"
+      need_value "$@"
+      ON_EXISTING="$2"
       shift 2
       ;;
     -h | --help)

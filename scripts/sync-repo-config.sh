@@ -129,11 +129,11 @@ trap notify_issue_config EXIT
 # This hooks ERR rather than EXIT because notify_issue_config above already uses the
 # EXIT trap (a later trap replaces the earlier one). ERR does not fire on an exit, so
 # it never duplicates the places that print their own message and then exit.
+#
+# The trap itself is armed just before the first write, not here: everything that runs
+# before it only reads, so a failure there must not claim a half-applied configuration.
+# That also covers --dry-run and --check, which exit before the trap is armed.
 notify_partial() {
-  # --dry-run and --check change nothing, so this reminder is not needed.
-  if [[ "$DRY_RUN" == true || "$CHECK" == true ]]; then
-    return 0
-  fi
   cat >&2 <<'MSG'
 
 ------------------------------------------------------------
@@ -144,7 +144,6 @@ notify_partial() {
 ------------------------------------------------------------
 MSG
 }
-trap notify_partial ERR
 
 # Prints the differences between a ruleset definition ($1, a path) and what the API
 # returned for it ($2, JSON), one per line, and prints nothing when they agree. Only
@@ -491,6 +490,9 @@ existing_rulesets="$(gh api "repos/${GH_REPO}/rulesets?includes_parents=false")"
     exit 1
   }
 
+# From here on the run writes. See the definition for why the trap is armed only now.
+trap notify_partial ERR
+
 for i in "${!RULESET_FILES[@]}"; do
   ruleset_file="${RULESET_FILES[$i]}"
   ruleset_name="${RULESET_NAMES[$i]}"
@@ -526,13 +528,13 @@ if [[ "$REPO_SETTINGS" == true ]]; then
   gh api --method PATCH "repos/${GH_REPO}" --input - <<<"$security_body" >/dev/null
 
   if grep -q 'github\.com/OWNER/REPO/' "$ISSUE_CONFIG" 2>/dev/null; then
-    # sed -i is avoided because its arguments differ between BSD and GNU. The write-back
-    # uses cp rather than mv so the temporary file's permissions do not overwrite the
-    # original file's.
-    tmp="${ISSUE_CONFIG}.tmp"
-    sed "s#github\.com/OWNER/REPO/#github.com/${GH_REPO}/#g" "$ISSUE_CONFIG" >"$tmp"
-    cp "$tmp" "$ISSUE_CONFIG"
-    rm -f "$tmp"
+    # sed -i is avoided because its arguments differ between BSD and GNU. The result is
+    # held in a variable rather than a temporary file: the original file keeps its own
+    # permissions, and a failing sed leaves neither a half-written config.yml nor a
+    # stray temporary next to it. The command substitution drops the trailing newline,
+    # so printf puts one back.
+    rewritten="$(sed "s#github\.com/OWNER/REPO/#github.com/${GH_REPO}/#g" "$ISSUE_CONFIG")"
+    printf '%s\n' "$rewritten" >"$ISSUE_CONFIG"
     echo "rewrote: ${ISSUE_CONFIG_REL} (OWNER/REPO -> ${GH_REPO}) ... needs a commit (see the note at the end)"
     issue_config_rewritten=true
   fi

@@ -7,7 +7,7 @@ GO_OUT=api/gen/go
 ES_OUT=web/src/gen
 OPENAPI_OUT=api/gen/openapi
 
-if [ "${1:-}" = "--out-dirs" ]; then
+if [ "${1:-}" = "--out-dirs" ] && [ $# -eq 1 ]; then
   printf '%s\n' "$GO_OUT" "$ES_OUT" "$OPENAPI_OUT"
   exit 0
 fi
@@ -34,6 +34,15 @@ package_json_version() {
     printf '%s not found in web/package.json\n' "$1" >&2
     exit 1
   fi
+  # A range such as ^2.14.1 would become the plugin version v^2.14.1, which buf only
+  # rejects much later with an error that says nothing about package.json.
+  case "${version#v}" in
+    [0-9]*.[0-9]*.[0-9]*) ;;
+    *)
+      printf '%s in web/package.json is not pinned to an exact version: %s\n' "$1" "$version" >&2
+      exit 1
+      ;;
+  esac
   printf 'v%s' "${version#v}"
 }
 
