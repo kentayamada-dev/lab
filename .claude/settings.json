@@ -7,13 +7,11 @@
     "sessionUrl": false
   },
   "permissions": {
-    "allow": [],
     "deny": [
       "Read(**/.env)",
       "Read(~/.ssh/**)",
       "Read(~/.aws/**)"
     ],
-    "ask": [],
     "disableBypassPermissionsMode": "disable"
   },
   "env": {
