@@ -18,7 +18,7 @@
 #                                            # (lists the differences and exits 1 on drift)
 #
 # Environment variables:
-#   REPO           target repository (default: derived from the origin remote)
+#   GH_REPO        target repository (default: derived from the checkout)
 #   RULESET_FILE   apply only one ruleset JSON (default: apply all of .github/rulesets/*.json)
 #   REPO_SETTINGS  set to false to skip changing repository settings (default: true)
 #
@@ -105,7 +105,7 @@ notify_issue_config() {
  Action required: commit ${ISSUE_CONFIG_REL}
 ============================================================
  The Discussions link shown on the issue creation page was rewritten:
-   OWNER/REPO -> ${REPO}
+   OWNER/REPO -> ${GH_REPO}
  So far this change exists only in your local working tree.
 
  GitHub reads the config.yml on main, so until you commit it and get it
@@ -200,7 +200,7 @@ check_settings() {
     # owner and name are passed as variables (not embedded in the query). Field names
     # cannot be variables so they are assembled, but they come from the definition
     # above, so nothing external can slip in.
-    if ! current="$(gh api graphql -F owner="${REPO%%/*}" -F name="${REPO#*/}" \
+    if ! current="$(gh api graphql -F owner="${GH_REPO%%/*}" -F name="${GH_REPO#*/}" \
       -f query="query(\$owner: String!, \$name: String!) {
         repository(owner: \$owner, name: \$name) {${fields} }
       }" 2>/dev/null)"; then
@@ -224,10 +224,10 @@ check_settings() {
       if [[ "$endpoint" == vulnerability-alerts ]]; then
         # No body to read .enabled from (see the definition above). Why a 404 needs the
         # admin check: docs/drift-check.md#トークンについて
-        if err="$(gh api --silent "repos/${REPO}/${endpoint}" 2>&1)"; then
+        if err="$(gh api --silent "repos/${GH_REPO}/${endpoint}" 2>&1)"; then
           echo "  OK      ${endpoint} = true"
         elif grep -q 'HTTP 404' <<<"$err"; then
-          if [[ "$(gh api "repos/${REPO}" --jq '.permissions.admin' 2>/dev/null)" == true ]]; then
+          if [[ "$(gh api "repos/${GH_REPO}" --jq '.permissions.admin' 2>/dev/null)" == true ]]; then
             echo "  DRIFT   ${endpoint} = false (expected: true)"
             CHECK_DRIFT=true
           else
@@ -242,7 +242,7 @@ check_settings() {
       fi
       # The point is not to assign to got on failure. gh prints the error body to
       # stdout, so catching it with || would mix that body into the value.
-      if ! got="$(gh api "repos/${REPO}/${endpoint}" --jq '.enabled | tostring' 2>/dev/null)"; then
+      if ! got="$(gh api "repos/${GH_REPO}/${endpoint}" --jq '.enabled | tostring' 2>/dev/null)"; then
         echo "  UNKNOWN ${endpoint} (cannot be fetched)"
         CHECK_UNREADABLE=true
       elif [[ "$got" == true ]]; then
@@ -253,7 +253,7 @@ check_settings() {
       fi
     done
 
-    if ! current="$(gh api "repos/${REPO}" 2>/dev/null)"; then
+    if ! current="$(gh api "repos/${GH_REPO}" 2>/dev/null)"; then
       echo "  UNKNOWN security_and_analysis (cannot be fetched)"
       CHECK_UNREADABLE=true
     else
@@ -272,7 +272,7 @@ check_settings() {
       done
     fi
 
-    if ! current="$(gh api "repos/${REPO}/actions/permissions/workflow" 2>/dev/null)"; then
+    if ! current="$(gh api "repos/${GH_REPO}/actions/permissions/workflow" 2>/dev/null)"; then
       echo "  UNKNOWN actions/permissions/workflow (cannot be fetched)"
       CHECK_UNREADABLE=true
     else
@@ -288,7 +288,7 @@ check_settings() {
       done
     fi
 
-    if ! current="$(gh api --paginate "repos/${REPO}/labels" --jq '.[].name' 2>/dev/null)"; then
+    if ! current="$(gh api --paginate "repos/${GH_REPO}/labels" --jq '.[].name' 2>/dev/null)"; then
       echo "  UNKNOWN cannot fetch the list of labels"
       CHECK_UNREADABLE=true
     else
@@ -311,7 +311,7 @@ check_settings() {
   # undefined, and an active parent would report OK even when the repository itself has
   # none. Only this repository's own rulesets are of interest, so it is turned off (the
   # two places on the apply side below set it for the same reason).
-  if ! current="$(gh api "repos/${REPO}/rulesets?includes_parents=false" 2>/dev/null)"; then
+  if ! current="$(gh api "repos/${GH_REPO}/rulesets?includes_parents=false" 2>/dev/null)"; then
     echo "  UNKNOWN cannot fetch the list of rulesets"
     CHECK_UNREADABLE=true
   else
@@ -324,7 +324,7 @@ check_settings() {
         CHECK_DRIFT=true
         continue
       fi
-      if ! ruleset_now="$(gh api "repos/${REPO}/rulesets/${id}" 2>/dev/null)"; then
+      if ! ruleset_now="$(gh api "repos/${GH_REPO}/rulesets/${id}" 2>/dev/null)"; then
         echo "  UNKNOWN ruleset ${name} (cannot be fetched)"
         CHECK_UNREADABLE=true
         continue
@@ -392,21 +392,24 @@ for f in "${RULESET_FILES[@]}"; do
   RULESET_NAMES+=("$ruleset_name")
 done
 
-if [[ -z "${REPO:-}" ]]; then
+if [[ -z "${GH_REPO:-}" ]]; then
   # Resolve it from the repository root so the result does not depend on cwd.
-  REPO="$(cd "$repo_root" && gh repo view --json nameWithOwner --jq .nameWithOwner)"
+  GH_REPO="$(cd "$repo_root" && gh repo view --json nameWithOwner --jq .nameWithOwner)"
 fi
+# Every gh call below spells the repository out in its API path, but gh reads GH_REPO
+# itself, so exporting it keeps one that does not on the same repository.
+export GH_REPO
 
-visibility="$(gh api "repos/${REPO}" --jq .visibility)"
+visibility="$(gh api "repos/${GH_REPO}" --jq .visibility)"
 if [[ "$visibility" != public ]]; then
   cat >&2 <<MSG
-error: ${REPO} is a ${visibility} repository. This script only supports public ones.
+error: ${GH_REPO} is a ${visibility} repository. This script only supports public ones.
   Rulesets / branch protection may be unavailable on private repositories.
 MSG
   exit 1
 fi
 
-echo "target: ${REPO} (${visibility})"
+echo "target: ${GH_REPO} (${visibility})"
 for i in "${!RULESET_FILES[@]}"; do
   echo "ruleset: ${RULESET_NAMES[$i]} <- ${RULESET_FILES[$i]#"${repo_root}"/}"
 done
@@ -437,31 +440,31 @@ if [[ "$DRY_RUN" == true ]]; then
     cat "$f"
   done
   if [[ "$REPO_SETTINGS" == true ]]; then
-    echo "PATCH repos/${REPO}"
+    echo "PATCH repos/${GH_REPO}"
     for kv in "${REPO_SETTINGS_EXPECTED[@]}"; do
       read -r rest_key _ want <<<"$kv"
       echo "        ${rest_key} = ${want}"
     done
-    echo "PATCH repos/${REPO}"
+    echo "PATCH repos/${GH_REPO}"
     for kv in "${SECURITY_ANALYSIS_EXPECTED[@]}"; do
       read -r key want <<<"$kv"
       echo "        security_and_analysis.${key}.status = ${want}"
     done
     for endpoint in "${REPO_SETTINGS_ENDPOINTS[@]}"; do
-      echo "PUT   repos/${REPO}/${endpoint}"
+      echo "PUT   repos/${GH_REPO}/${endpoint}"
     done
-    echo "PUT   repos/${REPO}/actions/permissions/workflow"
+    echo "PUT   repos/${GH_REPO}/actions/permissions/workflow"
     for kv in "${ACTIONS_WORKFLOW_EXPECTED[@]}"; do
       read -r key want <<<"$kv"
       echo "        ${key} = ${want}"
     done
-    echo "POST  repos/${REPO}/labels (creates only the missing ones)"
+    echo "POST  repos/${GH_REPO}/labels (creates only the missing ones)"
     for kv in "${LABELS_EXPECTED[@]}"; do
       read -r name color description <<<"$kv"
       echo "        ${name} (color: ${color} / description: ${description})"
     done
     if grep -q 'github\.com/OWNER/REPO/' "$ISSUE_CONFIG" 2>/dev/null; then
-      echo "EDIT  ${ISSUE_CONFIG_REL} (OWNER/REPO -> ${REPO})"
+      echo "EDIT  ${ISSUE_CONFIG_REL} (OWNER/REPO -> ${GH_REPO})"
       echo "      ^ only changes the working tree, so a separate commit is needed afterwards"
     fi
   fi
@@ -473,7 +476,7 @@ while read -r ref; do
     refs/heads/*) branch="${ref#refs/heads/}" ;;
     *) continue ;; # meta refs such as ~DEFAULT_BRANCH are out of scope
   esac
-  if gh api "repos/${REPO}/branches/${branch}/protection" >/dev/null 2>&1; then
+  if gh api "repos/${GH_REPO}/branches/${branch}/protection" >/dev/null 2>&1; then
     echo "warning: classic branch protection is set on ${branch}. It applies alongside the ruleset." >&2
   fi
 done < <(jq -r '.conditions.ref_name.include[]?' "${RULESET_FILES[@]}" | sort -u)
@@ -482,9 +485,9 @@ done < <(jq -r '.conditions.ref_name.include[]?' "${RULESET_FILES[@]}" | sort -u
 # every id whose name matches, so a parent ruleset slipping in would yield two lines and
 # turn the target of the following PUT into a broken string. A failed listing must stop
 # the run: treating it as "no rulesets" would create a duplicate next to the existing one.
-existing_rulesets="$(gh api "repos/${REPO}/rulesets?includes_parents=false")" ||
+existing_rulesets="$(gh api "repos/${GH_REPO}/rulesets?includes_parents=false")" ||
   {
-    echo "cannot list the existing rulesets of ${REPO}" >&2
+    echo "cannot list the existing rulesets of ${GH_REPO}" >&2
     exit 1
   }
 
@@ -495,10 +498,10 @@ for i in "${!RULESET_FILES[@]}"; do
 
   if [[ -n "$existing_id" ]]; then
     echo "updating the existing ruleset #${existing_id} (${ruleset_name})"
-    gh api --method PUT "repos/${REPO}/rulesets/${existing_id}" --input "$ruleset_file" >/dev/null
+    gh api --method PUT "repos/${GH_REPO}/rulesets/${existing_id}" --input "$ruleset_file" >/dev/null
   else
     echo "creating the ruleset ${ruleset_name}"
-    gh api --method POST "repos/${REPO}/rulesets" --input "$ruleset_file" >/dev/null
+    gh api --method POST "repos/${GH_REPO}/rulesets" --input "$ruleset_file" >/dev/null
   fi
 done
 
@@ -509,7 +512,7 @@ if [[ "$REPO_SETTINGS" == true ]]; then
     read -r rest_key _ want <<<"$kv"
     patch_args+=(-F "${rest_key}=${want}")
   done
-  gh api --method PATCH "repos/${REPO}" "${patch_args[@]}" >/dev/null
+  gh api --method PATCH "repos/${GH_REPO}" "${patch_args[@]}" >/dev/null
 
   echo "enabling secret scanning push protection"
   # A nested object, so it cannot be expressed with -F. It is sent as a separate PATCH
@@ -520,23 +523,23 @@ if [[ "$REPO_SETTINGS" == true ]]; then
     read -r key want <<<"$kv"
     security_body="$(jq --arg k "$key" --arg v "$want" '.security_and_analysis[$k] = { status: $v }' <<<"$security_body")"
   done
-  gh api --method PATCH "repos/${REPO}" --input - <<<"$security_body" >/dev/null
+  gh api --method PATCH "repos/${GH_REPO}" --input - <<<"$security_body" >/dev/null
 
   if grep -q 'github\.com/OWNER/REPO/' "$ISSUE_CONFIG" 2>/dev/null; then
     # sed -i is avoided because its arguments differ between BSD and GNU. The write-back
     # uses cp rather than mv so the temporary file's permissions do not overwrite the
     # original file's.
     tmp="${ISSUE_CONFIG}.tmp"
-    sed "s#github\.com/OWNER/REPO/#github.com/${REPO}/#g" "$ISSUE_CONFIG" >"$tmp"
+    sed "s#github\.com/OWNER/REPO/#github.com/${GH_REPO}/#g" "$ISSUE_CONFIG" >"$tmp"
     cp "$tmp" "$ISSUE_CONFIG"
     rm -f "$tmp"
-    echo "rewrote: ${ISSUE_CONFIG_REL} (OWNER/REPO -> ${REPO}) ... needs a commit (see the note at the end)"
+    echo "rewrote: ${ISSUE_CONFIG_REL} (OWNER/REPO -> ${GH_REPO}) ... needs a commit (see the note at the end)"
     issue_config_rewritten=true
   fi
 
   for endpoint in "${REPO_SETTINGS_ENDPOINTS[@]}"; do
     echo "enabling ${endpoint}"
-    gh api --method PUT "repos/${REPO}/${endpoint}" >/dev/null
+    gh api --method PUT "repos/${GH_REPO}/${endpoint}" >/dev/null
   done
 
   echo "setting the default permissions of the Actions GITHUB_TOKEN (read only / creating and approving PRs forbidden)"
@@ -545,23 +548,23 @@ if [[ "$REPO_SETTINGS" == true ]]; then
     read -r key want <<<"$kv"
     workflow_args+=(-F "${key}=${want}")
   done
-  gh api --method PUT "repos/${REPO}/actions/permissions/workflow" "${workflow_args[@]}" >/dev/null
+  gh api --method PUT "repos/${GH_REPO}/actions/permissions/workflow" "${workflow_args[@]}" >/dev/null
 
-  existing_labels="$(gh api --paginate "repos/${REPO}/labels" --jq '.[].name')"
+  existing_labels="$(gh api --paginate "repos/${GH_REPO}/labels" --jq '.[].name')"
   for kv in "${LABELS_EXPECTED[@]}"; do
     read -r name color description <<<"$kv"
     if grep -Fxq "$name" <<<"$existing_labels"; then
       echo "label ${name} already exists"
     else
       echo "creating label ${name}"
-      gh api --method POST "repos/${REPO}/labels" \
+      gh api --method POST "repos/${GH_REPO}/labels" \
         -f name="$name" -f color="$color" -f description="$description" >/dev/null
     fi
   done
 fi
 
 echo "done. current settings:"
-rulesets_now="$(gh api "repos/${REPO}/rulesets?includes_parents=false")"
+rulesets_now="$(gh api "repos/${GH_REPO}/rulesets?includes_parents=false")"
 for ruleset_name in "${RULESET_NAMES[@]}"; do
   id="$(jq -r --arg name "$ruleset_name" '.[] | select(.name == $name) | .id' <<<"$rulesets_now")"
   [[ -n "$id" ]] || {
@@ -571,7 +574,7 @@ for ruleset_name in "${RULESET_NAMES[@]}"; do
   # Omit the whole line for rules a ruleset does not have. Rule sets can differ in which
   # rules they configure, so printing every line unconditionally would show misleading
   # lines such as "direct push: allowed" for a ruleset that has no such rule.
-  gh api "repos/${REPO}/rulesets/${id}" --jq '
+  gh api "repos/${GH_REPO}/rulesets/${id}" --jq '
     "  name            : \(.name) (\(.enforcement))",
     "  targets         : \(.conditions.ref_name.include | join(", "))\(if ((.conditions.ref_name.exclude // []) | length) > 0 then " (excluded: \(.conditions.ref_name.exclude | join(", ")))" else "" end)",
     (if any(.rules[]; .type == "pull_request") then (
@@ -588,7 +591,7 @@ for ruleset_name in "${RULESET_NAMES[@]}"; do
   '
 done
 
-gh api "repos/${REPO}" --jq '
+gh api "repos/${GH_REPO}" --jq '
   "  auto-merge      : \(if .allow_auto_merge then "enabled" else "disabled" end)",
   "  delete on merge : \(if .delete_branch_on_merge then "enabled" else "disabled" end)",
   "  update branch   : \(if .allow_update_branch then "enabled" else "disabled" end)",
@@ -600,18 +603,18 @@ gh api "repos/${REPO}" --jq '
   "  squash title    : \(.squash_merge_commit_title)",
   "  push protection : \(.security_and_analysis.secret_scanning_push_protection.status // "unknown")"
 '
-gh api "repos/${REPO}/immutable-releases" --jq '
+gh api "repos/${GH_REPO}/immutable-releases" --jq '
   "  immutable rel.  : \(if .enabled then "enabled" else "disabled" end)"
 '
-gh api "repos/${REPO}/private-vulnerability-reporting" --jq '
+gh api "repos/${GH_REPO}/private-vulnerability-reporting" --jq '
   "  private reports : \(if .enabled then "enabled" else "disabled" end)"
 '
 # 204 / 404 with no body (see REPO_SETTINGS_ENDPOINTS), so no --jq here.
-if gh api --silent "repos/${REPO}/vulnerability-alerts" 2>/dev/null; then
+if gh api --silent "repos/${GH_REPO}/vulnerability-alerts" 2>/dev/null; then
   echo "  vuln alerts     : enabled"
 else
   echo "  vuln alerts     : disabled"
 fi
-gh api "repos/${REPO}/actions/permissions/workflow" --jq '
+gh api "repos/${GH_REPO}/actions/permissions/workflow" --jq '
   "  Actions perms   : GITHUB_TOKEN is \(.default_workflow_permissions) / creating and approving PRs is \(if .can_approve_pull_request_reviews then "allowed" else "forbidden" end)"
 '

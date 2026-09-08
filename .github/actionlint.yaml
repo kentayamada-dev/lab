@@ -1,0 +1,9 @@
+# actionlint 1.7.12 does not know the self-repository form of `uses:` (`$/...`, the
+# way ci.yml reaches the composite action next to it) and reports every occurrence as
+# a malformed action reference. The pattern below is narrow enough that a third-party
+# action which really is missing its ref is still reported. Remove this file once
+# actionlint understands `$/` (docs/ci-jobs.md#actionlint).
+paths:
+  .github/workflows/*.yml:
+    ignore:
+      - 'specifying action "\$/[^"]+" in invalid format'

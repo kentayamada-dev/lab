@@ -51,6 +51,7 @@ jobs:
 
 - ジョブには `permissions` と `timeout-minutes` を必ず書き、`actions/checkout` には `persist-credentials: false` を付けてください。[`ghalint`](#ghalint) が強制します。例外は再利用可能ワークフローを `uses` で呼ぶジョブで、そこには `timeout-minutes` を書けません（[`osv-scanner-diff`](#osv-scanner) が該当します）。
 - 可能なら、ジョブのコマンドは [mise.toml](../mise.toml) の `check:<ジョブ名>` タスクに置き、ジョブはそれを呼ぶ形にしてください。検査を手元で再現できる状態が保たれます（[検査を手元で再現する](#検査を手元で再現する)）。
+- ツールが要るジョブは mise-action を直に呼ばず、[setup-mise](../.github/actions/setup-mise/action.yaml) に `tools` を渡してください（[ツールの導入と検証](#ツールの導入と検証)）。参照は `$/.github/actions/setup-mise` の形に揃えます（`./` との違いは [actionlint](#actionlint)）。
 - ワークフロー全体に `paths` フィルタを付けないこと。対象外の PR で `ci` が報告されず、必須チェック待ちのままマージ不能になります。絞るならジョブ側の `if` を使います。
 - `ci` ジョブの名前を変えるときは、[main.json](../.github/rulesets/main.json) の `context` も合わせて変更してください。
 - **CI を GitHub Actions 以外から報告するようにしないこと。** `context` と一緒に `integration_id`（GitHub Actions の App ID）を指定してあり、他の App やトークンが報告した同名のチェックは無視されます。外部 CI へ移行する場合はこの値も移行先の App ID に変えないと、必須チェック待ちで止まります（[確認方法](troubleshooting.md#pr-が必須チェック待ちで止まる)）。
@@ -100,13 +101,15 @@ jobs:
 
 runner のイメージに同梱されているもの（`gh` / `jq` / `yq`）はそのまま使い、[mise.toml](../mise.toml) には足していません。
 
-mise 本体のバージョンは [mise-action](https://github.com/jdx/mise-action) の `version` 入力で固定しています（Renovate がこの入力を標準で見ます）。action 自体は他と同じく commit SHA 固定です。`mise.lock` は置いていません（理由は [mise.toml](../mise.toml) のコメントを参照）。
+この導入をする部分は composite action の [setup-mise](../.github/actions/setup-mise/action.yaml) にまとめてあり、ジョブ側は入れるツールを `tools` 入力で渡すだけです。該当するのは [ci.yml](../.github/workflows/ci.yml) の検査ジョブ 11 個と、定期実行の [claude-settings](#claude-code-設定の定期検査) と [link-check](#外部リンクの定期検査) の計 13 個です。mise 本体のバージョンと mise-action の commit SHA、下のキャッシュとトークンの指定をジョブごとに書くと、変えるたびに 13 箇所を揃えることになります。
+
+mise 本体のバージョンは [mise-action](https://github.com/jdx/mise-action) の `version` 入力で固定しています（Renovate がこの入力を標準で見ます。composite action の中でも同じく拾います）。action 自体は他と同じく commit SHA 固定です。`mise.lock` は置いていません（理由は [mise.toml](../mise.toml) のコメントを参照）。
 
 キャッシュの書き込みは `cache_save: ${{ github.event_name == 'push' }}` として main への push のときだけに限っています。キャッシュはブランチスコープで、PR ブランチに保存したものはマージ後は誰も使わないまま 7 日間残るためです。main のキャッシュは全ブランチから読めるので、[mise.toml](../mise.toml) を変えない PR ではヒットし、速度は落ちません。
 
 ### 検査を手元で再現する
 
-検査ジョブが実行するコマンドは、ジョブと同名のタスクとして [mise.toml](../mise.toml) に一度だけ定義してあり、各ジョブの `run:` は `mise run --skip-tools check:<ジョブ名>` でそれを呼びます（このフラグは mise が mise.toml の全ツールを入れようとするのを止めます。ジョブが必要とする分は mise-action のステップが入れ終わっています）。同じタスクで CI を手元で再現できます。前提は [mise](https://mise.jdx.dev/) だけです。
+検査ジョブが実行するコマンドは、ジョブと同名のタスクとして [mise.toml](../mise.toml) に一度だけ定義してあり、各ジョブの `run:` は `mise run --skip-tools check:<ジョブ名>` でそれを呼びます（このフラグは mise が mise.toml の全ツールを入れようとするのを止めます。ジョブが必要とする分は [setup-mise](../.github/actions/setup-mise/action.yaml) のステップが入れ終わっています）。同じタスクで CI を手元で再現できます。前提は [mise](https://mise.jdx.dev/) だけです。
 
 ```bash
 mise run check              # 手元のチェックアウトで動く検査すべて
@@ -142,7 +145,9 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 シェルの検査の分担: **ワークフロー内の `run:` は actionlint（が呼ぶ shellcheck）、リポジトリ内の `*.sh` / `*.bash` は [shellcheck](#shellcheck) ジョブ、Dockerfile の `RUN` は [hadolint](#hadolint)（に同梱の ShellCheck）** が見ます。
 
-**このジョブでは actionlint と一緒に shellcheck も入れています。** actionlint は shellcheck が PATH に無いと `run:` の検査を黙って飛ばすためです。同様に、`run:` に Python を書くようになったら pyflakes を [mise.toml](../mise.toml) と `install_args` に足してください。
+**このジョブでは actionlint と一緒に shellcheck も入れています。** actionlint は shellcheck が PATH に無いと `run:` の検査を黙って飛ばすためです。同様に、`run:` に Python を書くようになったら pyflakes を [mise.toml](../mise.toml) とこのジョブの `tools` に足してください。
+
+**`$/` で始まる `uses:`（[setup-mise](../.github/actions/setup-mise/action.yaml) の参照）は、actionlint 1.7.12 が構文として知らないため書式の誤りとして報告されます。**これだけを [.github/actionlint.yaml](../.github/actionlint.yaml) で無視しています。ref を書き忘れた通常の action は今までどおり報告されます。`$/` は[自分のリポジトリを実行中の commit で参照する形式](https://github.blog/changelog/2026-07-30-reference-same-repository-actions-with-self-repository-syntax/)で、checkout に依存せず GitHub 側では固定済みの参照として扱われるため、[zizmor](#zizmor) はこちらを求めます（`./` だと `self-repository` の指摘が出ます）。引き換えに、actionlint が action.yaml を読んで入力名を検査する動きは `$/` では働きません。actionlint が対応したらこのファイルは消せます。
 
 ## shellcheck
 
@@ -246,7 +251,7 @@ excludes:
     job_name: format
 ```
 
-検査対象は `.github/workflows/` 配下です。composite action（`action.yaml`）を置いたら `ghalint run-action` も実行するようにしてください（`run` だけでは検査されません）。
+`ghalint run` の検査対象は `.github/workflows/` 配下だけです。composite action（`action.yaml`）はこれでは検査されないため、[mise.toml](../mise.toml) の `check:ghalint` タスクが続けて `ghalint run-action` を実行します。対象は `git ls-files` で集めるので、action を足しても書き足すものはありません。
 
 ## zizmor
 

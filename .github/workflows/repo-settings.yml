@@ -30,6 +30,7 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ secrets.SETTINGS_TOKEN || github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -eo pipefail
           # Why pipefail: docs/drift-check.md#落ちたときの通知
@@ -40,6 +41,7 @@ jobs:
         if: failure() && steps.check.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TITLE: Repository settings have drifted
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/repo-settings.yml
@@ -85,6 +87,7 @@ jobs:
       - name: Close the issue when the drift is gone
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TITLE: Repository settings have drifted
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
