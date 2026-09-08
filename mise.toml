@@ -72,8 +72,15 @@ lychee --offline --include-fragments --no-progress \
 '''
 
 [tasks."check:ghalint"]
-description = "Lint workflow files for security policies"
-run = "ghalint run"
+description = "Lint workflow and action files for security policies"
+shell = "bash -c"
+run = '''
+set -euo pipefail
+ghalint run
+# `run` looks at .github/workflows only (docs/ci-jobs.md#ghalint).
+git ls-files -z '*/action.yml' '*/action.yaml' \
+  | xargs -0 -r ghalint run-action
+'''
 
 [tasks."check:zizmor"]
 description = "Audit workflow files for security issues"

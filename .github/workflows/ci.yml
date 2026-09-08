@@ -89,13 +89,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: $/.github/actions/setup-mise
         with:
-          version: 2026.8.8
-          install_args: editorconfig-checker shfmt
-          cache_save: ${{ github.event_name == 'push' }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          tools: editorconfig-checker shfmt
       # The check commands are mise tasks shared with local runs (docs/ci-jobs.md).
       - name: Check formatting
         run: mise run --skip-tools check:format
@@ -109,13 +105,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: $/.github/actions/setup-mise
         with:
-          version: 2026.8.8
-          install_args: actionlint shellcheck
-          cache_save: ${{ github.event_name == 'push' }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          tools: actionlint shellcheck
       - name: Lint workflow files
         run: mise run --skip-tools check:actionlint
 
@@ -128,16 +120,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: $/.github/actions/setup-mise
         with:
-          version: 2026.8.8
-          install_args: shellcheck
-          cache_save: ${{ github.event_name == 'push' }}
-        env:
-          # mise calls the GitHub API to resolve download sources. Unauthenticated
-          # requests can hit rate limits on the runner's shared IP, so pass a
-          # read-only token.
-          GITHUB_TOKEN: ${{ github.token }}
+          tools: shellcheck
       - name: Lint shell scripts
         run: mise run --skip-tools check:shellcheck
 
@@ -150,13 +135,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: $/.github/actions/setup-mise
         with:
-          version: 2026.8.8
-          install_args: hadolint
-          cache_save: ${{ github.event_name == 'push' }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          tools: hadolint
       - name: Lint Dockerfiles
         run: mise run --skip-tools check:hadolint
 
@@ -169,13 +150,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: $/.github/actions/setup-mise
         with:
-          version: 2026.8.8
-          install_args: typos
-          cache_save: ${{ github.event_name == 'push' }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          tools: typos
       - name: Check for typos
         run: mise run --skip-tools check:typos
 
@@ -188,13 +165,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: $/.github/actions/setup-mise
         with:
-          version: 2026.8.8
-          install_args: lychee
-          cache_save: ${{ github.event_name == 'push' }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          tools: lychee
       - name: Check links
         run: mise run --skip-tools check:lychee
 
@@ -220,14 +193,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: $/.github/actions/setup-mise
         with:
-          version: 2026.8.8
-          install_args: ghalint
-          cache_save: ${{ github.event_name == 'push' }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-      - name: Lint workflow files for security policies
+          tools: ghalint
+      - name: Lint workflow and action files for security policies
         run: mise run --skip-tools check:ghalint
 
   zizmor:
@@ -239,13 +208,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: $/.github/actions/setup-mise
         with:
-          version: 2026.8.8
-          install_args: zizmor
-          cache_save: ${{ github.event_name == 'push' }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          tools: zizmor
       - name: Audit workflow files for security issues
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -261,13 +226,9 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: $/.github/actions/setup-mise
         with:
-          version: 2026.8.8
-          install_args: gitleaks
-          cache_save: ${{ github.event_name == 'push' }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          tools: gitleaks
       - name: Scan git history for secrets
         run: mise run --skip-tools check:gitleaks
 
@@ -286,6 +247,7 @@ jobs:
       - name: Dry-run the setup script
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: ./scripts/sync-repo-config.sh --dry-run
 
   script-tests:
@@ -297,13 +259,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: $/.github/actions/setup-mise
         with:
-          version: 2026.8.8
-          install_args: bats
-          cache_save: ${{ github.event_name == 'push' }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          tools: bats
       - name: Test the scripts the workflows call, and the type list ci.yml enforces
         run: mise run --skip-tools check:script-tests
 
@@ -316,13 +274,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: $/.github/actions/setup-mise
         with:
-          version: 2026.8.8
-          install_args: pipx:check-jsonschema
-          cache_save: ${{ github.event_name == 'push' }}
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+          tools: pipx:check-jsonschema
       - name: Validate issue forms
         run: mise run --skip-tools check:issue-forms
 

@@ -1,0 +1,26 @@
+# The tool installation every job that goes on to run a mise task does first: the check
+# jobs in ci.yml and the two scheduled workflows. It lives here rather than in each job
+# so that the mise version, the pinned action and the reasons below have one home
+# instead of thirteen copies (docs/ci-jobs.md#ツールの導入と検証).
+name: setup-mise
+description: Installs the tools a check job needs, at the versions mise.toml pins.
+
+inputs:
+  tools:
+    description: The tools to install, space separated. Versions come from mise.toml.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      with:
+        version: 2026.8.8
+        install_args: ${{ inputs.tools }}
+        # Why only on push: docs/ci-jobs.md#ツールの導入と検証
+        cache_save: ${{ github.event_name == 'push' }}
+      env:
+        # mise calls the GitHub API to resolve download sources. Unauthenticated
+        # requests can hit rate limits on the runner's shared IP, so pass a
+        # read-only token.
+        GITHUB_TOKEN: ${{ github.token }}

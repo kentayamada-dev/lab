@@ -36,10 +36,10 @@ EOF
 # run_sync [<argument> ...]
 #
 # Reached through bats `run`, so that the exit status the script answers with is part
-# of what a test asserts. REPO is pinned so the stub never has to answer
+# of what a test asserts. GH_REPO is pinned so the stub never has to answer
 # `gh repo view` and the endpoint paths the fixtures are keyed by stay stable.
 run_sync() {
-  REPO=owner/repo bash "${REPO_COPY}/scripts/sync-repo-config.sh" "$@"
+  GH_REPO=owner/repo bash "${REPO_COPY}/scripts/sync-repo-config.sh" "$@"
 }
 
 # fixture_path <endpoint> -> the fixture base path for that endpoint
