@@ -147,7 +147,7 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 **このジョブでは actionlint と一緒に shellcheck も入れています。** actionlint は shellcheck が PATH に無いと `run:` の検査を黙って飛ばすためです。同様に、`run:` に Python を書くようになったら pyflakes を [mise.toml](../mise.toml) とこのジョブの `tools` に足してください。
 
-**`$/` で始まる `uses:`（[setup-mise](../.github/actions/setup-mise/action.yaml) の参照）は、actionlint 1.7.12 が構文として知らないため書式の誤りとして報告されます。**これだけを [.github/actionlint.yaml](../.github/actionlint.yaml) で無視しています。ref を書き忘れた通常の action は今までどおり報告されます。`$/` は[自分のリポジトリを実行中の commit で参照する形式](https://github.blog/changelog/2026-07-30-reference-same-repository-actions-with-self-repository-syntax/)で、checkout に依存せず GitHub 側では固定済みの参照として扱われるため、[zizmor](#zizmor) はこちらを求めます（`./` だと `self-repository` の指摘が出ます）。引き換えに、actionlint が action.yaml を読んで入力名を検査する動きは `$/` では働きません。actionlint が対応したらこのファイルは消せます。
+**`$/` で始まる `uses:`（[setup-mise](../.github/actions/setup-mise/action.yaml) の参照）は、actionlint 1.7.12 が構文として知らないため書式の誤りとして報告されます。**これだけを [mise.toml](../mise.toml) の `check:actionlint` タスクの `-ignore` で無視しています。ref を書き忘れた通常の action は今までどおり報告されます。`$/` は[自分のリポジトリを実行中の commit で参照する形式](https://github.blog/changelog/2026-07-30-reference-same-repository-actions-with-self-repository-syntax/)で、checkout に依存せず GitHub 側では固定済みの参照として扱われるため、[zizmor](#zizmor) はこちらを求めます（`./` だと `self-repository` の指摘が出ます）。引き換えに、actionlint が action.yaml を読んで入力名を検査する動きは `$/` では働きません。actionlint が対応したらこのフラグは外せます。
 
 ## shellcheck
 
