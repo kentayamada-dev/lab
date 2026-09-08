@@ -16,6 +16,13 @@ setup() {
   run -2 run_script close-issues-by-title.sh 'A title' 'A comment' extra
 }
 
+@test "refuses an empty title or comment" {
+  open_issue 12 'External links are broken'
+  run -2 run_script close-issues-by-title.sh '' 'the check passed'
+  run -2 run_script close-issues-by-title.sh 'External links are broken' ''
+  assert_gh_not_called 'issue close'
+}
+
 @test "closes the issue with the given title, leaving the comment on it" {
   open_issue 12 'External links are broken'
   run -0 run_script close-issues-by-title.sh 'External links are broken' 'the check passed'
