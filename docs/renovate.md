@@ -178,10 +178,10 @@ docker run --rm -v "$PWD:/repo:ro" -w /repo \
 | `pinDigests: true` | タグは差し替え可能なので、ダイジェストまで固定する（[ダイジェストの固定](#ダイジェストの固定)） | タグ指定だけになり、中身の差し替えを追えなくなる |
 | `extends` の `helpers:pinGitHubActionDigestsToSemver` | 固定した SHA に添えるコメントを `# v7.0.1` のような厳密なバージョンに保つ（[ダイジェストの固定](#ダイジェストの固定)） | `# v7` のような可動する major タグが書かれ、上流がタグを付け替えるとコメントが固定した commit を指さなくなり、[`zizmor`](ci-jobs.md#zizmor) が `ref-version-mismatch` として報告する |
 | `extends` の `security:minimumReleaseAgeNpm` | npm パッケージは公開から 3 日経つまで更新に含めない（`internalChecksFilter: 'strict'` 付きなので、最新版が若すぎるときは条件を満たす直近の版を提案する）。[`web`](ci-jobs.md#アプリコードの検査) の pnpm が公開 24 時間未満の版を拒否するため、Renovate 側も待たせて提案した版が拒否されないようにする | 公開から 24 時間未満の版が PR に入り、24 時間経つまで `web` が落ちる |
-| `packageRules` の `non-major` | major 以外は 1 本の PR にまとめる | 更新ごとに PR が立ち、本数が増える |
+| `packageRules` の `non-major` | minor・patch・ダイジェストの更新を 1 本の PR にまとめる | 更新ごとに PR が立ち、本数が増える |
 | `commitMessage*` / `pr*` の文面 | 更新 PR のタイトルと本文を自前で書く（[PR の文面](#pr-の文面)） | 自動生成の既定の文面に戻り、自動 issue と体裁が揃わない |
 | `fetchChangeLogs: 'off'` | リリースノートを PR に出さないので取得しない（[本文](#本文)） | 表示しないリリースノートを実行ごとに取りに行く |
-| `postUpdateOptions: ['gomodTidy']` | go.mod を更新した後に `go mod tidy` を走らせる。既定の `go get` だけでは、旧バージョンの行が go.sum に残ったり（indirect な依存では新バージョンの h1 ハッシュも入らない）して、[`api`](ci-jobs.md#アプリコードの検査) ジョブの `tidy-check` が落ちる | Go 依存の更新 PR が `tidy-check` で落ち、手で `make tidy` して push する必要がある |
+| `postUpdateOptions: ['gomodTidy']` | go.mod を更新した後に `go mod tidy` を走らせる。既定の `go get` だけでは、旧バージョンの行が go.sum に残ったり（indirect な依存では新バージョンの h1 ハッシュも入らない）して、[`api`](ci-jobs.md#アプリコードの検査) ジョブの `tidy-check` が落ちる | Go 依存の更新 PR が `tidy-check` で落ち、手で `make api-tidy` して push する必要がある |
 | `vulnerabilityAlerts: { enabled: true }` | gomod マネージャは `// indirect` な依存を無効にしていて、脆弱性の修正 PR も既定ではそれを上書きしない。ここで `enabled` を書くと修正 PR の設定として強制され、indirect な依存の脆弱性にも修正 PR が立つ（通常の更新には indirect を含めないまま） | Dependabot alerts が `// indirect` な依存（Go では大半）に出ても修正 PR が立たず、アラートが残り続ける |
 
 ## 何が更新対象になるか
