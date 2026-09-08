@@ -70,7 +70,7 @@ jobs:
 | `api` | `make db-migrate` でスキーマを適用してから `make api-check`。sqlc の `db-prepare` ルールが実 DB に対してクエリを prepare するため、先にテーブルが要ります |
 | `web` | `make web-check`。`pnpm install --frozen-lockfile` は pnpm 11 の既定 `minimumReleaseAge`（1440 分）により、lockfile の全エントリを見て公開から 24 時間未満の版を `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` で拒否します。Renovate がそうした版を提案しないようにする設定は [renovate.md](renovate.md#このリポジトリに合わせてある設定) にあります |
 
-各ターゲットの内容は `make help` にあります。各ジョブは `USER_UID` / `USER_GID` を runner の uid / gid に合わせてから make を呼びます。bind mount したチェックアウトをコンテナ側が読み書きできるようにするためで、buf が `.git` を読むときの dubious ownership 判定もこれで避けます。`api` ジョブは `API_BUILD_TARGET=base` でイメージを build します（dev target が足す gopls は検査で使わず、コンパイルに時間がかかるためです）。
+各ターゲットの内容は `make help` にあります。各ジョブは make の前に `make init` で `.env` を作り（追跡していないため、チェックアウト直後には存在しません）、`USER_UID` / `USER_GID` を runner の uid / gid に合わせてから make を呼びます。bind mount したチェックアウトをコンテナ側が読み書きできるようにするためで、buf が `.git` を読むときの dubious ownership 判定もこれで避けます。`api` ジョブは `API_BUILD_TARGET=base` でイメージを build します（dev target が足す gopls は検査で使わず、コンパイルに時間がかかるためです）。
 
 `api` と `web` は依存物のキャッシュを run をまたいで持ち越します。[docker-compose.yml](../docker-compose.yml) の `GO_MOD_CACHE` / `GO_BUILD_CACHE` / `PNPM_STORE` は named volume を任意のホストディレクトリに差し替えるための変数で、CI はここに actions/cache で restore したディレクトリを渡します（ローカルでは未設定のまま named volume が使われます）。保存は [mise のキャッシュ](#ツールの導入と検証)と同じ理由で main への push のときだけです。`proto` / `gen` / `db` はイメージの pull だけで動くため、キャッシュしていません。
 
@@ -137,7 +137,7 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
   gh api --method PATCH repos/OWNER/REPO/code-scanning/default-setup -f state=not-configured
   ```
 
-- fork からの PR では `security-events: write` が付与されず、解析結果のアップロードに失敗する可能性があります（未検証）。外部からの PR を受けるようになってから確認し、失敗するならジョブに `if` を付けて fork の PR ではスキップしてください（`skipped` は `ci` で成功扱いになります）。その場合、fork からの変更はマージ後の main の run で初めて解析されます。スキップすると [main.json](../.github/rulesets/main.json) の `code_scanning` ルールが判定する CodeQL の結果も無くなるので、マージできるかを確認し、できなければこのルールも外してください。
+- fork からの PR では `security-events: write` が付与されず、解析結果のアップロードに失敗する可能性があります（未検証）。外部からの PR を受けるようになってから確認し、失敗するならジョブに `if` を付けて fork の PR ではスキップしてください（スキップの扱いは [CI にジョブを追加する](#ci-にジョブを追加する)）。その場合、fork からの変更はマージ後の main の run で初めて解析されます。スキップすると [main.json](../.github/rulesets/main.json) の `code_scanning` ルールが判定する CodeQL の結果も無くなるので、マージできるかを確認し、できなければこのルールも外してください。
 
 ## actionlint
 
@@ -201,7 +201,7 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 | | `ci` の `lychee` ジョブ | `link-check` ワークフロー |
 | --- | --- | --- |
-| 見るもの | リポジトリ内の相対パスと見出しへのアンカー | 外部 URL |
+| 見るもの | リポジトリ内の相対パスと見出しへのアンカー | 外部 URL（`--offline` を外すので、リポジトリ内のリンクも一緒に見ます） |
 | 通信 | しない（`--offline`） | する |
 | アンカーの照合 | する | しない |
 | 必須チェック | はい（`ci` の一部） | いいえ（別ワークフロー） |
@@ -221,7 +221,7 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 [ci.yml](../.github/workflows/ci.yml) の `markdownlint` ジョブが、Markdown の書式を検査します。見出しの階層の飛び、言語指定の無いコードブロックなど、表示はできてしまうが揃っていない書き方を落とします（誤字は [typos](#typos)、リンク切れは [lychee](#lychee) の担当です）。
 
-適用する規則は [.markdownlint-cli2.jsonc](../.markdownlint-cli2.jsonc) に書きます（[規則の一覧](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md)）。**検査対象はこのファイルではなく、ジョブが渡す `globs` で決まります。** action の既定はルート直下しか見ないため `**/*.md` を明示しています。渡し忘れると `.github/` 配下が黙って漏れます。
+適用する規則は [.markdownlint-cli2.jsonc](../.markdownlint-cli2.jsonc) に書きます（[規則の一覧](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md)）。**検査対象を決めるのは規則ではなく、ジョブが渡す `globs` と、このファイルの `gitignore: true`（`.gitignore` されたファイルを外す）です。** action の既定はルート直下しか見ないため `globs` に `**/*.md` を明示しています。渡し忘れると `.github/` 配下が黙って漏れます。
 
 既定から変えているのは 4 つです。
 
@@ -289,11 +289,11 @@ excludes:
 
 認証はワークフローの `GITHUB_TOKEN` で足ります。
 
-private リポジトリではこのジョブを走らせません（セットアップスクリプトが public 以外を拒否するため、回せば必ず落ちます）。スキップは `ci` 側で成功扱いになるので、private でも PR は止まりません。
+private リポジトリではこのジョブを走らせません（セットアップスクリプトが public 以外を拒否するため、回せば必ず落ちます）。private でも PR は止まりません（[スキップの扱い](#ci-にジョブを追加する)）。
 
 ## Claude Code 設定の定期検査
 
-[claude-settings.yml](../.github/workflows/claude-settings.yml) が、[.claude/settings.json](../.claude/settings.json) を [SchemaStore](https://www.schemastore.org/) にある Claude Code 設定のスキーマと突き合わせます。使うのは [issue-forms](../README.md#issue-のテンプレート) ジョブと同じ [check-jsonschema](https://github.com/python-jsonschema/check-jsonschema) です。Claude Code は知らないキーを黙って無視するため、キーの綴りを間違えても実行時には何も落ちません — そのキーで加えたつもりの挙動が、ただ静かに欠けるだけです。気づけるのは検証だけです。
+[claude-settings.yml](../.github/workflows/claude-settings.yml) が毎日（07:30 JST）と main への push 時、および手動実行（`workflow_dispatch`）で、[.claude/settings.json](../.claude/settings.json) を [SchemaStore](https://www.schemastore.org/) にある Claude Code 設定のスキーマと突き合わせます。使うのは [issue-forms](../README.md#issue-のテンプレート) ジョブと同じ [check-jsonschema](https://github.com/python-jsonschema/check-jsonschema) です。Claude Code は知らないキーを黙って無視するため、キーの綴りを間違えても実行時には何も落ちません — そのキーで加えたつもりの挙動が、ただ静かに欠けるだけです。気づけるのは検証だけです。
 
 ジョブの形は 2 つの制約が決めています。このスキーマは check-jsonschema に同梱されていないので実行時に SchemaStore から取得し、中身は Claude Code のリリースに追従するため、こちらのコードを変えなくても結果が変わりえます（[こうした検査を定期実行にしている理由](#ci-の検査ジョブ)）。また、スキーマは未知のトップレベルキーを許容する（`additionalProperties` が `false` なのは `sandbox` や `permissions` などの入れ子の中だけ）ため、トップレベルの綴り間違いは素通りします。
 
@@ -303,7 +303,7 @@ private リポジトリではこのジョブを走らせません（セットア
 
 ## script-tests
 
-[ci.yml](../.github/workflows/ci.yml) の `script-tests` ジョブが、2 つの置き場にある [bats](https://bats-core.readthedocs.io/) のテストで、それぞれ隣にあるスクリプトを検査します。[.github/scripts/tests/](../.github/scripts/tests) は 1 つ上の [.github/scripts/](../.github/scripts) を検査します。定期実行のワークフローが、落ちた検査を issue として報告し、通ったら取り下げるために呼ぶ 2 つです。[scripts/tests/](../scripts/tests) は [scripts/](../scripts) にある [sync-repo-config.sh](../scripts/sync-repo-config.sh) を検査します。[設定のずれの検査](drift-check.md#設定のずれの検査)が OK / DRIFT / UNKNOWN の判定を頼っているスクリプトです。
+[ci.yml](../.github/workflows/ci.yml) の `script-tests` ジョブが、2 つの置き場にある [bats](https://bats-core.readthedocs.io/) のテストを走らせます。[.github/scripts/tests/](../.github/scripts/tests) は 1 つ上の [.github/scripts/](../.github/scripts) を検査します。定期実行のワークフローが、落ちた検査を issue として報告し、通ったら取り下げるために呼ぶ 2 つです。[scripts/tests/](../scripts/tests) は [scripts/](../scripts) にある [sync-repo-config.sh](../scripts/sync-repo-config.sh) を検査します。[設定のずれの検査](drift-check.md#設定のずれの検査)が OK / DRIFT / UNKNOWN の判定を頼っているスクリプトです。隣の [gen-buf-config.sh](../scripts/gen-buf-config.sh) にテストはありません。[`gen`](#アプリコードの検査) ジョブが `make gen-check` の両方のルールからこのスクリプトを実行するため、壊れればそこで落ちます。
 
 スクリプト以外にもう 1 つ、Conventional Commits の type 一覧のコピーが [.github/scripts/tests/](../.github/scripts/tests) の対象です。一覧は複数箇所に書き出されていて（どこにあるかは [PR タイトルの書式](../README.md#pr-タイトルの書式)）、どのコピーも他から導出されないため、テストが各コピーを `pr-title` ジョブの `PATTERN` と突き合わせます。`pr-title` 自身が見るのは PR タイトルだけなので、type を足して `PATTERN` だけ直した場合、CI は緑のまま README と失敗メッセージの一覧が古くなります。
 
@@ -359,7 +359,7 @@ private リポジトリではこのジョブを走らせません（セットア
 
 - **`timeout-minutes` を書けません**（[CI にジョブを追加する](#ci-にジョブを追加する)で説明した例外です）。上限は GitHub 既定の 6 時間になり、全体検査も同じです。
 - fork からの PR では `security-events: write` が付与されず、SARIF のアップロードに失敗する可能性があります（[CodeQL](#codeql) と同じ話です）。外部からの PR を受けるようになったら `upload-sarif: false` を渡してください（差分の判定とジョブの成否はそのまま働きます）。
-- `push`（= マージ）では比較対象の base が無いのでスキップされます（`skipped` は `ci` で成功扱いです）。
+- `push`（= マージ）では比較対象の base が無いのでスキップされます（[スキップの扱い](#ci-にジョブを追加する)）。
 
 ### PR に出る「1 configuration not found」
 
@@ -389,10 +389,6 @@ gh api repos/OWNER/REPO/commits/<sha>/check-runs \
 見るのはリポジトリにコミットされた lockfile / マニフェストです（[対応形式の一覧](https://google.github.io/osv-scanner/supported-languages-and-lockfiles/)）。`-r` を付けてあるのでサブディレクトリも辿り、`api/go.mod` と `web/pnpm-lock.yaml` が対象になります。
 
 osv-scanner は検査対象が 1 件も無いとき、「スキャンしたつもりで何もスキャンしていない」状態を黙って成功にしないよう終了コード 128 で失敗します。lockfile を `.gitignore` に入れてしまったといった取りこぼしは、この失敗でその場で表面化します。
-
-### 定期実行が止まるとき
-
-[リポジトリの活動が 60 日間無いと GitHub が schedule を止めます](https://docs.github.com/ja/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)。有効化し直すのは Actions タブからで、動きの無いリポジトリでは黙って検査が止まる、という性質は覚えておいてください。
 
 ### 問い合わせ先
 
@@ -426,3 +422,7 @@ osv-scanner は検査対象が 1 件も無いとき、「スキャンしたつ�
 ### 実行が落ちたとき
 
 実行そのものが落ちたとき — Scorecard API の障害や、上の制約を破る編集をしたとき — は、`notify` ジョブが[設定のずれの検査と同じ仕組み](drift-check.md#落ちたときの通知)で通知します（issue タイトルは `scorecard runs are failing`）。
+
+## 定期実行が止まるとき
+
+このリポジトリの定期実行はどれも GitHub の schedule で起きます。[リポジトリの活動が 60 日間無いと GitHub が schedule を止めます](https://docs.github.com/ja/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)。有効化し直すのは Actions タブからで、動きの無いリポジトリでは黙って検査が止まる、という性質は覚えておいてください。
