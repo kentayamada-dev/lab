@@ -49,3 +49,24 @@ func TestLoadMissingEnv(t *testing.T) {
 		})
 	}
 }
+
+// A PORT that cannot be listened on is caught by Load rather than surfacing
+// later, when the server tries to bind.
+func TestLoadInvalidPort(t *testing.T) {
+	ports := []string{"http", "8080a", "0", "-1", "65536", "0x1f90"}
+
+	for _, port := range ports {
+		t.Run(port, func(t *testing.T) {
+			t.Setenv("DB_URL", "postgres://user:pass@db:5432/app")
+			t.Setenv("PORT", port)
+
+			cfg, err := Load()
+			if err == nil {
+				t.Fatal("Load() error = nil, want an error")
+			}
+			if diff := cmp.Diff(Config{}, cfg); diff != "" {
+				t.Errorf("Load() config on error (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
