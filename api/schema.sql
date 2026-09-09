@@ -3,7 +3,8 @@ CREATE TABLE todos (
   title text NOT NULL,
   completed boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
-  -- Backstop for the rules the API enforces on the trimmed title; titles reach
-  -- this table already trimmed.
+  -- Minimal backstop: titles reach this table already trimmed by the API, so
+  -- the check only has to reject the degenerate cases. btrim strips the space
+  -- alone, so a title made of other whitespace (a tab, U+3000) still passes.
   CONSTRAINT todos_title_valid CHECK (btrim(title) <> '' AND char_length(title) <= 1000)
 );
