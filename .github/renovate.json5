@@ -18,6 +18,8 @@
   rebaseWhen: 'behind-base-branch',
   fetchChangeLogs: 'off',
   // Why: docs/renovate.md#このリポジトリに合わせてある設定
+  statusCheckWhen: { minimumReleaseAge: 'never' },
+  // Why: docs/renovate.md#このリポジトリに合わせてある設定
   vulnerabilityAlerts: { enabled: true },
   // Why: docs/renovate.md#このリポジトリに合わせてある設定
   postUpdateOptions: ['gomodTidy'],

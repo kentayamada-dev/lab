@@ -44,6 +44,18 @@ gh run watch
 
 **schedule の自動停止はこの通知では拾えません。** [schedule が止まる](ci-jobs.md#定期実行が止まるとき)と実行自体が起きないため issue も立ちません。GitHub からの停止通知メールが唯一の手掛かりです（[renovate.yml](../.github/workflows/renovate.yml) のコメントを参照）。
 
+## 実行の途中で中断したとき
+
+**Renovate は実行中にリポジトリが変わったと判断すると、そのリポジトリの処理をまるごと打ち切ります**（ログの `Repository has changed during renovation - aborting` と `"result": "repository-changed"`）。まだ処理していないブランチはそこで飛ばされ、ブランチだけ push されて PR が作られないこともあります。**このとき Renovate 自体は成功として終了する**ため、[失敗の通知](#実行が失敗したとき)にも[更新の一覧](#更新の一覧の-issue)にも出ない静かな取りこぼしになります。
+
+そこで [renovate.yml](../.github/workflows/renovate.yml) の `Run Renovate` は、ログにこの結果を見つけたらもう一度 Renovate を走らせます（最大 2 回）。Renovate は毎回ブランチと PR の状態を見直すので、途中まで進んだ状態からの再実行で二重に PR が立つことはありません。2 回とも中断したときはジョブを失敗させ、[実行が失敗したとき](#実行が失敗したとき)の issue で気づけるようにしています。
+
+原因は実行中に main が進んだときのほか、GitHub の API が push 直後のコミットをまだ返さないときなどです。どこで打ち切ったかは info のログには出ないので、続くようなら詳細ログで確かめます。
+
+```bash
+gh workflow run renovate.yml --field log_level=debug
+```
+
 ## 依存を解決できなかったとき
 
 **一部の依存の最新版を取得できなかったときは `Some dependencies cannot be resolved` という issue が立ちます**（[renovate.yml](../.github/workflows/renovate.yml) の `lookup` ジョブ）。この失敗は静かです。Renovate 自体は成功し、引けた依存の更新 PR は普通に作られ、引けなかった依存だけが「更新が来ない」状態になります。
@@ -178,6 +190,7 @@ docker run --rm -v "$PWD:/repo:ro" -w /repo \
 | `pinDigests: true` | タグは差し替え可能なので、ダイジェストまで固定する（[ダイジェストの固定](#ダイジェストの固定)） | タグ指定だけになり、中身の差し替えを追えなくなる |
 | `extends` の `helpers:pinGitHubActionDigestsToSemver` | 固定した SHA に添えるコメントを `# v7.0.1` のような厳密なバージョンに保つ（[ダイジェストの固定](#ダイジェストの固定)） | `# v7` のような可動する major タグが書かれ、上流がタグを付け替えるとコメントが固定した commit を指さなくなり、[`zizmor`](ci-jobs.md#zizmor) が `ref-version-mismatch` として報告する |
 | `extends` の `security:minimumReleaseAgeNpm` | npm パッケージは公開から 3 日経つまで更新に含めない（`internalChecksFilter: 'strict'` 付きなので、最新版が若すぎるときは条件を満たす直近の版を提案する）。[`web`](ci-jobs.md#アプリコードの検査) の pnpm が公開 24 時間未満の版を拒否するため、Renovate 側も待たせて提案した版が拒否されないようにする | 公開から 24 時間未満の版が PR に入り、24 時間経つまで `web` が落ちる |
+| `statusCheckWhen: { minimumReleaseAge: 'never' }` | `security:minimumReleaseAgeNpm` が付ける `renovate/stability-days` のステータスチェックを止める。`internalChecksFilter: 'strict'` が若すぎる版を候補から外しているので、このチェックは常に green を書くだけの飾りで、しかも push 直後のコミットに対する API 呼び出しなので[実行の中断](#実行の途中で中断したとき)を招く | 更新 PR に green の `renovate/stability-days` が付く。必須チェックではないので判定は変わらないが、中断の入り口が 1 つ増える |
 | `packageRules` の `non-major` | minor・patch・ダイジェストの更新を 1 本の PR にまとめる | 更新ごとに PR が立ち、本数が増える |
 | `commitMessage*` / `pr*` の文面 | 更新 PR のタイトルと本文を自前で書く（[PR の文面](#pr-の文面)） | 自動生成の既定の文面に戻り、自動 issue と体裁が揃わない |
 | `fetchChangeLogs: 'off'` | リリースノートを PR に出さないので取得しない（[本文](#本文)） | 表示しないリリースノートを実行ごとに取りに行く |
