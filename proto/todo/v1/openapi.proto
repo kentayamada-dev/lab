@@ -1,0 +1,17 @@
+syntax = "proto3";
+package todo.v1;
+
+import "gnostic/openapi/v3/annotations.proto";
+
+// The identity of the generated OpenAPI document, which the plugin otherwise
+// leaves empty once every proto file is collected into a single document. It
+// lives in its own file so the descriptor the web client imports stays free of
+// the gnostic dependency.
+option (gnostic.openapi.v3.document) = {
+  info: {
+    title: "Todo API"
+    // The API surface this document describes, so it moves with the package
+    // version rather than on its own release schedule.
+    version: "v1"
+  }
+};

@@ -6,6 +6,8 @@ cd "$(dirname "$0")/.."
 GO_OUT=api/gen/go
 ES_OUT=web/src/gen
 OPENAPI_OUT=api/gen/openapi
+# Relative to OPENAPI_OUT. api/gen/openapi.go embeds the document under this name.
+OPENAPI_DOC=todo/v1/todo.openapi.yaml
 
 if [ "${1:-}" = "--out-dirs" ] && [ $# -eq 1 ]; then
   printf '%s\n' "$GO_OUT" "$ES_OUT" "$OPENAPI_OUT"
@@ -63,6 +65,9 @@ managed:
     # would break the references to it.
     - file_option: go_package
       module: buf.build/bufbuild/protovalidate
+    # Same for gnostic, whose annotations todo/v1/openapi.proto carries.
+    - file_option: go_package
+      module: buf.build/gnostic/gnostic
   override:
     - file_option: go_package_prefix
       value: example/app/gen/go
@@ -81,4 +86,8 @@ plugins:
     include_imports: true
   - remote: buf.build/community/sudorandom-connect-openapi:$CONNECT_OPENAPI
     out: $OPENAPI_OUT
+    # One document for the whole API rather than the default of one per proto
+    # file, which also spares the empty documents that the files declaring no
+    # service would produce. todo/v1/openapi.proto names the result.
+    opt: path=$OPENAPI_DOC
 EOF

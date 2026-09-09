@@ -1,0 +1,25 @@
+// Editions rather than proto3, which allows extending only an options message:
+// the predefined rules below extend buf.validate.StringRules, an ordinary one.
+edition = "2023";
+package todo.v1;
+
+import "buf/validate/validate.proto";
+
+// Rules the title of a todo has to satisfy. Defined once here because creating
+// and updating a todo accept exactly the same titles.
+extend buf.validate.StringRules {
+  // Rejects a title that is blank or longer than 1000 characters once leading
+  // and trailing whitespace is trimmed, matching what the server stores.
+  bool todo_title = 1161 [
+    (buf.validate.predefined).cel = {
+      id: "title.not_blank"
+      message: "title must not be blank"
+      expression: "this.trim() != ''"
+    },
+    (buf.validate.predefined).cel = {
+      id: "title.max_len"
+      message: "title must be at most 1000 characters"
+      expression: "this.trim().size() <= 1000"
+    }
+  ];
+}

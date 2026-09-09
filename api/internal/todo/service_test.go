@@ -573,6 +573,40 @@ func TestServiceUpdateTodoNoFields(t *testing.T) {
 	}
 }
 
+func TestServiceUpdateTodoInvalidID(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]int64{
+		"zero":     0,
+		"negative": -1,
+	}
+
+	for name, id := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := NewService(fakeQuerier{
+				updateTodo: func(context.Context, db.UpdateTodoParams) (db.Todo, error) {
+					t.Error("UpdateTodo query called, want the request rejected first")
+
+					return db.Todo{}, nil
+				},
+			})
+
+			res, err := svc.UpdateTodo(
+				t.Context(),
+				connect.NewRequest(&todov1.UpdateTodoRequest{Id: id, Done: proto.Bool(true)}),
+			)
+			if res != nil {
+				t.Errorf("UpdateTodo() response = %v, want nil", res)
+			}
+			if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
+				t.Errorf("UpdateTodo() code = %v, want %v", got, connect.CodeInvalidArgument)
+			}
+		})
+	}
+}
+
 func TestServiceUpdateTodoBlankTitle(t *testing.T) {
 	t.Parallel()
 
@@ -686,6 +720,37 @@ func TestServiceDeleteTodo(t *testing.T) {
 
 	if diff := cmp.Diff(int64(7), gotID); diff != "" {
 		t.Errorf("id passed to the query (-want +got):\n%s", diff)
+	}
+}
+
+func TestServiceDeleteTodoInvalidID(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]int64{
+		"zero":     0,
+		"negative": -1,
+	}
+
+	for name, id := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := NewService(fakeQuerier{
+				deleteTodo: func(context.Context, int64) (int64, error) {
+					t.Error("DeleteTodo query called, want the request rejected first")
+
+					return 0, nil
+				},
+			})
+
+			res, err := svc.DeleteTodo(t.Context(), connect.NewRequest(&todov1.DeleteTodoRequest{Id: id}))
+			if res != nil {
+				t.Errorf("DeleteTodo() response = %v, want nil", res)
+			}
+			if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
+				t.Errorf("DeleteTodo() code = %v, want %v", got, connect.CodeInvalidArgument)
+			}
+		})
 	}
 }
 

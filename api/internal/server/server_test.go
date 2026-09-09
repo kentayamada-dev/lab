@@ -143,6 +143,107 @@ func TestNewProtoValidationTrimsTitle(t *testing.T) {
 	}
 }
 
+// The stub implements neither DeleteTodo nor ListTodos, so a request that
+// satisfies the proto rules comes back unimplemented; invalid_argument can
+// only come from the validate interceptor.
+func TestNewProtoValidationRejectsUnusableIDs(t *testing.T) {
+	srv := newTestServer(t, stubHandler{})
+
+	client := todov1connect.NewTodoServiceClient(srv.Client(), srv.URL)
+
+	tests := map[string]struct {
+		id       int64
+		wantCode connect.Code
+	}{
+		"the first id an identity column hands out": {
+			id:       1,
+			wantCode: connect.CodeUnimplemented,
+		},
+		"zero": {
+			id:       0,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		"negative": {
+			id:       -1,
+			wantCode: connect.CodeInvalidArgument,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := client.DeleteTodo(
+				t.Context(),
+				connect.NewRequest(&todov1.DeleteTodoRequest{Id: tt.id}),
+			)
+			if got := connect.CodeOf(err); got != tt.wantCode {
+				t.Errorf("DeleteTodo() code = %v, want %v", got, tt.wantCode)
+			}
+		})
+	}
+}
+
+// A page token spells a todo id, so the rule has to draw the line where an
+// int64 does: everything it accepts must survive the service's ParseInt.
+func TestNewProtoValidationPageToken(t *testing.T) {
+	srv := newTestServer(t, stubHandler{})
+
+	client := todov1connect.NewTodoServiceClient(srv.Client(), srv.URL)
+
+	tests := map[string]struct {
+		token    string
+		wantCode connect.Code
+	}{
+		"empty starts at the first page": {
+			token:    "",
+			wantCode: connect.CodeUnimplemented,
+		},
+		"a token the service handed out": {
+			token:    "42",
+			wantCode: connect.CodeUnimplemented,
+		},
+		"the largest int64": {
+			token:    "9223372036854775807",
+			wantCode: connect.CodeUnimplemented,
+		},
+		"one past the largest int64": {
+			token:    "9223372036854775808",
+			wantCode: connect.CodeInvalidArgument,
+		},
+		"nineteen nines": {
+			token:    "9999999999999999999",
+			wantCode: connect.CodeInvalidArgument,
+		},
+		"twenty digits": {
+			token:    "12345678901234567890",
+			wantCode: connect.CodeInvalidArgument,
+		},
+		"zero": {
+			token:    "0",
+			wantCode: connect.CodeInvalidArgument,
+		},
+		"a leading zero": {
+			token:    "042",
+			wantCode: connect.CodeInvalidArgument,
+		},
+		"not a number": {
+			token:    "abc",
+			wantCode: connect.CodeInvalidArgument,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := client.ListTodos(
+				t.Context(),
+				connect.NewRequest(&todov1.ListTodosRequest{PageToken: tt.token}),
+			)
+			if got := connect.CodeOf(err); got != tt.wantCode {
+				t.Errorf("ListTodos() code = %v, want %v", got, tt.wantCode)
+			}
+		})
+	}
+}
+
 // A panicking handler must reach the client as an ordinary internal error,
 // carrying no more detail than any other server-side failure.
 func TestNewRecoversFromAPanickingHandler(t *testing.T) {
