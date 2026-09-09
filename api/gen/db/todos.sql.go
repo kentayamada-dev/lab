@@ -44,11 +44,18 @@ func (q *Queries) DeleteTodo(ctx context.Context, id int64) (int64, error) {
 
 const listTodos = `-- name: ListTodos :many
 SELECT id, title, completed, created_at FROM todos
+WHERE id > $1
 ORDER BY id
+LIMIT $2
 `
 
-func (q *Queries) ListTodos(ctx context.Context) ([]Todo, error) {
-	rows, err := q.db.Query(ctx, listTodos)
+type ListTodosParams struct {
+	AfterID  int64
+	PageSize int64
+}
+
+func (q *Queries) ListTodos(ctx context.Context, arg ListTodosParams) ([]Todo, error) {
+	rows, err := q.db.Query(ctx, listTodos, arg.AfterID, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}

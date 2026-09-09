@@ -49,13 +49,15 @@ type TodoServiceClient interface {
 	// record. Fails with the invalid_argument code when the title breaks the
 	// rules declared on CreateTodoRequest.title.
 	CreateTodo(context.Context, *connect.Request[v1.CreateTodoRequest]) (*connect.Response[v1.CreateTodoResponse], error)
-	// Returns all todo items. The list is empty when no todos exist.
+	// Returns one page of todo items ordered by id. The response carries a
+	// next_page_token whenever a further page exists; passing it back walks the
+	// rest. Fails with the invalid_argument code when page_size is outside its
+	// range or page_token was not taken from a previous response.
 	ListTodos(context.Context, *connect.Request[v1.ListTodosRequest]) (*connect.Response[v1.ListTodosResponse], error)
 	// Updates the todo identified by id and returns the updated record: done and
-	// title are each applied only when present, so a request carrying neither
-	// returns the record unchanged. Fails with the not_found code when no todo
-	// has that id, and with the invalid_argument code when the title is present
-	// but breaks its rules.
+	// title are each applied only when present. Fails with the not_found code
+	// when no todo has that id, and with the invalid_argument code when the
+	// request carries neither field or the title breaks its rules.
 	UpdateTodo(context.Context, *connect.Request[v1.UpdateTodoRequest]) (*connect.Response[v1.UpdateTodoResponse], error)
 	// Deletes the todo identified by id. Fails with the not_found code when no
 	// todo has that id.
@@ -134,13 +136,15 @@ type TodoServiceHandler interface {
 	// record. Fails with the invalid_argument code when the title breaks the
 	// rules declared on CreateTodoRequest.title.
 	CreateTodo(context.Context, *connect.Request[v1.CreateTodoRequest]) (*connect.Response[v1.CreateTodoResponse], error)
-	// Returns all todo items. The list is empty when no todos exist.
+	// Returns one page of todo items ordered by id. The response carries a
+	// next_page_token whenever a further page exists; passing it back walks the
+	// rest. Fails with the invalid_argument code when page_size is outside its
+	// range or page_token was not taken from a previous response.
 	ListTodos(context.Context, *connect.Request[v1.ListTodosRequest]) (*connect.Response[v1.ListTodosResponse], error)
 	// Updates the todo identified by id and returns the updated record: done and
-	// title are each applied only when present, so a request carrying neither
-	// returns the record unchanged. Fails with the not_found code when no todo
-	// has that id, and with the invalid_argument code when the title is present
-	// but breaks its rules.
+	// title are each applied only when present. Fails with the not_found code
+	// when no todo has that id, and with the invalid_argument code when the
+	// request carries neither field or the title breaks its rules.
 	UpdateTodo(context.Context, *connect.Request[v1.UpdateTodoRequest]) (*connect.Response[v1.UpdateTodoResponse], error)
 	// Deletes the todo identified by id. Fails with the not_found code when no
 	// todo has that id.

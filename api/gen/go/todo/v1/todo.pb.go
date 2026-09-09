@@ -189,9 +189,15 @@ func (x *CreateTodoResponse) GetTodo() *Todo {
 	return nil
 }
 
-// Request to list todos. It takes no parameters.
+// Request to list one page of todos.
 type ListTodosRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// How many todos to return at most. Zero asks for the server's default of
+	// 50.
+	PageSize int32 `protobuf:"varint,1,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	// Opaque token taken from the previous response's next_page_token. Empty
+	// starts at the first page. Clients must not build one themselves.
+	PageToken     string `protobuf:"bytes,2,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -226,11 +232,27 @@ func (*ListTodosRequest) Descriptor() ([]byte, []int) {
 	return file_todo_v1_todo_proto_rawDescGZIP(), []int{3}
 }
 
-// Response containing every todo.
+func (x *ListTodosRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListTodosRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+// Response containing one page of todos.
 type ListTodosResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// All todos. Empty when none exist.
-	Todos         []*Todo `protobuf:"bytes,1,rep,name=todos,proto3" json:"todos,omitempty"`
+	// The todos on this page, ordered by id. Empty when the page has none.
+	Todos []*Todo `protobuf:"bytes,1,rep,name=todos,proto3" json:"todos,omitempty"`
+	// Token that fetches the next page. Empty on the last page.
+	NextPageToken string `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -270,6 +292,13 @@ func (x *ListTodosResponse) GetTodos() []*Todo {
 		return x.Todos
 	}
 	return nil
+}
+
+func (x *ListTodosResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
 }
 
 // Request to update an existing todo.
@@ -482,16 +511,22 @@ const file_todo_v1_todo_proto_rawDesc = "" +
 	"\x0ftitle.not_blank\x12\x17title must not be blank\x1a\x11this.trim() != ''\xba\x01R\n" +
 	"\rtitle.max_len\x12%title must be at most 1000 characters\x1a\x1athis.trim().size() <= 1000R\x05title\"7\n" +
 	"\x12CreateTodoResponse\x12!\n" +
-	"\x04todo\x18\x01 \x01(\v2\r.todo.v1.TodoR\x04todo\"\x12\n" +
-	"\x10ListTodosRequest\"8\n" +
+	"\x04todo\x18\x01 \x01(\v2\r.todo.v1.TodoR\x04todo\"\xc8\x01\n" +
+	"\x10ListTodosRequest\x12&\n" +
+	"\tpage_size\x18\x01 \x01(\x05B\t\xbaH\x06\x1a\x04\x18d(\x00R\bpageSize\x12\x8b\x01\n" +
+	"\n" +
+	"page_token\x18\x02 \x01(\tBl\xbaHi\xba\x01f\n" +
+	"\x11page_token.format\x12\x1fpage_token is not a valid token\x1a0this == '' || this.matches('^[1-9][0-9]{0,18}$')R\tpageToken\"`\n" +
 	"\x11ListTodosResponse\x12#\n" +
-	"\x05todos\x18\x01 \x03(\v2\r.todo.v1.TodoR\x05todos\"\x87\x02\n" +
+	"\x05todos\x18\x01 \x03(\v2\r.todo.v1.TodoR\x05todos\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"\xf2\x02\n" +
 	"\x11UpdateTodoRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x17\n" +
 	"\x04done\x18\x02 \x01(\bH\x00R\x04done\x88\x01\x01\x12\xb5\x01\n" +
 	"\x05title\x18\x03 \x01(\tB\x99\x01\xbaH\x95\x01\xba\x01=\n" +
 	"\x0ftitle.not_blank\x12\x17title must not be blank\x1a\x11this.trim() != ''\xba\x01R\n" +
-	"\rtitle.max_len\x12%title must be at most 1000 characters\x1a\x1athis.trim().size() <= 1000H\x01R\x05title\x88\x01\x01B\a\n" +
+	"\rtitle.max_len\x12%title must be at most 1000 characters\x1a\x1athis.trim().size() <= 1000H\x01R\x05title\x88\x01\x01:i\xbaHf\x1ad\n" +
+	"\x10update.no_fields\x12-at least one of done or title must be present\x1a!has(this.done) || has(this.title)B\a\n" +
 	"\x05_doneB\b\n" +
 	"\x06_title\"7\n" +
 	"\x12UpdateTodoResponse\x12!\n" +

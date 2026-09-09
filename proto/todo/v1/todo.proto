@@ -40,17 +40,39 @@ message CreateTodoResponse {
   Todo todo = 1;
 }
 
-// Request to list todos. It takes no parameters.
-message ListTodosRequest {}
+// Request to list one page of todos.
+message ListTodosRequest {
+  // How many todos to return at most. Zero asks for the server's default of
+  // 50.
+  int32 page_size = 1 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 100
+  }];
+  // Opaque token taken from the previous response's next_page_token. Empty
+  // starts at the first page. Clients must not build one themselves.
+  string page_token = 2 [(buf.validate.field).cel = {
+    id: "page_token.format"
+    message: "page_token is not a valid token"
+    expression: "this == '' || this.matches('^[1-9][0-9]{0,18}$')"
+  }];
+}
 
-// Response containing every todo.
+// Response containing one page of todos.
 message ListTodosResponse {
-  // All todos. Empty when none exist.
+  // The todos on this page, ordered by id. Empty when the page has none.
   repeated Todo todos = 1;
+  // Token that fetches the next page. Empty on the last page.
+  string next_page_token = 2;
 }
 
 // Request to update an existing todo.
 message UpdateTodoRequest {
+  option (buf.validate.message).cel = {
+    id: "update.no_fields"
+    message: "at least one of done or title must be present"
+    expression: "has(this.done) || has(this.title)"
+  };
+
   // Identifier of the todo to update.
   int64 id = 1;
   // Desired completion state. Left unchanged when absent.
@@ -93,14 +115,16 @@ service TodoService {
   // rules declared on CreateTodoRequest.title.
   rpc CreateTodo(CreateTodoRequest) returns (CreateTodoResponse);
 
-  // Returns all todo items. The list is empty when no todos exist.
+  // Returns one page of todo items ordered by id. The response carries a
+  // next_page_token whenever a further page exists; passing it back walks the
+  // rest. Fails with the invalid_argument code when page_size is outside its
+  // range or page_token was not taken from a previous response.
   rpc ListTodos(ListTodosRequest) returns (ListTodosResponse);
 
   // Updates the todo identified by id and returns the updated record: done and
-  // title are each applied only when present, so a request carrying neither
-  // returns the record unchanged. Fails with the not_found code when no todo
-  // has that id, and with the invalid_argument code when the title is present
-  // but breaks its rules.
+  // title are each applied only when present. Fails with the not_found code
+  // when no todo has that id, and with the invalid_argument code when the
+  // request carries neither field or the title breaks its rules.
   rpc UpdateTodo(UpdateTodoRequest) returns (UpdateTodoResponse);
 
   // Deletes the todo identified by id. Fails with the not_found code when no

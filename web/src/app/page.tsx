@@ -16,9 +16,16 @@ export default function Home() {
   const [editingId, setEditingId] = useState<bigint | null>(null);
   const [editTitle, setEditTitle] = useState("");
 
+  // ListTodos answers one page at a time, so walk the tokens to the end.
   const load = async () => {
-    const res = await client.listTodos({});
-    setTodos(res.todos);
+    const all: Todo[] = [];
+    let pageToken = "";
+    do {
+      const res = await client.listTodos({ pageToken });
+      all.push(...res.todos);
+      pageToken = res.nextPageToken;
+    } while (pageToken);
+    setTodos(all);
   };
 
   useEffect(() => {

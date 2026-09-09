@@ -20,7 +20,7 @@ import (
 
 type fakeQuerier struct {
 	createTodo func(ctx context.Context, title string) (db.Todo, error)
-	listTodos  func(ctx context.Context) ([]db.Todo, error)
+	listTodos  func(ctx context.Context, arg db.ListTodosParams) ([]db.Todo, error)
 	updateTodo func(ctx context.Context, arg db.UpdateTodoParams) (db.Todo, error)
 	deleteTodo func(ctx context.Context, id int64) (int64, error)
 }
@@ -29,8 +29,8 @@ func (f fakeQuerier) CreateTodo(ctx context.Context, title string) (db.Todo, err
 	return f.createTodo(ctx, title)
 }
 
-func (f fakeQuerier) ListTodos(ctx context.Context) ([]db.Todo, error) {
-	return f.listTodos(ctx)
+func (f fakeQuerier) ListTodos(ctx context.Context, arg db.ListTodosParams) ([]db.Todo, error) {
+	return f.listTodos(ctx, arg)
 }
 
 func (f fakeQuerier) UpdateTodo(ctx context.Context, arg db.UpdateTodoParams) (db.Todo, error) {
@@ -249,7 +249,7 @@ func TestServiceListTodos(t *testing.T) {
 			t.Parallel()
 
 			svc := NewService(fakeQuerier{
-				listTodos: func(context.Context) ([]db.Todo, error) {
+				listTodos: func(context.Context, db.ListTodosParams) ([]db.Todo, error) {
 					return tt.rows, nil
 				},
 			})
@@ -262,6 +262,169 @@ func TestServiceListTodos(t *testing.T) {
 			if diff := cmp.Diff(tt.want, res.Msg.GetTodos(), protocmp.Transform()); diff != "" {
 				t.Errorf("ListTodos() todos (-want +got):\n%s", diff)
 			}
+			if got := res.Msg.GetNextPageToken(); got != "" {
+				t.Errorf("ListTodos() next page token = %q, want empty on the last page", got)
+			}
+		})
+	}
+}
+
+// The query is asked for one row beyond the page so the service can tell
+// whether a further page exists.
+func TestServiceListTodosPageParams(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		req        *todov1.ListTodosRequest
+		wantParams db.ListTodosParams
+	}{
+		"defaults": {
+			req:        &todov1.ListTodosRequest{},
+			wantParams: db.ListTodosParams{AfterID: 0, PageSize: defaultPageSize + 1},
+		},
+		"explicit page size": {
+			req:        &todov1.ListTodosRequest{PageSize: 10},
+			wantParams: db.ListTodosParams{AfterID: 0, PageSize: 11},
+		},
+		"page size at the maximum": {
+			req:        &todov1.ListTodosRequest{PageSize: maxPageSize},
+			wantParams: db.ListTodosParams{AfterID: 0, PageSize: maxPageSize + 1},
+		},
+		"page token becomes the cursor": {
+			req:        &todov1.ListTodosRequest{PageSize: 2, PageToken: "42"},
+			wantParams: db.ListTodosParams{AfterID: 42, PageSize: 3},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var gotParams db.ListTodosParams
+			svc := NewService(fakeQuerier{
+				listTodos: func(_ context.Context, arg db.ListTodosParams) ([]db.Todo, error) {
+					gotParams = arg
+
+					return nil, nil
+				},
+			})
+
+			if _, err := svc.ListTodos(t.Context(), connect.NewRequest(tt.req)); err != nil {
+				t.Fatalf("ListTodos() error = %v, want nil", err)
+			}
+
+			if diff := cmp.Diff(tt.wantParams, gotParams); diff != "" {
+				t.Errorf("params passed to the query (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestServiceListTodosNextPageToken(t *testing.T) {
+	t.Parallel()
+
+	// Four rows come back for a page of three, so the fourth is the probe row.
+	rows := []db.Todo{
+		{ID: 2, Title: "one"},
+		{ID: 4, Title: "two"},
+		{ID: 6, Title: "three"},
+		{ID: 8, Title: "four"},
+	}
+
+	tests := map[string]struct {
+		rows      []db.Todo
+		wantIDs   []int64
+		wantToken string
+	}{
+		"a further page exists": {
+			rows:      rows,
+			wantIDs:   []int64{2, 4, 6},
+			wantToken: "6",
+		},
+		"the page is exactly full": {
+			rows:      rows[:3],
+			wantIDs:   []int64{2, 4, 6},
+			wantToken: "",
+		},
+		"the page is short": {
+			rows:      rows[:1],
+			wantIDs:   []int64{2},
+			wantToken: "",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := NewService(fakeQuerier{
+				listTodos: func(context.Context, db.ListTodosParams) ([]db.Todo, error) {
+					return tt.rows, nil
+				},
+			})
+
+			res, err := svc.ListTodos(
+				t.Context(),
+				connect.NewRequest(&todov1.ListTodosRequest{PageSize: 3}),
+			)
+			if err != nil {
+				t.Fatalf("ListTodos() error = %v, want nil", err)
+			}
+
+			gotIDs := make([]int64, 0, len(res.Msg.GetTodos()))
+			for _, todo := range res.Msg.GetTodos() {
+				gotIDs = append(gotIDs, todo.GetId())
+			}
+			if diff := cmp.Diff(tt.wantIDs, gotIDs); diff != "" {
+				t.Errorf("ListTodos() ids (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tt.wantToken, res.Msg.GetNextPageToken()); diff != "" {
+				t.Errorf("ListTodos() next page token (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestServiceListTodosInvalidPageRequest(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]*todov1.ListTodosRequest{
+		"negative page size": {
+			PageSize: -1,
+		},
+		"page size over the max": {
+			PageSize: maxPageSize + 1,
+		},
+		"token that is not a number": {
+			PageToken: "abc",
+		},
+		"token that is zero": {
+			PageToken: "0",
+		},
+		"negative token": {
+			PageToken: "-1",
+		},
+	}
+
+	for name, req := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := NewService(fakeQuerier{
+				listTodos: func(context.Context, db.ListTodosParams) ([]db.Todo, error) {
+					t.Error("ListTodos query called, want the request rejected first")
+
+					return nil, nil
+				},
+			})
+
+			res, err := svc.ListTodos(t.Context(), connect.NewRequest(req))
+			if res != nil {
+				t.Errorf("ListTodos() response = %v, want nil", res)
+			}
+			if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
+				t.Errorf("ListTodos() code = %v, want %v", got, connect.CodeInvalidArgument)
+			}
 		})
 	}
 }
@@ -270,7 +433,7 @@ func TestServiceListTodosQueryError(t *testing.T) {
 	t.Parallel()
 
 	svc := NewService(fakeQuerier{
-		listTodos: func(context.Context) ([]db.Todo, error) {
+		listTodos: func(context.Context, db.ListTodosParams) ([]db.Todo, error) {
 			return nil, errQuery
 		},
 	})
@@ -347,7 +510,8 @@ func TestServiceUpdateTodoWithTitle(t *testing.T) {
 }
 
 // An absent field reaches the query as a NULL parameter, which the query's
-// coalesce turns into "keep the current value".
+// coalesce turns into "keep the current value". A request with no field at all
+// is rejected instead, see TestServiceUpdateTodoNoFields.
 func TestServiceUpdateTodoLeavesAbsentFieldsUntouched(t *testing.T) {
 	t.Parallel()
 
@@ -362,10 +526,6 @@ func TestServiceUpdateTodoLeavesAbsentFieldsUntouched(t *testing.T) {
 		"done only": {
 			req:        &todov1.UpdateTodoRequest{Id: 7, Done: proto.Bool(false)},
 			wantParams: db.UpdateTodoParams{ID: 7, Completed: pgtype.Bool{Bool: false, Valid: true}},
-		},
-		"neither": {
-			req:        &todov1.UpdateTodoRequest{Id: 7},
-			wantParams: db.UpdateTodoParams{ID: 7},
 		},
 	}
 
@@ -390,6 +550,26 @@ func TestServiceUpdateTodoLeavesAbsentFieldsUntouched(t *testing.T) {
 				t.Errorf("params passed to the query (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestServiceUpdateTodoNoFields(t *testing.T) {
+	t.Parallel()
+
+	svc := NewService(fakeQuerier{
+		updateTodo: func(context.Context, db.UpdateTodoParams) (db.Todo, error) {
+			t.Error("UpdateTodo query called, want the request rejected first")
+
+			return db.Todo{}, nil
+		},
+	})
+
+	res, err := svc.UpdateTodo(t.Context(), connect.NewRequest(&todov1.UpdateTodoRequest{Id: 7}))
+	if res != nil {
+		t.Errorf("UpdateTodo() response = %v, want nil", res)
+	}
+	if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
+		t.Errorf("UpdateTodo() code = %v, want %v", got, connect.CodeInvalidArgument)
 	}
 }
 
@@ -470,7 +650,10 @@ func TestServiceUpdateTodoNotFoundMentionsID(t *testing.T) {
 		},
 	})
 
-	_, err := svc.UpdateTodo(t.Context(), connect.NewRequest(&todov1.UpdateTodoRequest{Id: 42}))
+	_, err := svc.UpdateTodo(
+		t.Context(),
+		connect.NewRequest(&todov1.UpdateTodoRequest{Id: 42, Done: proto.Bool(true)}),
+	)
 
 	var connectErr *connect.Error
 	if !errors.As(err, &connectErr) {
