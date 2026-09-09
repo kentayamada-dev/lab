@@ -128,6 +128,9 @@ services:
     volumes:
       - db_gui_data:/opt/cloudbeaver/workspace
       - ./.devcontainer/db_gui-container/initial-data-sources.conf:/opt/cloudbeaver/conf/initial-data-sources.conf:ro
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   go_mod_cache:
