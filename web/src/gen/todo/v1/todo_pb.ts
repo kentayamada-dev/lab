@@ -7,13 +7,14 @@ import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2
 import { file_buf_validate_validate } from "../../buf/validate/validate_pb";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import { file_todo_v1_rules } from "./rules_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file todo/v1/todo.proto.
  */
 export const file_todo_v1_todo: GenFile = /*@__PURE__*/
-  fileDesc("ChJ0b2RvL3YxL3RvZG8ucHJvdG8SB3RvZG8udjEiXwoEVG9kbxIKCgJpZBgBIAEoAxINCgV0aXRsZRgCIAEoCRIMCgRkb25lGAMgASgIEi4KCmNyZWF0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIr8BChFDcmVhdGVUb2RvUmVxdWVzdBKpAQoFdGl0bGUYASABKAlCmQG6SJUBugE9Cg90aXRsZS5ub3RfYmxhbmsSF3RpdGxlIG11c3Qgbm90IGJlIGJsYW5rGhF0aGlzLnRyaW0oKSAhPSAnJ7oBUgoNdGl0bGUubWF4X2xlbhIldGl0bGUgbXVzdCBiZSBhdCBtb3N0IDEwMDAgY2hhcmFjdGVycxoadGhpcy50cmltKCkuc2l6ZSgpIDw9IDEwMDAiMQoSQ3JlYXRlVG9kb1Jlc3BvbnNlEhsKBHRvZG8YASABKAsyDS50b2RvLnYxLlRvZG8iswEKEExpc3RUb2Rvc1JlcXVlc3QSHAoJcGFnZV9zaXplGAEgASgFQgm6SAYaBBhkKAASgAEKCnBhZ2VfdG9rZW4YAiABKAlCbLpIaboBZgoRcGFnZV90b2tlbi5mb3JtYXQSH3BhZ2VfdG9rZW4gaXMgbm90IGEgdmFsaWQgdG9rZW4aMHRoaXMgPT0gJycgfHwgdGhpcy5tYXRjaGVzKCdeWzEtOV1bMC05XXswLDE4fSQnKSJKChFMaXN0VG9kb3NSZXNwb25zZRIcCgV0b2RvcxgBIAMoCzINLnRvZG8udjEuVG9kbxIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAki4QIKEVVwZGF0ZVRvZG9SZXF1ZXN0EgoKAmlkGAEgASgDEhEKBGRvbmUYAiABKAhIAIgBARKuAQoFdGl0bGUYAyABKAlCmQG6SJUBugE9Cg90aXRsZS5ub3RfYmxhbmsSF3RpdGxlIG11c3Qgbm90IGJlIGJsYW5rGhF0aGlzLnRyaW0oKSAhPSAnJ7oBUgoNdGl0bGUubWF4X2xlbhIldGl0bGUgbXVzdCBiZSBhdCBtb3N0IDEwMDAgY2hhcmFjdGVycxoadGhpcy50cmltKCkuc2l6ZSgpIDw9IDEwMDBIAYgBATppukhmGmQKEHVwZGF0ZS5ub19maWVsZHMSLWF0IGxlYXN0IG9uZSBvZiBkb25lIG9yIHRpdGxlIG11c3QgYmUgcHJlc2VudBohaGFzKHRoaXMuZG9uZSkgfHwgaGFzKHRoaXMudGl0bGUpQgcKBV9kb25lQggKBl90aXRsZSIxChJVcGRhdGVUb2RvUmVzcG9uc2USGwoEdG9kbxgBIAEoCzINLnRvZG8udjEuVG9kbyIfChFEZWxldGVUb2RvUmVxdWVzdBIKCgJpZBgBIAEoAyIUChJEZWxldGVUb2RvUmVzcG9uc2UypgIKC1RvZG9TZXJ2aWNlEkUKCkNyZWF0ZVRvZG8SGi50b2RvLnYxLkNyZWF0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5DcmVhdGVUb2RvUmVzcG9uc2USQgoJTGlzdFRvZG9zEhkudG9kby52MS5MaXN0VG9kb3NSZXF1ZXN0GhoudG9kby52MS5MaXN0VG9kb3NSZXNwb25zZRJFCgpVcGRhdGVUb2RvEhoudG9kby52MS5VcGRhdGVUb2RvUmVxdWVzdBobLnRvZG8udjEuVXBkYXRlVG9kb1Jlc3BvbnNlEkUKCkRlbGV0ZVRvZG8SGi50b2RvLnYxLkRlbGV0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5EZWxldGVUb2RvUmVzcG9uc2VCeAoLY29tLnRvZG8udjFCCVRvZG9Qcm90b1ABWiFleGFtcGxlL2FwcC9nZW4vZ28vdG9kby92MTt0b2RvdjGiAgNUWFiqAgdUb2RvLlYxygIHVG9kb1xWMeICE1RvZG9cVjFcR1BCTWV0YWRhdGHqAghUb2RvOjpWMWIGcHJvdG8z", [file_buf_validate_validate, file_google_protobuf_timestamp]);
+  fileDesc("ChJ0b2RvL3YxL3RvZG8ucHJvdG8SB3RvZG8udjEiXwoEVG9kbxIKCgJpZBgBIAEoAxINCgV0aXRsZRgCIAEoCRIMCgRkb25lGAMgASgIEi4KCmNyZWF0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIiwKEUNyZWF0ZVRvZG9SZXF1ZXN0EhcKBXRpdGxlGAEgASgJQgi6SAVyA8hIASIxChJDcmVhdGVUb2RvUmVzcG9uc2USGwoEdG9kbxgBIAEoCzINLnRvZG8udjEuVG9kbyLvAQoQTGlzdFRvZG9zUmVxdWVzdBIcCglwYWdlX3NpemUYASABKAVCCbpIBhoEGGQoABK8AQoKcGFnZV90b2tlbhgCIAEoCUKnAbpIowG6AZ8BChFwYWdlX3Rva2VuLmZvcm1hdBIfcGFnZV90b2tlbiBpcyBub3QgYSB2YWxpZCB0b2tlbhppdGhpcyA9PSAnJyB8fCAodGhpcy5tYXRjaGVzKCdeWzEtOV1bMC05XXswLDE4fSQnKSAmJiAodGhpcy5zaXplKCkgPCAxOSB8fCB0aGlzIDw9ICc5MjIzMzcyMDM2ODU0Nzc1ODA3JykpIkoKEUxpc3RUb2Rvc1Jlc3BvbnNlEhwKBXRvZG9zGAEgAygLMg0udG9kby52MS5Ub2RvEhcKD25leHRfcGFnZV90b2tlbhgCIAEoCSLXAQoRVXBkYXRlVG9kb1JlcXVlc3QSEwoCaWQYASABKANCB7pIBCICIAASEQoEZG9uZRgCIAEoCEgAiAEBEhwKBXRpdGxlGAMgASgJQgi6SAVyA8hIAUgBiAEBOmm6SGYaZAoQdXBkYXRlLm5vX2ZpZWxkcxItYXQgbGVhc3Qgb25lIG9mIGRvbmUgb3IgdGl0bGUgbXVzdCBiZSBwcmVzZW50GiFoYXModGhpcy5kb25lKSB8fCBoYXModGhpcy50aXRsZSlCBwoFX2RvbmVCCAoGX3RpdGxlIjEKElVwZGF0ZVRvZG9SZXNwb25zZRIbCgR0b2RvGAEgASgLMg0udG9kby52MS5Ub2RvIigKEURlbGV0ZVRvZG9SZXF1ZXN0EhMKAmlkGAEgASgDQge6SAQiAiAAIhQKEkRlbGV0ZVRvZG9SZXNwb25zZTKmAgoLVG9kb1NlcnZpY2USRQoKQ3JlYXRlVG9kbxIaLnRvZG8udjEuQ3JlYXRlVG9kb1JlcXVlc3QaGy50b2RvLnYxLkNyZWF0ZVRvZG9SZXNwb25zZRJCCglMaXN0VG9kb3MSGS50b2RvLnYxLkxpc3RUb2Rvc1JlcXVlc3QaGi50b2RvLnYxLkxpc3RUb2Rvc1Jlc3BvbnNlEkUKClVwZGF0ZVRvZG8SGi50b2RvLnYxLlVwZGF0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5VcGRhdGVUb2RvUmVzcG9uc2USRQoKRGVsZXRlVG9kbxIaLnRvZG8udjEuRGVsZXRlVG9kb1JlcXVlc3QaGy50b2RvLnYxLkRlbGV0ZVRvZG9SZXNwb25zZUJ4Cgtjb20udG9kby52MUIJVG9kb1Byb3RvUAFaIWV4YW1wbGUvYXBwL2dlbi9nby90b2RvL3YxO3RvZG92MaICA1RYWKoCB1RvZG8uVjHKAgdUb2RvXFYx4gITVG9kb1xWMVxHUEJNZXRhZGF0YeoCCFRvZG86OlYxYgZwcm90bzM", [file_buf_validate_validate, file_google_protobuf_timestamp, file_todo_v1_rules]);
 
 /**
  * A single todo item.
@@ -65,7 +66,7 @@ export const TodoSchema: GenMessage<Todo> = /*@__PURE__*/
 export type CreateTodoRequest = Message<"todo.v1.CreateTodoRequest"> & {
   /**
    * Title of the todo to create. Leading and trailing whitespace is trimmed
-   * before storage, and the rules below apply to the trimmed value.
+   * before storage, and todo_title applies to the trimmed value.
    *
    * @generated from field: string title = 1;
    */
@@ -165,7 +166,8 @@ export const ListTodosResponseSchema: GenMessage<ListTodosResponse> = /*@__PURE_
  */
 export type UpdateTodoRequest = Message<"todo.v1.UpdateTodoRequest"> & {
   /**
-   * Identifier of the todo to update.
+   * Identifier of the todo to update. Ids are assigned from 1 up, so a
+   * smaller value cannot identify a todo.
    *
    * @generated from field: int64 id = 1;
    */
@@ -179,8 +181,8 @@ export type UpdateTodoRequest = Message<"todo.v1.UpdateTodoRequest"> & {
   done?: boolean | undefined;
 
   /**
-   * New title for the todo. Left unchanged when absent. Subject to the same
-   * rules as CreateTodoRequest.title.
+   * New title for the todo. Left unchanged when absent. Trimmed and validated
+   * the same way as CreateTodoRequest.title.
    *
    * @generated from field: optional string title = 3;
    */
@@ -222,7 +224,8 @@ export const UpdateTodoResponseSchema: GenMessage<UpdateTodoResponse> = /*@__PUR
  */
 export type DeleteTodoRequest = Message<"todo.v1.DeleteTodoRequest"> & {
   /**
-   * Identifier of the todo to delete.
+   * Identifier of the todo to delete. Ids are assigned from 1 up, so a
+   * smaller value cannot identify a todo.
    *
    * @generated from field: int64 id = 1;
    */
@@ -285,8 +288,9 @@ export const TodoService: GenService<{
   /**
    * Updates the todo identified by id and returns the updated record: done and
    * title are each applied only when present. Fails with the not_found code
-   * when no todo has that id, and with the invalid_argument code when the
-   * request carries neither field or the title breaks its rules.
+   * when no todo has that id, and with the invalid_argument code when id is
+   * not positive, the request carries neither field, or the title breaks its
+   * rules.
    *
    * @generated from rpc todo.v1.TodoService.UpdateTodo
    */
@@ -297,7 +301,8 @@ export const TodoService: GenService<{
   },
   /**
    * Deletes the todo identified by id. Fails with the not_found code when no
-   * todo has that id.
+   * todo has that id, and with the invalid_argument code when id is not
+   * positive.
    *
    * @generated from rpc todo.v1.TodoService.DeleteTodo
    */

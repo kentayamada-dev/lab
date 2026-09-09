@@ -3,6 +3,7 @@ package todo.v1;
 
 import "buf/validate/validate.proto";
 import "google/protobuf/timestamp.proto";
+import "todo/v1/rules.proto";
 
 // A single todo item.
 message Todo {
@@ -19,19 +20,8 @@ message Todo {
 // Request to create a new todo.
 message CreateTodoRequest {
   // Title of the todo to create. Leading and trailing whitespace is trimmed
-  // before storage, and the rules below apply to the trimmed value.
-  string title = 1 [
-    (buf.validate.field).cel = {
-      id: "title.not_blank"
-      message: "title must not be blank"
-      expression: "this.trim() != ''"
-    },
-    (buf.validate.field).cel = {
-      id: "title.max_len"
-      message: "title must be at most 1000 characters"
-      expression: "this.trim().size() <= 1000"
-    }
-  ];
+  // before storage, and todo_title applies to the trimmed value.
+  string title = 1 [(buf.validate.field).string.(todo.v1.todo_title) = true];
 }
 
 // Response containing the newly created todo.
@@ -53,7 +43,13 @@ message ListTodosRequest {
   string page_token = 2 [(buf.validate.field).cel = {
     id: "page_token.format"
     message: "page_token is not a valid token"
-    expression: "this == '' || this.matches('^[1-9][0-9]{0,18}$')"
+    // A token spells a todo id, so it has to fit in an int64. Only a token of
+    // 19 digits can overflow that range, and decimal strings of equal length
+    // order the same way as the numbers they spell, so comparing it against
+    // the maximum as a string settles it.
+    expression:
+      "this == '' || (this.matches('^[1-9][0-9]{0,18}$') "
+      "&& (this.size() < 19 || this <= '9223372036854775807'))"
   }];
 }
 
@@ -73,24 +69,14 @@ message UpdateTodoRequest {
     expression: "has(this.done) || has(this.title)"
   };
 
-  // Identifier of the todo to update.
-  int64 id = 1;
+  // Identifier of the todo to update. Ids are assigned from 1 up, so a
+  // smaller value cannot identify a todo.
+  int64 id = 1 [(buf.validate.field).int64.gt = 0];
   // Desired completion state. Left unchanged when absent.
   optional bool done = 2;
-  // New title for the todo. Left unchanged when absent. Subject to the same
-  // rules as CreateTodoRequest.title.
-  optional string title = 3 [
-    (buf.validate.field).cel = {
-      id: "title.not_blank"
-      message: "title must not be blank"
-      expression: "this.trim() != ''"
-    },
-    (buf.validate.field).cel = {
-      id: "title.max_len"
-      message: "title must be at most 1000 characters"
-      expression: "this.trim().size() <= 1000"
-    }
-  ];
+  // New title for the todo. Left unchanged when absent. Trimmed and validated
+  // the same way as CreateTodoRequest.title.
+  optional string title = 3 [(buf.validate.field).string.(todo.v1.todo_title) = true];
 }
 
 // Response containing the updated todo.
@@ -101,8 +87,9 @@ message UpdateTodoResponse {
 
 // Request to delete an existing todo.
 message DeleteTodoRequest {
-  // Identifier of the todo to delete.
-  int64 id = 1;
+  // Identifier of the todo to delete. Ids are assigned from 1 up, so a
+  // smaller value cannot identify a todo.
+  int64 id = 1 [(buf.validate.field).int64.gt = 0];
 }
 
 // Response to a deletion. It carries no data.
@@ -123,11 +110,13 @@ service TodoService {
 
   // Updates the todo identified by id and returns the updated record: done and
   // title are each applied only when present. Fails with the not_found code
-  // when no todo has that id, and with the invalid_argument code when the
-  // request carries neither field or the title breaks its rules.
+  // when no todo has that id, and with the invalid_argument code when id is
+  // not positive, the request carries neither field, or the title breaks its
+  // rules.
   rpc UpdateTodo(UpdateTodoRequest) returns (UpdateTodoResponse);
 
   // Deletes the todo identified by id. Fails with the not_found code when no
-  // todo has that id.
+  // todo has that id, and with the invalid_argument code when id is not
+  // positive.
   rpc DeleteTodo(DeleteTodoRequest) returns (DeleteTodoResponse);
 }

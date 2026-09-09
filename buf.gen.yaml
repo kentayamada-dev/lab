@@ -10,6 +10,9 @@ managed:
     # would break the references to it.
     - file_option: go_package
       module: buf.build/bufbuild/protovalidate
+    # Same for gnostic, whose annotations todo/v1/openapi.proto carries.
+    - file_option: go_package
+      module: buf.build/gnostic/gnostic
   override:
     - file_option: go_package_prefix
       value: example/app/gen/go
@@ -28,3 +31,7 @@ plugins:
     include_imports: true
   - remote: buf.build/community/sudorandom-connect-openapi:v0.25.8
     out: api/gen/openapi
+    # One document for the whole API rather than the default of one per proto
+    # file, which also spares the empty documents that the files declaring no
+    # service would produce. todo/v1/openapi.proto names the result.
+    opt: path=todo/v1/todo.openapi.yaml

@@ -114,6 +114,20 @@ func decodePageToken(token string) (int64, error) {
 	return after, nil
 }
 
+// validID rejects an id no todo can have: the identity column starts at 1. The
+// proto fields declare the same rule, enforced by the server's validate
+// interceptor; the check here keeps the service safe on its own.
+func validID(id int64) error {
+	if id < 1 {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("id must be greater than 0"),
+		)
+	}
+
+	return nil
+}
+
 func (s *Service) CreateTodo(
 	ctx context.Context,
 	req *connect.Request[todov1.CreateTodoRequest],
@@ -175,6 +189,10 @@ func (s *Service) UpdateTodo(
 	ctx context.Context,
 	req *connect.Request[todov1.UpdateTodoRequest],
 ) (*connect.Response[todov1.UpdateTodoResponse], error) {
+	if err := validID(req.Msg.Id); err != nil {
+		return nil, err
+	}
+
 	// The query coalesces absent fields to the stored value, so a request
 	// carrying neither would rewrite the row with what it already holds. It is
 	// rejected rather than served as a disguised read.
@@ -215,6 +233,10 @@ func (s *Service) DeleteTodo(
 	ctx context.Context,
 	req *connect.Request[todov1.DeleteTodoRequest],
 ) (*connect.Response[todov1.DeleteTodoResponse], error) {
+	if err := validID(req.Msg.Id); err != nil {
+		return nil, err
+	}
+
 	deleted, err := s.queries.DeleteTodo(ctx, req.Msg.Id)
 	if err != nil {
 		return nil, internalError("deleting todo", err)

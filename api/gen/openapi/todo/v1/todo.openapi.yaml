@@ -1,6 +1,7 @@
 openapi: 3.1.0
 info:
-  title: todo.v1
+  title: Todo API
+  version: v1
 paths:
   /todo.v1.TodoService/CreateTodo:
     post:
@@ -48,7 +49,8 @@ paths:
       summary: DeleteTodo
       description: |-
         Deletes the todo identified by id. Fails with the not_found code when no
-         todo has that id.
+         todo has that id, and with the invalid_argument code when id is not
+         positive.
       operationId: todo.v1.TodoService.DeleteTodo
       parameters:
         - name: Connect-Protocol-Version
@@ -127,8 +129,9 @@ paths:
       description: |-
         Updates the todo identified by id and returns the updated record: done and
          title are each applied only when present. Fails with the not_found code
-         when no todo has that id, and with the invalid_argument code when the
-         request carries neither field or the title breaks its rules.
+         when no todo has that id, and with the invalid_argument code when id is
+         not positive, the request carries neither field, or the title breaks its
+         rules.
       operationId: todo.v1.TodoService.UpdateTodo
       parameters:
         - name: Connect-Protocol-Version
@@ -334,9 +337,9 @@ components:
           title: title
           description: |
             Title of the todo to create. Leading and trailing whitespace is trimmed
-             before storage, and the rules below apply to the trimmed value.
-            title.max_len // title must be at most 1000 characters
-            title.not_blank // title must not be blank
+             before storage, and todo_title applies to the trimmed value.
+            title.max_len = true // title must be at most 1000 characters
+            title.not_blank = true // title must not be blank
       title: CreateTodoRequest
       additionalProperties: false
       description: Request to create a new todo.
@@ -354,12 +357,15 @@ components:
       type: object
       properties:
         id:
+          exclusiveMinimum: 0
           type:
             - integer
             - string
           title: id
           format: int64
-          description: Identifier of the todo to delete.
+          description: |-
+            Identifier of the todo to delete. Ids are assigned from 1 up, so a
+             smaller value cannot identify a todo.
       title: DeleteTodoRequest
       additionalProperties: false
       description: Request to delete an existing todo.
@@ -435,12 +441,15 @@ components:
       type: object
       properties:
         id:
+          exclusiveMinimum: 0
           type:
             - integer
             - string
           title: id
           format: int64
-          description: Identifier of the todo to update.
+          description: |-
+            Identifier of the todo to update. Ids are assigned from 1 up, so a
+             smaller value cannot identify a todo.
         done:
           type:
             - boolean
@@ -453,10 +462,10 @@ components:
             - "null"
           title: title
           description: |
-            New title for the todo. Left unchanged when absent. Subject to the same
-             rules as CreateTodoRequest.title.
-            title.max_len // title must be at most 1000 characters
-            title.not_blank // title must not be blank
+            New title for the todo. Left unchanged when absent. Trimmed and validated
+             the same way as CreateTodoRequest.title.
+            title.max_len = true // title must be at most 1000 characters
+            title.not_blank = true // title must not be blank
       title: UpdateTodoRequest
       additionalProperties: false
       description: |

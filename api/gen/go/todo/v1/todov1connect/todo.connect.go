@@ -56,11 +56,13 @@ type TodoServiceClient interface {
 	ListTodos(context.Context, *connect.Request[v1.ListTodosRequest]) (*connect.Response[v1.ListTodosResponse], error)
 	// Updates the todo identified by id and returns the updated record: done and
 	// title are each applied only when present. Fails with the not_found code
-	// when no todo has that id, and with the invalid_argument code when the
-	// request carries neither field or the title breaks its rules.
+	// when no todo has that id, and with the invalid_argument code when id is
+	// not positive, the request carries neither field, or the title breaks its
+	// rules.
 	UpdateTodo(context.Context, *connect.Request[v1.UpdateTodoRequest]) (*connect.Response[v1.UpdateTodoResponse], error)
 	// Deletes the todo identified by id. Fails with the not_found code when no
-	// todo has that id.
+	// todo has that id, and with the invalid_argument code when id is not
+	// positive.
 	DeleteTodo(context.Context, *connect.Request[v1.DeleteTodoRequest]) (*connect.Response[v1.DeleteTodoResponse], error)
 }
 
@@ -143,11 +145,13 @@ type TodoServiceHandler interface {
 	ListTodos(context.Context, *connect.Request[v1.ListTodosRequest]) (*connect.Response[v1.ListTodosResponse], error)
 	// Updates the todo identified by id and returns the updated record: done and
 	// title are each applied only when present. Fails with the not_found code
-	// when no todo has that id, and with the invalid_argument code when the
-	// request carries neither field or the title breaks its rules.
+	// when no todo has that id, and with the invalid_argument code when id is
+	// not positive, the request carries neither field, or the title breaks its
+	// rules.
 	UpdateTodo(context.Context, *connect.Request[v1.UpdateTodoRequest]) (*connect.Response[v1.UpdateTodoResponse], error)
 	// Deletes the todo identified by id. Fails with the not_found code when no
-	// todo has that id.
+	// todo has that id, and with the invalid_argument code when id is not
+	// positive.
 	DeleteTodo(context.Context, *connect.Request[v1.DeleteTodoRequest]) (*connect.Response[v1.DeleteTodoResponse], error)
 }
 
