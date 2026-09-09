@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -27,6 +28,17 @@ func (stubHandler) CreateTodo(
 	return connect.NewResponse(&todov1.CreateTodoResponse{
 		Todo: &todov1.Todo{Id: 1, Title: req.Msg.GetTitle()},
 	}), nil
+}
+
+type panicHandler struct {
+	todov1connect.UnimplementedTodoServiceHandler
+}
+
+func (panicHandler) ListTodos(
+	context.Context,
+	*connect.Request[todov1.ListTodosRequest],
+) (*connect.Response[todov1.ListTodosResponse], error) {
+	panic("handler exploded")
 }
 
 func newTestServer(t *testing.T, handler todov1connect.TodoServiceHandler) *httptest.Server {
@@ -128,6 +140,43 @@ func TestNewProtoValidationTrimsTitle(t *testing.T) {
 				t.Errorf("CreateTodo() code = %v, want %v", got, tt.wantCode)
 			}
 		})
+	}
+}
+
+// A panicking handler must reach the client as an ordinary internal error,
+// carrying no more detail than any other server-side failure.
+func TestNewRecoversFromAPanickingHandler(t *testing.T) {
+	srv := newTestServer(t, panicHandler{})
+
+	client := todov1connect.NewTodoServiceClient(srv.Client(), srv.URL)
+
+	_, err := client.ListTodos(t.Context(), connect.NewRequest(&todov1.ListTodosRequest{}))
+	if got := connect.CodeOf(err); got != connect.CodeInternal {
+		t.Errorf("ListTodos() code = %v, want %v", got, connect.CodeInternal)
+	}
+
+	var connectErr *connect.Error
+	if !errors.As(err, &connectErr) {
+		t.Fatalf("ListTodos() error = %v, want a *connect.Error", err)
+	}
+	if diff := cmp.Diff("internal error", connectErr.Message()); diff != "" {
+		t.Errorf("client-facing message (-want +got):\n%s", diff)
+	}
+}
+
+// The proto rules are checked after decoding, so an oversized message has to be
+// stopped by the handler's read limit rather than by validation.
+func TestNewRejectsAnOversizedMessage(t *testing.T) {
+	srv := newTestServer(t, stubHandler{})
+
+	client := todov1connect.NewTodoServiceClient(srv.Client(), srv.URL)
+
+	_, err := client.CreateTodo(
+		t.Context(),
+		connect.NewRequest(&todov1.CreateTodoRequest{Title: strings.Repeat("a", readMaxBytes+1)}),
+	)
+	if got := connect.CodeOf(err); got != connect.CodeResourceExhausted {
+		t.Errorf("CreateTodo() code = %v, want %v", got, connect.CodeResourceExhausted)
 	}
 }
 
