@@ -31,6 +31,9 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 | [api/](api) | Go の Connect API サーバ（生成コードは api/gen/、スキーマの定義本体は api/schema.sql） |
 | [web/](web) | Next.js のフロントエンド（生成コードは web/src/gen/） |
 | [db/](db) | Atlas のマイグレーションと設定 |
+| [buf.yaml](buf.yaml) | buf のモジュール定義と lint / breaking の規則 |
+| [buf.gen.yaml](buf.gen.yaml) | コード生成のプラグイン構成。[gen-buf-config.sh](scripts/gen-buf-config.sh) が生成するので直接編集しません |
+| [buf.lock](buf.lock) | proto の依存（protovalidate）の固定 |
 | [docker-compose.yml](docker-compose.yml) | ローカル開発と CI のアプリ検査が使うサービス定義 |
 | [.env.example](.env.example) | docker-compose.yml が読む `.env` の雛形（`make init` が複製する） |
 | [Makefile](Makefile) | サービス操作と proto / 生成コード / DB / api / web の検査の入口（`make help`） |
@@ -38,6 +41,7 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 | [.github/rulesets/main.json](.github/rulesets/main.json) | main のブランチ保護（GitHub Repository Ruleset）の定義 |
 | [scripts/sync-repo-config.sh](scripts/sync-repo-config.sh) | 上記 ruleset とリポジトリ設定をまとめて適用・検査するスクリプト |
 | [scripts/tests/](scripts/tests) | 上記スクリプトのテスト。CI で実行される（[script-tests](docs/ci-jobs.md#script-tests)） |
+| [scripts/gen-buf-config.sh](scripts/gen-buf-config.sh) | buf.gen.yaml を生成するスクリプト。プラグインの版を api/go.mod と web/package.json から引く |
 | [.github/workflows/ci.yml](.github/workflows/ci.yml) | CI。必須チェックとなるゲートジョブ `ci` と検査ジョブ（[一覧](docs/ci-jobs.md#ci-の検査ジョブ)） |
 | [.github/workflows/osv-scanner.yml](.github/workflows/osv-scanner.yml) | 依存パッケージの既知の脆弱性の定期検査（毎日 / [osv-scanner](docs/ci-jobs.md#osv-scanner)） |
 | [.github/workflows/scorecard.yml](.github/workflows/scorecard.yml) | OpenSSF Scorecard によるリポジトリのセキュリティ体制の定期採点（毎週 / [Scorecard](docs/ci-jobs.md#scorecard)） |
@@ -45,6 +49,7 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 | [.github/workflows/link-check.yml](.github/workflows/link-check.yml) | ドキュメントの外部リンクの定期検査（毎日 / [外部リンクの定期検査](docs/ci-jobs.md#外部リンクの定期検査)） |
 | [.github/workflows/claude-settings.yml](.github/workflows/claude-settings.yml) | Claude Code 設定のスキーマ照合の定期検査（毎日 / [Claude Code 設定の定期検査](docs/ci-jobs.md#claude-code-設定の定期検査)） |
 | [.github/workflows/renovate.yml](.github/workflows/renovate.yml) | Renovate の実行（[更新の一覧の issue](docs/renovate.md#更新の一覧の-issue)） |
+| [.github/actions/setup-mise/](.github/actions/setup-mise) | 各検査ジョブが検査ツールを入れる composite action（[ツールの導入と検証](docs/ci-jobs.md#ツールの導入と検証)） |
 | [.github/scripts/](.github/scripts) | 上記の定期実行ワークフローが、落ちた検査を issue として報告し、取り下げるために呼ぶスクリプト |
 | [.github/scripts/tests/](.github/scripts/tests) | 上記スクリプトと、ci.yml が強制する type 一覧のコピーのテスト。CI で実行される（[script-tests](docs/ci-jobs.md#script-tests)） |
 | [.github/renovate.json5](.github/renovate.json5) | Renovate の設定 |
@@ -57,6 +62,7 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 | [.markdownlint-cli2.jsonc](.markdownlint-cli2.jsonc) | Markdown の書式検査 markdownlint-cli2 の設定 |
 | [.typos.toml](.typos.toml) | 誤字検査 typos の設定 |
 | [.editorconfig](.editorconfig) | エディタ側の書式設定（インデント / 改行 / 文字コード） |
+| [.editorconfig-checker.json](.editorconfig-checker.json) | editorconfig-checker の検査対象から外すファイル（[例外](#例外)） |
 | [.gitattributes](.gitattributes) | 改行コードを LF に固定する git の設定 |
 | [.gitignore](.gitignore) | git の追跡から外すもの（typos の除外にも効きます） |
 | [docs/drift-check.md](docs/drift-check.md) | リファレンス: 設定のずれの検査と `SETTINGS_TOKEN` |
