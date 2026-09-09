@@ -60,7 +60,25 @@ jobs:
             exit 1
           fi
           log="${HOME}/renovate.log"
-          renovate 2>&1 | tee "${log}"
+          # Renovate aborts the whole repository when it decides the repository changed
+          # mid-run, skipping every branch it had not reached yet (docs/renovate.md).
+          # It still exits 0, so retry here and fail the job when it keeps happening;
+          # otherwise the skipped updates go unnoticed until the next weekly run.
+          # Re-running is safe: Renovate reconciles branches and PRs from scratch.
+          attempt=1
+          max_attempts=2
+          while :; do
+            renovate 2>&1 | tee "${log}"
+            if ! grep -q '"result": "repository-changed"' "${log}"; then
+              break
+            fi
+            if [ "${attempt}" -ge "${max_attempts}" ]; then
+              echo "::error::Renovate aborted with repository-changed on all ${max_attempts} attempts. See docs/renovate.md."
+              exit 1
+            fi
+            attempt=$((attempt + 1))
+            echo "::warning::Renovate aborted with repository-changed. Retrying (attempt ${attempt} of ${max_attempts})."
+          done
           if ! grep -q 'Package lookup failures' "${log}"; then
             echo 'lookup_failed=false' >>"${GITHUB_OUTPUT}"
             exit 0
