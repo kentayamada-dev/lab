@@ -2,6 +2,7 @@ package server
 
 import (
 	_ "embed"
+	"log"
 	"net/http"
 
 	"example/app/gen"
@@ -23,7 +24,9 @@ func registerDocs(mux *http.ServeMux) {
 	serve := func(pattern, contentType string, body []byte) {
 		mux.HandleFunc("GET "+pattern, func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", contentType)
-			w.Write(body)
+			if _, err := w.Write(body); err != nil {
+				log.Printf("serving %s: %v", pattern, err)
+			}
 		})
 	}
 
