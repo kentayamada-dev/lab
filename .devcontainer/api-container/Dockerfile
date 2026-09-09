@@ -32,7 +32,9 @@ COPY --from=gopls /out/gopls /usr/local/bin/gopls
 # the repository under it belongs to ${USER_NAME}, so git reads the worktree as
 # someone else's and refuses to run ("detected dubious ownership", exit 128),
 # which in turn breaks go's VCS stamping. Only the bind mount from a macOS host
-# does this, so the exception stays in this stage instead of base.
-USER root
+# does this, so the exception stays in this stage instead of base. The id is
+# written as 0 rather than root because hadolint (DL3066) rejects a name the
+# host may not resolve.
+USER 0
 RUN git config --system --add safe.directory /workspace
 USER ${USER_NAME}
