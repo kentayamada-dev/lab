@@ -5,7 +5,9 @@ RETURNING *;
 
 -- name: ListTodos :many
 SELECT * FROM todos
-ORDER BY id;
+WHERE id > sqlc.arg(after_id)
+ORDER BY id
+LIMIT sqlc.arg(page_size);
 
 -- name: UpdateTodo :one
 UPDATE todos

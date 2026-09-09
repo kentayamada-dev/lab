@@ -24,4 +24,17 @@ RUN GOBIN=/out go install golang.org/x/tools/gopls@${GOPLS_VERSION}
 
 FROM base AS dev
 
+ARG USER_NAME
+
 COPY --from=gopls /out/gopls /usr/local/bin/gopls
+
+# Docker Desktop leaves the /workspace mount point itself owned by root while
+# the repository under it belongs to ${USER_NAME}, so git reads the worktree as
+# someone else's and refuses to run ("detected dubious ownership", exit 128),
+# which in turn breaks go's VCS stamping. Only the bind mount from a macOS host
+# does this, so the exception stays in this stage instead of base. The id is
+# written as 0 rather than root because hadolint (DL3066) rejects a name the
+# host may not resolve.
+USER 0
+RUN git config --system --add safe.directory /workspace
+USER ${USER_NAME}

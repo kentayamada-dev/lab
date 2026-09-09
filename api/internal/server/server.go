@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"runtime/debug"
 	"time"
 
 	"connectrpc.com/connect"
@@ -22,8 +23,23 @@ const (
 	shutdownTimeout   = 10 * time.Second
 )
 
+// readMaxBytes caps a decoded request message. The proto rules are checked
+// after decoding, so without this the title limit would not bound the memory a
+// request can claim. The largest legitimate request is a title of a thousand
+// runes, well inside this.
+const readMaxBytes = 64 * 1024
+
 type Server struct {
 	httpServer *http.Server
+}
+
+// recoverPanic reports a panicking handler as a generic internal error, so the
+// client sees the same answer as any other server-side failure rather than a
+// dropped connection.
+func recoverPanic(_ context.Context, spec connect.Spec, _ http.Header, cause any) error {
+	log.Printf("panic in %s: %v\n%s", spec.Procedure, cause, debug.Stack())
+
+	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
 }
 
 func New(addr string, todoService todov1connect.TodoServiceHandler) *Server {
@@ -32,7 +48,12 @@ func New(addr string, todoService todov1connect.TodoServiceHandler) *Server {
 
 	mux := http.NewServeMux()
 
-	path, handler := todov1connect.NewTodoServiceHandler(todoService, connect.WithInterceptors(validator))
+	path, handler := todov1connect.NewTodoServiceHandler(
+		todoService,
+		connect.WithInterceptors(validator),
+		connect.WithReadMaxBytes(readMaxBytes),
+		connect.WithRecover(recoverPanic),
+	)
 	mux.Handle(path, handler)
 
 	registerDocs(mux)

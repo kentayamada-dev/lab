@@ -13,7 +13,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file todo/v1/todo.proto.
  */
 export const file_todo_v1_todo: GenFile = /*@__PURE__*/
-  fileDesc("ChJ0b2RvL3YxL3RvZG8ucHJvdG8SB3RvZG8udjEiXwoEVG9kbxIKCgJpZBgBIAEoAxINCgV0aXRsZRgCIAEoCRIMCgRkb25lGAMgASgIEi4KCmNyZWF0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIr8BChFDcmVhdGVUb2RvUmVxdWVzdBKpAQoFdGl0bGUYASABKAlCmQG6SJUBugE9Cg90aXRsZS5ub3RfYmxhbmsSF3RpdGxlIG11c3Qgbm90IGJlIGJsYW5rGhF0aGlzLnRyaW0oKSAhPSAnJ7oBUgoNdGl0bGUubWF4X2xlbhIldGl0bGUgbXVzdCBiZSBhdCBtb3N0IDEwMDAgY2hhcmFjdGVycxoadGhpcy50cmltKCkuc2l6ZSgpIDw9IDEwMDAiMQoSQ3JlYXRlVG9kb1Jlc3BvbnNlEhsKBHRvZG8YASABKAsyDS50b2RvLnYxLlRvZG8iEgoQTGlzdFRvZG9zUmVxdWVzdCIxChFMaXN0VG9kb3NSZXNwb25zZRIcCgV0b2RvcxgBIAMoCzINLnRvZG8udjEuVG9kbyL2AQoRVXBkYXRlVG9kb1JlcXVlc3QSCgoCaWQYASABKAMSEQoEZG9uZRgCIAEoCEgAiAEBEq4BCgV0aXRsZRgDIAEoCUKZAbpIlQG6AT0KD3RpdGxlLm5vdF9ibGFuaxIXdGl0bGUgbXVzdCBub3QgYmUgYmxhbmsaEXRoaXMudHJpbSgpICE9ICcnugFSCg10aXRsZS5tYXhfbGVuEiV0aXRsZSBtdXN0IGJlIGF0IG1vc3QgMTAwMCBjaGFyYWN0ZXJzGhp0aGlzLnRyaW0oKS5zaXplKCkgPD0gMTAwMEgBiAEBQgcKBV9kb25lQggKBl90aXRsZSIxChJVcGRhdGVUb2RvUmVzcG9uc2USGwoEdG9kbxgBIAEoCzINLnRvZG8udjEuVG9kbyIfChFEZWxldGVUb2RvUmVxdWVzdBIKCgJpZBgBIAEoAyIUChJEZWxldGVUb2RvUmVzcG9uc2UypgIKC1RvZG9TZXJ2aWNlEkUKCkNyZWF0ZVRvZG8SGi50b2RvLnYxLkNyZWF0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5DcmVhdGVUb2RvUmVzcG9uc2USQgoJTGlzdFRvZG9zEhkudG9kby52MS5MaXN0VG9kb3NSZXF1ZXN0GhoudG9kby52MS5MaXN0VG9kb3NSZXNwb25zZRJFCgpVcGRhdGVUb2RvEhoudG9kby52MS5VcGRhdGVUb2RvUmVxdWVzdBobLnRvZG8udjEuVXBkYXRlVG9kb1Jlc3BvbnNlEkUKCkRlbGV0ZVRvZG8SGi50b2RvLnYxLkRlbGV0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5EZWxldGVUb2RvUmVzcG9uc2VCeAoLY29tLnRvZG8udjFCCVRvZG9Qcm90b1ABWiFleGFtcGxlL2FwcC9nZW4vZ28vdG9kby92MTt0b2RvdjGiAgNUWFiqAgdUb2RvLlYxygIHVG9kb1xWMeICE1RvZG9cVjFcR1BCTWV0YWRhdGHqAghUb2RvOjpWMWIGcHJvdG8z", [file_buf_validate_validate, file_google_protobuf_timestamp]);
+  fileDesc("ChJ0b2RvL3YxL3RvZG8ucHJvdG8SB3RvZG8udjEiXwoEVG9kbxIKCgJpZBgBIAEoAxINCgV0aXRsZRgCIAEoCRIMCgRkb25lGAMgASgIEi4KCmNyZWF0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIr8BChFDcmVhdGVUb2RvUmVxdWVzdBKpAQoFdGl0bGUYASABKAlCmQG6SJUBugE9Cg90aXRsZS5ub3RfYmxhbmsSF3RpdGxlIG11c3Qgbm90IGJlIGJsYW5rGhF0aGlzLnRyaW0oKSAhPSAnJ7oBUgoNdGl0bGUubWF4X2xlbhIldGl0bGUgbXVzdCBiZSBhdCBtb3N0IDEwMDAgY2hhcmFjdGVycxoadGhpcy50cmltKCkuc2l6ZSgpIDw9IDEwMDAiMQoSQ3JlYXRlVG9kb1Jlc3BvbnNlEhsKBHRvZG8YASABKAsyDS50b2RvLnYxLlRvZG8iswEKEExpc3RUb2Rvc1JlcXVlc3QSHAoJcGFnZV9zaXplGAEgASgFQgm6SAYaBBhkKAASgAEKCnBhZ2VfdG9rZW4YAiABKAlCbLpIaboBZgoRcGFnZV90b2tlbi5mb3JtYXQSH3BhZ2VfdG9rZW4gaXMgbm90IGEgdmFsaWQgdG9rZW4aMHRoaXMgPT0gJycgfHwgdGhpcy5tYXRjaGVzKCdeWzEtOV1bMC05XXswLDE4fSQnKSJKChFMaXN0VG9kb3NSZXNwb25zZRIcCgV0b2RvcxgBIAMoCzINLnRvZG8udjEuVG9kbxIXCg9uZXh0X3BhZ2VfdG9rZW4YAiABKAki4QIKEVVwZGF0ZVRvZG9SZXF1ZXN0EgoKAmlkGAEgASgDEhEKBGRvbmUYAiABKAhIAIgBARKuAQoFdGl0bGUYAyABKAlCmQG6SJUBugE9Cg90aXRsZS5ub3RfYmxhbmsSF3RpdGxlIG11c3Qgbm90IGJlIGJsYW5rGhF0aGlzLnRyaW0oKSAhPSAnJ7oBUgoNdGl0bGUubWF4X2xlbhIldGl0bGUgbXVzdCBiZSBhdCBtb3N0IDEwMDAgY2hhcmFjdGVycxoadGhpcy50cmltKCkuc2l6ZSgpIDw9IDEwMDBIAYgBATppukhmGmQKEHVwZGF0ZS5ub19maWVsZHMSLWF0IGxlYXN0IG9uZSBvZiBkb25lIG9yIHRpdGxlIG11c3QgYmUgcHJlc2VudBohaGFzKHRoaXMuZG9uZSkgfHwgaGFzKHRoaXMudGl0bGUpQgcKBV9kb25lQggKBl90aXRsZSIxChJVcGRhdGVUb2RvUmVzcG9uc2USGwoEdG9kbxgBIAEoCzINLnRvZG8udjEuVG9kbyIfChFEZWxldGVUb2RvUmVxdWVzdBIKCgJpZBgBIAEoAyIUChJEZWxldGVUb2RvUmVzcG9uc2UypgIKC1RvZG9TZXJ2aWNlEkUKCkNyZWF0ZVRvZG8SGi50b2RvLnYxLkNyZWF0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5DcmVhdGVUb2RvUmVzcG9uc2USQgoJTGlzdFRvZG9zEhkudG9kby52MS5MaXN0VG9kb3NSZXF1ZXN0GhoudG9kby52MS5MaXN0VG9kb3NSZXNwb25zZRJFCgpVcGRhdGVUb2RvEhoudG9kby52MS5VcGRhdGVUb2RvUmVxdWVzdBobLnRvZG8udjEuVXBkYXRlVG9kb1Jlc3BvbnNlEkUKCkRlbGV0ZVRvZG8SGi50b2RvLnYxLkRlbGV0ZVRvZG9SZXF1ZXN0GhsudG9kby52MS5EZWxldGVUb2RvUmVzcG9uc2VCeAoLY29tLnRvZG8udjFCCVRvZG9Qcm90b1ABWiFleGFtcGxlL2FwcC9nZW4vZ28vdG9kby92MTt0b2RvdjGiAgNUWFiqAgdUb2RvLlYxygIHVG9kb1xWMeICE1RvZG9cVjFcR1BCTWV0YWRhdGHqAghUb2RvOjpWMWIGcHJvdG8z", [file_buf_validate_validate, file_google_protobuf_timestamp]);
 
 /**
  * A single todo item.
@@ -101,11 +101,26 @@ export const CreateTodoResponseSchema: GenMessage<CreateTodoResponse> = /*@__PUR
   messageDesc(file_todo_v1_todo, 2);
 
 /**
- * Request to list todos. It takes no parameters.
+ * Request to list one page of todos.
  *
  * @generated from message todo.v1.ListTodosRequest
  */
 export type ListTodosRequest = Message<"todo.v1.ListTodosRequest"> & {
+  /**
+   * How many todos to return at most. Zero asks for the server's default of
+   * 50.
+   *
+   * @generated from field: int32 page_size = 1;
+   */
+  pageSize: number;
+
+  /**
+   * Opaque token taken from the previous response's next_page_token. Empty
+   * starts at the first page. Clients must not build one themselves.
+   *
+   * @generated from field: string page_token = 2;
+   */
+  pageToken: string;
 };
 
 /**
@@ -116,17 +131,24 @@ export const ListTodosRequestSchema: GenMessage<ListTodosRequest> = /*@__PURE__*
   messageDesc(file_todo_v1_todo, 3);
 
 /**
- * Response containing every todo.
+ * Response containing one page of todos.
  *
  * @generated from message todo.v1.ListTodosResponse
  */
 export type ListTodosResponse = Message<"todo.v1.ListTodosResponse"> & {
   /**
-   * All todos. Empty when none exist.
+   * The todos on this page, ordered by id. Empty when the page has none.
    *
    * @generated from field: repeated todo.v1.Todo todos = 1;
    */
   todos: Todo[];
+
+  /**
+   * Token that fetches the next page. Empty on the last page.
+   *
+   * @generated from field: string next_page_token = 2;
+   */
+  nextPageToken: string;
 };
 
 /**
@@ -248,7 +270,10 @@ export const TodoService: GenService<{
     output: typeof CreateTodoResponseSchema;
   },
   /**
-   * Returns all todo items. The list is empty when no todos exist.
+   * Returns one page of todo items ordered by id. The response carries a
+   * next_page_token whenever a further page exists; passing it back walks the
+   * rest. Fails with the invalid_argument code when page_size is outside its
+   * range or page_token was not taken from a previous response.
    *
    * @generated from rpc todo.v1.TodoService.ListTodos
    */
@@ -259,10 +284,9 @@ export const TodoService: GenService<{
   },
   /**
    * Updates the todo identified by id and returns the updated record: done and
-   * title are each applied only when present, so a request carrying neither
-   * returns the record unchanged. Fails with the not_found code when no todo
-   * has that id, and with the invalid_argument code when the title is present
-   * but breaks its rules.
+   * title are each applied only when present. Fails with the not_found code
+   * when no todo has that id, and with the invalid_argument code when the
+   * request carries neither field or the title breaks its rules.
    *
    * @generated from rpc todo.v1.TodoService.UpdateTodo
    */

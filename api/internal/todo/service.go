@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -17,13 +18,20 @@ import (
 	todov1 "example/app/gen/go/todo/v1"
 )
 
-// maxTitleLen bounds the stored title in runes; the text column has no limit
-// of its own.
-const maxTitleLen = 1000
+const (
+	// maxTitleLen bounds the stored title in runes; the text column has no
+	// limit of its own.
+	maxTitleLen = 1000
+	// defaultPageSize is the page size used when a request does not ask for
+	// one.
+	defaultPageSize = 50
+	// maxPageSize bounds how many todos one response can carry.
+	maxPageSize = 100
+)
 
 type Querier interface {
 	CreateTodo(ctx context.Context, title string) (db.Todo, error)
-	ListTodos(ctx context.Context) ([]db.Todo, error)
+	ListTodos(ctx context.Context, arg db.ListTodosParams) ([]db.Todo, error)
 	UpdateTodo(ctx context.Context, arg db.UpdateTodoParams) (db.Todo, error)
 	DeleteTodo(ctx context.Context, id int64) (int64, error)
 }
@@ -65,6 +73,47 @@ func validTitle(raw string) (string, error) {
 	return title, nil
 }
 
+// resolvePageSize resolves the requested page size. The proto field declares
+// the same bounds, enforced by the server's validate interceptor; the check
+// here keeps the service safe on its own.
+func resolvePageSize(requested int32) (int32, error) {
+	switch {
+	case requested < 0:
+		return 0, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("page_size must not be negative"),
+		)
+	case requested == 0:
+		return defaultPageSize, nil
+	case requested > maxPageSize:
+		return 0, connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("page_size must be at most %d", maxPageSize),
+		)
+	}
+
+	return requested, nil
+}
+
+// decodePageToken reads the id the previous page ended on. The token is opaque
+// to clients, so anything the service did not hand out is rejected instead of
+// being read as a request for the first page.
+func decodePageToken(token string) (int64, error) {
+	if token == "" {
+		return 0, nil
+	}
+
+	after, err := strconv.ParseInt(token, 10, 64)
+	if err != nil || after < 1 {
+		return 0, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("page_token is not a valid token"),
+		)
+	}
+
+	return after, nil
+}
+
 func (s *Service) CreateTodo(
 	ctx context.Context,
 	req *connect.Request[todov1.CreateTodoRequest],
@@ -86,9 +135,29 @@ func (s *Service) ListTodos(
 	ctx context.Context,
 	req *connect.Request[todov1.ListTodosRequest],
 ) (*connect.Response[todov1.ListTodosResponse], error) {
-	rows, err := s.queries.ListTodos(ctx)
+	size, err := resolvePageSize(req.Msg.GetPageSize())
+	if err != nil {
+		return nil, err
+	}
+	after, err := decodePageToken(req.Msg.GetPageToken())
+	if err != nil {
+		return nil, err
+	}
+
+	// Asking for one row beyond the page answers "is there a next page?"
+	// without a second query. The extra row is dropped below.
+	rows, err := s.queries.ListTodos(ctx, db.ListTodosParams{
+		AfterID:  after,
+		PageSize: int64(size) + 1,
+	})
 	if err != nil {
 		return nil, internalError("listing todos", err)
+	}
+
+	var nextPageToken string
+	if len(rows) > int(size) {
+		rows = rows[:size]
+		nextPageToken = strconv.FormatInt(rows[len(rows)-1].ID, 10)
 	}
 
 	todos := make([]*todov1.Todo, 0, len(rows))
@@ -96,13 +165,26 @@ func (s *Service) ListTodos(
 		todos = append(todos, toProtoTodo(t))
 	}
 
-	return connect.NewResponse(&todov1.ListTodosResponse{Todos: todos}), nil
+	return connect.NewResponse(&todov1.ListTodosResponse{
+		Todos:         todos,
+		NextPageToken: nextPageToken,
+	}), nil
 }
 
 func (s *Service) UpdateTodo(
 	ctx context.Context,
 	req *connect.Request[todov1.UpdateTodoRequest],
 ) (*connect.Response[todov1.UpdateTodoResponse], error) {
+	// The query coalesces absent fields to the stored value, so a request
+	// carrying neither would rewrite the row with what it already holds. It is
+	// rejected rather than served as a disguised read.
+	if req.Msg.Done == nil && req.Msg.Title == nil {
+		return nil, connect.NewError(
+			connect.CodeInvalidArgument,
+			errors.New("at least one of done or title must be present"),
+		)
+	}
+
 	params := db.UpdateTodoParams{ID: req.Msg.Id}
 	if req.Msg.Done != nil {
 		params.Completed = pgtype.Bool{Bool: req.Msg.GetDone(), Valid: true}
