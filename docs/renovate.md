@@ -195,6 +195,7 @@ docker run --rm -v "$PWD:/repo:ro" -w /repo \
 | `commitMessage*` / `pr*` の文面 | 更新 PR のタイトルと本文を自前で書く（[PR の文面](#pr-の文面)） | 自動生成の既定の文面に戻り、自動 issue と体裁が揃わない |
 | `fetchChangeLogs: 'off'` | リリースノートを PR に出さないので取得しない（[本文](#本文)） | 表示しないリリースノートを実行ごとに取りに行く |
 | `postUpdateOptions: ['gomodTidy']` | go.mod を更新した後に `go mod tidy` を走らせる。既定の `go get` だけでは、旧バージョンの行が go.sum に残ったり（indirect な依存では新バージョンの h1 ハッシュも入らない）して、[`api`](ci-jobs.md#アプリコードの検査) ジョブの `tidy-check` が落ちる | Go 依存の更新 PR が `tidy-check` で落ち、手で `make api-tidy` して push する必要がある |
+| `postUpgradeTasks` | 依存を更新した後に `./scripts/gen-buf-config.sh --write` を走らせ、[buf.gen.yaml](../buf.gen.yaml) を作り直す。このファイルは api/go.mod・web/package.json・[Makefile](../Makefile) のバージョンから作られる生成物なので、元のバージョンだけ更新すると取り残されて [`gen`](ci-jobs.md#アプリコードの検査) ジョブの `gen-config-check` が落ちる。生成コード自体（`gen-code-check`）は buf の実行が要るため、このタスクでは扱わない。コマンドの許可リストはセルフホスト専用の設定でここには書けず、[renovate.yml](../.github/workflows/renovate.yml) の `RENOVATE_ALLOWED_COMMANDS` にある | 更新 PR が `gen` で落ちる。手で `make gen` して push しても、`rebaseWhen: 'behind-base-branch'` によるブランチの作り直しでそのコミットは消える |
 | `vulnerabilityAlerts: { enabled: true }` | gomod マネージャは `// indirect` な依存を無効にしていて、脆弱性の修正 PR も既定ではそれを上書きしない。ここで `enabled` を書くと修正 PR の設定として強制され、indirect な依存の脆弱性にも修正 PR が立つ（通常の更新には indirect を含めないまま） | Dependabot alerts が `// indirect` な依存（Go では大半）に出ても修正 PR が立たず、アラートが残り続ける |
 
 ## 何が更新対象になるか
