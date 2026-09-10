@@ -6,6 +6,7 @@
 - Never state anything as fact without first verifying it in the repo, the tool output, or an authoritative reference; when verification is impossible, say so explicitly instead of guessing
 - Claude edits files only; do not commit, push, or create a PR unless explicitly asked
 - Never run the root Makefile targets: a `make` recipe cannot read `.env` under the Bash sandbox (`stat .env: operation not permitted`), so run the `docker compose ...` command the target wraps instead. This limit is Claude's alone; the user's own terminal runs `make` normally
+- Open the web app at `http://localhost:3000`, never `http://127.0.0.1:3000`: Claude's browser cannot open a WebSocket to `127.0.0.1`, so the Next.js dev client never hydrates, no request is sent and the page stays empty
 - Which language goes where (Japanese vs English): [CONTRIBUTING.md](CONTRIBUTING.md#ドキュメントの言語)
 
 ## Project overview
