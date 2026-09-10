@@ -1,7 +1,6 @@
 {
   "Exclude": [
     "^api/gen/",
-    "^web/src/gen/",
-    "^api/internal/server/rapidoc-min.js"
+    "^web/src/gen/"
   ]
 }

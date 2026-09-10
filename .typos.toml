@@ -1,7 +1,7 @@
 [files]
 ignore-hidden = false
-# Generated and vendored files follow their producers' spelling.
-extend-exclude = ["api/gen/", "web/src/gen/", "api/internal/server/rapidoc-min.js*"]
+# Generated files follow their producer's spelling.
+extend-exclude = ["api/gen/", "web/src/gen/"]
 
 [default]
 extend-ignore-re = ["`recieve` → `receive`"]

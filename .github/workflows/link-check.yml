@@ -40,14 +40,10 @@ jobs:
         run: |
           set -eo pipefail
           # Why pipefail: docs/drift-check.md#落ちたときの通知
-          # Why --exclude-path: docs/ci-jobs.md#lychee
           lychee \
             --no-progress \
             --mode plain \
             --exclude 'OWNER/REPO' \
-            --exclude-path api/internal/server/rapidoc-min.js \
-            --exclude-path api/internal/server/rapidoc-min.js.LICENSE.txt \
-            --exclude-path api/internal/server/docs.html \
             . 2>&1 | tee "${RUNNER_TEMP}/lychee.log"
 
       # Why this condition: docs/drift-check.md#落ちたときの通知

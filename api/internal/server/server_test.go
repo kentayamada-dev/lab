@@ -14,7 +14,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
-	"example/app/gen"
 	todov1 "example/app/gen/go/todo/v1"
 	"example/app/gen/go/todo/v1/todov1connect"
 )
@@ -87,10 +86,15 @@ func (r *recorder) DeleteTodo(
 	return connect.NewResponse(&todov1.DeleteTodoResponse{}), nil
 }
 
-func newServer(t *testing.T, addr string, handler todov1connect.TodoServiceHandler) *Server {
+func newServer(
+	t *testing.T,
+	addr string,
+	corsOrigins []string,
+	handler todov1connect.TodoServiceHandler,
+) *Server {
 	t.Helper()
 
-	srv, err := New(addr, handler)
+	srv, err := New(addr, corsOrigins, handler)
 	if err != nil {
 		t.Fatalf("New() error = %v, want nil", err)
 	}
@@ -101,7 +105,17 @@ func newServer(t *testing.T, addr string, handler todov1connect.TodoServiceHandl
 func newTestServer(t *testing.T, handler todov1connect.TodoServiceHandler) *httptest.Server {
 	t.Helper()
 
-	srv := httptest.NewServer(newServer(t, ":0", handler).httpServer.Handler)
+	return newCORSTestServer(t, nil, handler)
+}
+
+func newCORSTestServer(
+	t *testing.T,
+	corsOrigins []string,
+	handler todov1connect.TodoServiceHandler,
+) *httptest.Server {
+	t.Helper()
+
+	srv := httptest.NewServer(newServer(t, ":0", corsOrigins, handler).httpServer.Handler)
 	t.Cleanup(srv.Close)
 
 	return srv
@@ -412,7 +426,7 @@ func TestNewUnknownPath(t *testing.T) {
 }
 
 func TestRunInvalidAddress(t *testing.T) {
-	if err := newServer(t, "not-an-address", stubHandler{}).Run(t.Context()); err == nil {
+	if err := newServer(t, "not-an-address", nil, stubHandler{}).Run(t.Context()); err == nil {
 		t.Error("Run() error = nil, want non-nil")
 	}
 }
@@ -421,7 +435,7 @@ func TestRunShutsDownOnContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 
 	errCh := make(chan error, 1)
-	srv := newServer(t, "127.0.0.1:0", stubHandler{})
+	srv := newServer(t, "127.0.0.1:0", nil, stubHandler{})
 
 	go func() { errCh <- srv.Run(ctx) }()
 
@@ -432,76 +446,158 @@ func TestRunShutsDownOnContextCancel(t *testing.T) {
 	}
 }
 
-func TestDocsServesTheDocsPage(t *testing.T) {
-	srv := newTestServer(t, stubHandler{})
-
-	res := get(t, srv, "/docs")
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
+// A body the codec cannot read is the client's mistake. On a route that merges
+// a path variable into the body the transcoder unmarshals it itself and leaves
+// the code of the error unset, which the REST protocol answers as a 500 with
+// the unknown code; codec.go is what turns it into this 400. The same body on
+// "POST /v1/todos" is classified by connect-go and covers the other path.
+func TestNewRejectsAnUnreadableRESTBody(t *testing.T) {
+	tests := map[string]struct {
+		method string
+		path   string
+		body   string
+	}{
+		"truncated body merged with a path variable": {
+			method: http.MethodPatch,
+			path:   "/v1/todos/1",
+			body:   `{"done":true`,
+		},
+		"wrong field type merged with a path variable": {
+			method: http.MethodPatch,
+			path:   "/v1/todos/1",
+			body:   `{"done":"yes"}`,
+		},
+		"truncated body passed on as it is": {
+			method: http.MethodPost,
+			path:   "/v1/todos",
+			body:   `{"title":"buy milk`,
+		},
 	}
 
-	if got, want := res.Header.Get("Content-Type"), "text/html; charset=utf-8"; got != want {
-		t.Errorf("Content-Type = %q, want %q", got, want)
-	}
-	if !cmp.Equal(docsHTML, readBody(t, res)) {
-		t.Error("body does not match the embedded docs.html")
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			srv := newTestServer(t, &recorder{})
+
+			req, err := http.NewRequestWithContext(
+				t.Context(), tt.method, srv.URL+tt.path, strings.NewReader(tt.body),
+			)
+			if err != nil {
+				t.Fatalf("building the request: %v", err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			res, err := srv.Client().Do(req)
+			if err != nil {
+				t.Fatalf("%s %s: %v", tt.method, tt.path, err)
+			}
+			t.Cleanup(func() { res.Body.Close() })
+
+			if res.StatusCode != http.StatusBadRequest {
+				t.Errorf("status = %d, want %d, body: %s",
+					res.StatusCode, http.StatusBadRequest, readBody(t, res))
+			}
+		})
 	}
 }
 
-// The page loads RapiDoc by this path, so serving it is what keeps /docs
-// working offline.
-func TestDocsServesRapiDoc(t *testing.T) {
-	srv := newTestServer(t, stubHandler{})
+// The docs page is served from the docs container's own port
+// (docker-compose.yml), so every request it sends to a REST route is
+// cross-origin: the preflight has to be answered and the answer has to name the
+// origin, or the browser hides it from the page.
+func TestNewAllowsTheConfiguredCORSOrigin(t *testing.T) {
+	const origin = "http://localhost:8081"
 
-	res := get(t, srv, "/docs/rapidoc-min.js")
+	srv := newCORSTestServer(t, []string{origin}, &recorder{})
+
+	pre := preflight(t, srv, origin)
+	if pre.StatusCode != http.StatusNoContent {
+		t.Fatalf("preflight status = %d, want %d", pre.StatusCode, http.StatusNoContent)
+	}
+	if got := pre.Header.Get("Access-Control-Allow-Origin"); got != origin {
+		t.Errorf("preflight Access-Control-Allow-Origin = %q, want %q", got, origin)
+	}
+	if got := pre.Header.Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodPatch) {
+		t.Errorf("preflight Access-Control-Allow-Methods = %q, want it to contain %q", got, http.MethodPatch)
+	}
+	if got := pre.Header.Get("Access-Control-Allow-Headers"); !strings.Contains(got, "content-type") {
+		t.Errorf("preflight Access-Control-Allow-Headers = %q, want it to contain %q", got, "content-type")
+	}
+
+	res := getWithOrigin(t, srv, "/v1/todos", origin)
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
 	}
-
-	if got, want := res.Header.Get("Content-Type"), "text/javascript; charset=utf-8"; got != want {
-		t.Errorf("Content-Type = %q, want %q", got, want)
-	}
-	if !cmp.Equal(rapidocJS, readBody(t, res)) {
-		t.Error("body does not match the embedded rapidoc-min.js")
+	if got := res.Header.Get("Access-Control-Allow-Origin"); got != origin {
+		t.Errorf("Access-Control-Allow-Origin = %q, want %q", got, origin)
 	}
 }
 
-func TestDocsServesOpenAPIDocument(t *testing.T) {
-	srv := newTestServer(t, stubHandler{})
+// Every origin but the configured ones is answered without the header, which is
+// what makes the browser drop the answer.
+func TestNewRefusesAnUnconfiguredCORSOrigin(t *testing.T) {
+	srv := newCORSTestServer(t, []string{"http://localhost:8081"}, &recorder{})
 
-	res := get(t, srv, "/openapi.yaml")
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
-	}
-
-	if got, want := res.Header.Get("Content-Type"), "application/yaml"; got != want {
-		t.Errorf("Content-Type = %q, want %q", got, want)
-	}
-	if !cmp.Equal(gen.OpenAPIYAML, readBody(t, res)) {
-		t.Error("body does not match the embedded OpenAPI document")
+	if got := preflight(t, srv, "http://example.com").Header.Get("Access-Control-Allow-Origin"); got != "" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want it unset", got)
 	}
 }
 
-func TestDocsRejectsNonGET(t *testing.T) {
-	srv := newTestServer(t, stubHandler{})
+// A deployment that runs no docs container configures no origin, and then the
+// routes carry no CORS header at all.
+func TestNewSendsNoCORSHeaderWithoutAConfiguredOrigin(t *testing.T) {
+	srv := newTestServer(t, &recorder{})
 
-	res, err := srv.Client().Post(srv.URL+"/docs", "text/plain", nil)
-	if err != nil {
-		t.Fatalf("POST /docs: %v", err)
-	}
-	t.Cleanup(func() { res.Body.Close() })
-
-	if res.StatusCode != http.StatusMethodNotAllowed {
-		t.Errorf("status = %d, want %d", res.StatusCode, http.StatusMethodNotAllowed)
+	if got := preflight(t, srv, "http://localhost:8081").Header.Get("Access-Control-Allow-Origin"); got != "" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want it unset", got)
 	}
 }
 
 func get(t *testing.T, srv *httptest.Server, path string) *http.Response {
 	t.Helper()
 
-	res, err := srv.Client().Get(srv.URL + path)
+	return do(t, srv, http.MethodGet, path, nil)
+}
+
+func getWithOrigin(t *testing.T, srv *httptest.Server, path, origin string) *http.Response {
+	t.Helper()
+
+	return do(t, srv, http.MethodGet, path, http.Header{"Origin": []string{origin}})
+}
+
+// preflight sends the OPTIONS request a browser sends ahead of the cross-origin
+// PATCH the docs page offers for /v1/todos/{id}. The requested header is
+// lower-cased because that is the form a browser sends, and the form the CORS
+// handler matches: given "Content-Type" it answers the preflight without the
+// allow headers, exactly as it does for a header nobody allowed.
+func preflight(t *testing.T, srv *httptest.Server, origin string) *http.Response {
+	t.Helper()
+
+	return do(t, srv, http.MethodOptions, "/v1/todos/1", http.Header{
+		"Origin":                         []string{origin},
+		"Access-Control-Request-Method":  []string{http.MethodPatch},
+		"Access-Control-Request-Headers": []string{"content-type"},
+	})
+}
+
+func do(
+	t *testing.T,
+	srv *httptest.Server,
+	method, path string,
+	header http.Header,
+) *http.Response {
+	t.Helper()
+
+	req, err := http.NewRequestWithContext(t.Context(), method, srv.URL+path, nil)
 	if err != nil {
-		t.Fatalf("GET %s: %v", path, err)
+		t.Fatalf("building %s %s: %v", method, path, err)
+	}
+	if header != nil {
+		req.Header = header
+	}
+
+	res, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatalf("%s %s: %v", method, path, err)
 	}
 	t.Cleanup(func() { res.Body.Close() })
 

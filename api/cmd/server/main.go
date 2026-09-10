@@ -41,7 +41,7 @@ func run() error {
 	}
 	log.Println("connected to database")
 
-	srv, err := server.New(cfg.Addr, todo.NewService(db.New(pool)))
+	srv, err := server.New(cfg.Addr, cfg.CORSOrigins, todo.NewService(db.New(pool)))
 	if err != nil {
 		return err
 	}
