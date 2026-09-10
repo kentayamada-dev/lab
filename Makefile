@@ -21,7 +21,7 @@ GEN_CHECK_DIR     := .gen-check.tmp
 # form Renovate's makefileVersions preset reads (docs/renovate.md). The script
 # reads this line itself; make never uses the variable.
 # renovate: datasource=github-releases depName=sudorandom/protoc-gen-connect-openapi
-CONNECT_OPENAPI_VERSION := v0.25.8
+CONNECT_OPENAPI_VERSION := v0.26.0
 
 DEVCONTAINER_DIR := $(CURDIR)/.devcontainer
 DEVCONTAINERS    := $(patsubst .devcontainer/%-container/devcontainer.json,%,\

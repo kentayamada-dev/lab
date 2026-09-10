@@ -7,15 +7,15 @@
 actionlint = "1.7.12"
 bats = "1.14.0"
 "pipx:check-jsonschema" = "0.38.0"
-editorconfig-checker = "3.11.2"
+editorconfig-checker = "3.11.3"
 ghalint = "1.5.6"
 gitleaks = "8.30.1"
 hadolint = "2.15.1"
 lychee = "0.24.2"
 shellcheck = "0.11.0"
-shfmt = "3.14.0"
+shfmt = "3.14.1"
 typos = "1.50.1"
-zizmor = "1.30.0"
+zizmor = "1.30.1"
 
 # One task per check job in ci.yml that can run from a local checkout, named after
 # it (docs/ci-jobs.md#検査を手元で再現する).
