@@ -61,18 +61,17 @@ func New(
 	// Enforces the buf.validate rules declared in the proto.
 	validator := validate.NewInterceptor()
 
-	// The transcoder wraps the Connect handler so the RPCs are reachable over
-	// the plain REST routes the google.api.http annotations declare, on top of
-	// the Connect procedures the generated clients call.
+	connectPath, connectHandler := todov1connect.NewTodoServiceHandler(
+		todoService,
+		connect.WithInterceptors(validator),
+		connect.WithReadMaxBytes(readMaxBytes),
+		connect.WithRecover(recoverPanic),
+	)
+
+	// The transcoder wraps that same handler, so the RPCs are reachable over
+	// the plain REST routes the google.api.http annotations declare as well.
 	transcoder, err := vanguard.NewTranscoder(
-		[]*vanguard.Service{
-			vanguard.NewService(todov1connect.NewTodoServiceHandler(
-				todoService,
-				connect.WithInterceptors(validator),
-				connect.WithReadMaxBytes(readMaxBytes),
-				connect.WithRecover(recoverPanic),
-			)),
-		},
+		[]*vanguard.Service{vanguard.NewService(connectPath, connectHandler)},
 		// Classifies an unreadable request body as the client's mistake
 		// (codec.go).
 		vanguard.WithCodec(newJSONCodec),
@@ -82,7 +81,13 @@ func New(
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/"+todov1connect.TodoServiceName+"/", transcoder)
+	// The procedures are served by the Connect handler itself, not by the
+	// transcoder: the transcoder reads a request carrying no
+	// Connect-Protocol-Version header as REST, so routing them through it
+	// would answer 404 to a plain JSON POST, which is what a hand written
+	// call looks like. The Connect handler speaks Connect, gRPC and gRPC-Web
+	// on its own, so nothing is lost by mounting it directly.
+	mux.Handle(connectPath, connectHandler)
 	mux.Handle(restPrefix, withCORS(corsOrigins, transcoder))
 
 	return &Server{

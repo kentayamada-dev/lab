@@ -139,6 +139,42 @@ func TestNewServesTodoService(t *testing.T) {
 	}
 }
 
+// A hand written call sends none of the headers the generated clients set.
+// The transcoder reads such a request as REST and would answer 404 on a
+// procedure path, so the procedures are served by the Connect handler itself
+// (server.go).
+func TestNewServesAPlainJSONPostOnTheProcedurePath(t *testing.T) {
+	handler := &recorder{}
+	srv := newTestServer(t, handler)
+
+	req, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		srv.URL+todov1connect.TodoServiceCreateTodoProcedure,
+		strings.NewReader(`{"title":"buy milk"}`),
+	)
+	if err != nil {
+		t.Fatalf("building the request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatalf("POST %s: %v", todov1connect.TodoServiceCreateTodoProcedure, err)
+	}
+	t.Cleanup(func() { res.Body.Close() })
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body: %s",
+			res.StatusCode, http.StatusOK, readBody(t, res))
+	}
+
+	want := &todov1.CreateTodoRequest{Title: "buy milk"}
+	if diff := cmp.Diff(want, handler.got, protocmp.Transform()); diff != "" {
+		t.Errorf("request the handler received (-want +got):\n%s", diff)
+	}
+}
+
 // The REST routes come from the google.api.http annotations in todo.proto, and
 // the transcoder has to map each one back onto the request message: the body
 // for a create, the query string for a list, the path for an id. A route moved
