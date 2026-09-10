@@ -23,6 +23,7 @@ A Todo app monorepo: a Connect API in Go (api/), a Next.js frontend (web/), prot
 - Never force-push or hard-reset: pushed history and uncommitted work must survive (prefer git stash or a soft reset)
 - Before committing, fetch and integrate the latest remote main, then create a working branch from it
 - Write commit messages and PR titles/bodies in Japanese, keeping the Conventional Commits type in the title (on squash the PR title becomes, verbatim, the commit title on main, and the messages are concatenated into its body)
+- Open the web app at `http://localhost:3000`, never `http://127.0.0.1:3000`: Claude's browser cannot open a WebSocket to `127.0.0.1`, so the Next.js dev client never hydrates, no request is sent and the page stays empty
 
 ## References
 
