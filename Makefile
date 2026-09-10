@@ -18,11 +18,10 @@ GEN_CHECK_DIR     := .gen-check.tmp
 
 # The connect-openapi buf plugin has no runtime library whose version it could
 # follow (unlike the other plugins in the script), so it is pinned here, in the
-# form Renovate's makefileVersions preset reads (docs/renovate.md). Exported so
-# every invocation of the script sees it.
+# form Renovate's makefileVersions preset reads (docs/renovate.md). The script
+# reads this line itself; make never uses the variable.
 # renovate: datasource=github-releases depName=sudorandom/protoc-gen-connect-openapi
 CONNECT_OPENAPI_VERSION := v0.25.8
-export CONNECT_OPENAPI_VERSION
 
 DEVCONTAINER_DIR := $(CURDIR)/.devcontainer
 DEVCONTAINERS    := $(patsubst .devcontainer/%-container/devcontainer.json,%,\
@@ -142,8 +141,7 @@ gen-code-check: ## Fail if the generated code is out of date
 	test $$rc -eq 0 \
 	  || { echo "generated code is out of date. Run 'make gen' and commit the result." >&2; exit 1; }
 buf.gen.yaml: $(GEN_CONFIG_SCRIPT) Makefile api/go.mod web/package.json
-	./$(GEN_CONFIG_SCRIPT) > $@.tmp || { rm -f $@.tmp; exit 1; }
-	mv -f $@.tmp $@
+	./$(GEN_CONFIG_SCRIPT) --write
 
 # ---- DB ------------------------------------------------------------------------
 db-check: db-validate db-diff-check db-lint ## Run every DB check

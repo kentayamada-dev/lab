@@ -41,7 +41,7 @@ Todo アプリのモノレポ。Go の Connect API（[api/](api)）、Next.js �
 | [.github/rulesets/main.json](.github/rulesets/main.json) | main のブランチ保護（GitHub Repository Ruleset）の定義 |
 | [scripts/sync-repo-config.sh](scripts/sync-repo-config.sh) | 上記 ruleset とリポジトリ設定をまとめて適用・検査するスクリプト |
 | [scripts/tests/](scripts/tests) | 上記スクリプトのテスト。CI で実行される（[script-tests](docs/ci-jobs.md#script-tests)） |
-| [scripts/gen-buf-config.sh](scripts/gen-buf-config.sh) | buf.gen.yaml を生成するスクリプト。プラグインの版を api/go.mod と web/package.json から引く |
+| [scripts/gen-buf-config.sh](scripts/gen-buf-config.sh) | buf.gen.yaml を生成するスクリプト。プラグインの版を api/go.mod・web/package.json・Makefile から引く |
 | [.github/workflows/ci.yml](.github/workflows/ci.yml) | CI。必須チェックとなるゲートジョブ `ci` と検査ジョブ（[一覧](docs/ci-jobs.md#ci-の検査ジョブ)） |
 | [.github/workflows/osv-scanner.yml](.github/workflows/osv-scanner.yml) | 依存パッケージの既知の脆弱性の定期検査（毎日 / [osv-scanner](docs/ci-jobs.md#osv-scanner)） |
 | [.github/workflows/scorecard.yml](.github/workflows/scorecard.yml) | OpenSSF Scorecard によるリポジトリのセキュリティ体制の定期採点（毎週 / [Scorecard](docs/ci-jobs.md#scorecard)） |

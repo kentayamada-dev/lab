@@ -23,6 +23,12 @@
   vulnerabilityAlerts: { enabled: true },
   // Why: docs/renovate.md#このリポジトリに合わせてある設定
   postUpdateOptions: ['gomodTidy'],
+  // Why: docs/renovate.md#このリポジトリに合わせてある設定
+  postUpgradeTasks: {
+    commands: ['./scripts/gen-buf-config.sh --write'],
+    fileFilters: ['buf.gen.yaml'],
+    executionMode: 'branch',
+  },
   commitMessageAction: '',
   commitMessageExtra: '',
   commitMessageTopic: 'update {{{depName}}} to {{#if isPinDigest}}{{{newDigestShort}}}{{else}}{{#if isMajor}}{{{prettyNewMajor}}}{{else}}{{#if isSingleVersion}}{{{prettyNewVersion}}}{{else}}{{#if newValue}}{{{newValue}}}{{else}}{{{newDigestShort}}}{{/if}}{{/if}}{{/if}}{{/if}}',
