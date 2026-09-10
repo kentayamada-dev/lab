@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -371,9 +372,68 @@ func TestDocsServesOpenAPIDocument(t *testing.T) {
 	if got, want := res.Header.Get("Content-Type"), "application/yaml"; got != want {
 		t.Errorf("Content-Type = %q, want %q", got, want)
 	}
-	if !cmp.Equal(gen.OpenAPIYAML, readBody(t, res)) {
+	body := string(readBody(t, res))
+	for short, procedure := range shortPathsOf(t) {
+		if !strings.Contains(body, "\n  "+short+":\n") {
+			t.Errorf("document has no path key for %s", short)
+		}
+		if strings.Contains(body, "\n  "+procedure+":\n") {
+			t.Errorf("document still has the path key for %s", procedure)
+		}
+	}
+}
+
+// Everything but the path keys has to survive the rewrite, so the document is
+// unchanged once the short paths are put back.
+func TestDocsServesTheGeneratedDocumentOtherwiseUnchanged(t *testing.T) {
+	restored := readBody(t, get(t, newTestServer(t, stubHandler{}), "/openapi.yaml"))
+	for short, procedure := range shortPathsOf(t) {
+		restored = bytes.ReplaceAll(restored,
+			[]byte("\n  "+short+":\n"),
+			[]byte("\n  "+procedure+":\n"),
+		)
+	}
+
+	if !cmp.Equal(gen.OpenAPIYAML, restored) {
 		t.Error("body does not match the embedded OpenAPI document")
 	}
+}
+
+// The short path has to reach the same handler as the canonical procedure, so
+// the stub's answer comes back rather than a 404.
+func TestNewServesShortPaths(t *testing.T) {
+	srv := newTestServer(t, stubHandler{})
+
+	res, err := srv.Client().Post(
+		srv.URL+"/CreateTodo",
+		"application/json",
+		strings.NewReader(`{"title":"buy milk"}`),
+	)
+	if err != nil {
+		t.Fatalf("POST /CreateTodo: %v", err)
+	}
+	t.Cleanup(func() { res.Body.Close() })
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
+	}
+
+	if got := string(readBody(t, res)); !strings.Contains(got, `"buy milk"`) {
+		t.Errorf("body = %s, want the created todo", got)
+	}
+}
+
+// shortPathsOf returns the short paths a server registers, keyed the same way
+// as registerShortPaths returns them.
+func shortPathsOf(t *testing.T) map[string]string {
+	t.Helper()
+
+	shortPaths := registerShortPaths(http.NewServeMux(), "/"+todov1connect.TodoServiceName+"/", nil)
+	if len(shortPaths) == 0 {
+		t.Fatal("the service registers no short path")
+	}
+
+	return shortPaths
 }
 
 func TestDocsRejectsNonGET(t *testing.T) {

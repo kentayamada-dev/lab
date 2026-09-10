@@ -11,7 +11,9 @@ import (
 
 	"connectrpc.com/connect"
 	"connectrpc.com/validate"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
+	todov1 "example/app/gen/go/todo/v1"
 	"example/app/gen/go/todo/v1/todov1connect"
 )
 
@@ -42,21 +44,56 @@ func recoverPanic(_ context.Context, spec connect.Spec, _ http.Header, cause any
 	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
 }
 
+// registerShortPaths mounts every procedure of the service a second time under
+// just its method name, so /todo.v1.TodoService/CreateTodo is also reachable as
+// /CreateTodo. The canonical procedures stay mounted, since they are what the
+// generated clients call. It returns the procedure each short path forwards to,
+// keyed by that path, so the OpenAPI document can describe the same routes.
+func registerShortPaths(mux *http.ServeMux, prefix string, handler http.Handler) map[string]string {
+	methods := todov1.File_todo_v1_todo_proto.Services().
+		ByName(protoreflect.FullName(todov1connect.TodoServiceName).Name()).
+		Methods()
+
+	shortPaths := make(map[string]string, methods.Len())
+
+	for i := range methods.Len() {
+		name := string(methods.Get(i).Name())
+		procedure := prefix + name
+		short := "/" + name
+
+		shortPaths[short] = procedure
+
+		mux.Handle(short, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// The Connect handler dispatches on the request path, so the
+			// canonical procedure has to be put back before it sees the
+			// request. RawPath goes with it: it holds the encoded form of the
+			// path it was parsed from, which no longer applies.
+			r = r.Clone(r.Context())
+			r.URL.Path = procedure
+			r.URL.RawPath = ""
+
+			handler.ServeHTTP(w, r)
+		}))
+	}
+
+	return shortPaths
+}
+
 func New(addr string, todoService todov1connect.TodoServiceHandler) *Server {
 	// Enforces the buf.validate rules declared in the proto.
 	validator := validate.NewInterceptor()
 
 	mux := http.NewServeMux()
 
-	path, handler := todov1connect.NewTodoServiceHandler(
+	prefix, handler := todov1connect.NewTodoServiceHandler(
 		todoService,
 		connect.WithInterceptors(validator),
 		connect.WithReadMaxBytes(readMaxBytes),
 		connect.WithRecover(recoverPanic),
 	)
-	mux.Handle(path, handler)
+	mux.Handle(prefix, handler)
 
-	registerDocs(mux)
+	registerDocs(mux, registerShortPaths(mux, prefix, handler))
 
 	return &Server{
 		httpServer: &http.Server{
