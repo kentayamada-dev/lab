@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Todo API Docs</title>
+</head>
+<body>
+  <!--
+    show-header and the two allow-*-load attributes hide the bar that would
+    otherwise let a reader replace the document with an arbitrary spec, from a
+    URL or from a local file. allow-server-selection hides the server list,
+    which holds nothing to choose from: the document declares no servers, so
+    requests go to the origin serving this page. allow-authentication hides the
+    API key section, which the API has nothing to do with.
+  -->
+  <rapi-doc
+    spec-url="/openapi.yaml"
+    render-style="view"
+    show-header="false"
+    allow-spec-url-load="false"
+    allow-spec-file-load="false"
+    allow-server-selection="false"
+    allow-authentication="false"
+  ></rapi-doc>
+  <script type="module" src="/docs/rapidoc-min.js"></script>
+</body>
+</html>

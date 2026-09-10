@@ -8,17 +8,17 @@ import (
 	"example/app/gen"
 )
 
-//go:embed swagger.html
-var swaggerHTML []byte
+//go:embed docs.html
+var docsHTML []byte
 
-// The Swagger UI assets are vendored from swagger-ui-dist (Apache-2.0,
-// see swagger-ui-bundle.js.LICENSE.txt) so /docs works offline.
+// RapiDoc is vendored from the rapidoc npm package (MIT, see
+// rapidoc-min.js.LICENSE.txt, which also records the version) so /docs works
+// offline. It renders the OpenAPI 3.1 document the plugin generates, including
+// the int64 path parameters, whose "type: [integer, string]" Swagger UI
+// rejected as missing when a request was sent from the page.
 //
-//go:embed swagger-ui.css
-var swaggerCSS []byte
-
-//go:embed swagger-ui-bundle.js
-var swaggerJS []byte
+//go:embed rapidoc-min.js
+var rapidocJS []byte
 
 func registerDocs(mux *http.ServeMux) {
 	serve := func(pattern, contentType string, body []byte) {
@@ -31,7 +31,6 @@ func registerDocs(mux *http.ServeMux) {
 	}
 
 	serve("/openapi.yaml", "application/yaml", gen.OpenAPIYAML)
-	serve("/docs", "text/html; charset=utf-8", swaggerHTML)
-	serve("/docs/swagger-ui.css", "text/css; charset=utf-8", swaggerCSS)
-	serve("/docs/swagger-ui-bundle.js", "text/javascript; charset=utf-8", swaggerJS)
+	serve("/docs", "text/html; charset=utf-8", docsHTML)
+	serve("/docs/rapidoc-min.js", "text/javascript; charset=utf-8", rapidocJS)
 }

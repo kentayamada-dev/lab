@@ -71,10 +71,9 @@ description = "Check for broken links and broken anchors in Markdown"
 # Why --exclude-path: docs/ci-jobs.md#lychee
 run = '''
 lychee --offline --include-fragments --no-progress \
-  --exclude-path api/internal/server/swagger-ui-bundle.js \
-  --exclude-path api/internal/server/swagger-ui-bundle.js.LICENSE.txt \
-  --exclude-path api/internal/server/swagger-ui.css \
-  --exclude-path api/internal/server/swagger.html \
+  --exclude-path api/internal/server/rapidoc-min.js \
+  --exclude-path api/internal/server/rapidoc-min.js.LICENSE.txt \
+  --exclude-path api/internal/server/docs.html \
   .
 '''
 

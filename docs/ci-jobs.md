@@ -189,7 +189,7 @@ mise run check:shellcheck   # 1 つのジョブの検査だけ
 
 [ci.yml](../.github/workflows/ci.yml) の `lychee` ジョブが、Markdown のリンク切れを検査します。このリポジトリのリンクの大半は見出しへのアンカーとリポジトリ内ファイルへの相対パスで、見出しの改名やファイルの移動で静かに切れます。このジョブはそれを PR で落とします。
 
-コマンドは [mise.toml](../mise.toml) の `check:lychee` タスクにあります。`--exclude-path` で vendored の Swagger UI 一式（api/internal/server/ の swagger-ui-* と swagger.html）を走査から外しているのは、中身の文字列をリンクとして拾ってしまうためです（[外部リンクの定期検査](#外部リンクの定期検査)も同じものを除外しています）。
+コマンドは [mise.toml](../mise.toml) の `check:lychee` タスクにあります。`--exclude-path` で vendored の RapiDoc（api/internal/server/ の rapidoc-min.js とその LICENSE）と、それを読み込む docs.html を走査から外しているのは、中身の文字列をリンクとして拾ってしまうためです（[外部リンクの定期検査](#外部リンクの定期検査)も同じものを除外しています）。
 
 **このジョブは外部 URL を検査しません。** `--offline` を外すと相手先の一時的な不調やレート制限で CI が落ち、コードと無関係に赤くなるためです。外部 URL は別ワークフローの定期実行で見ます（[外部リンクの定期検査](#外部リンクの定期検査)）。
 

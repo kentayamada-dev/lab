@@ -432,7 +432,7 @@ func TestRunShutsDownOnContextCancel(t *testing.T) {
 	}
 }
 
-func TestDocsServesSwaggerUI(t *testing.T) {
+func TestDocsServesTheDocsPage(t *testing.T) {
 	srv := newTestServer(t, stubHandler{})
 
 	res := get(t, srv, "/docs")
@@ -443,44 +443,26 @@ func TestDocsServesSwaggerUI(t *testing.T) {
 	if got, want := res.Header.Get("Content-Type"), "text/html; charset=utf-8"; got != want {
 		t.Errorf("Content-Type = %q, want %q", got, want)
 	}
-	if !cmp.Equal(swaggerHTML, readBody(t, res)) {
-		t.Error("body does not match the embedded swagger.html")
+	if !cmp.Equal(docsHTML, readBody(t, res)) {
+		t.Error("body does not match the embedded docs.html")
 	}
 }
 
-func TestDocsServesSwaggerAssets(t *testing.T) {
-	tests := map[string]struct {
-		path        string
-		contentType string
-		body        []byte
-	}{
-		"stylesheet": {
-			path:        "/docs/swagger-ui.css",
-			contentType: "text/css; charset=utf-8",
-			body:        swaggerCSS,
-		},
-		"bundle": {
-			path:        "/docs/swagger-ui-bundle.js",
-			contentType: "text/javascript; charset=utf-8",
-			body:        swaggerJS,
-		},
+// The page loads RapiDoc by this path, so serving it is what keeps /docs
+// working offline.
+func TestDocsServesRapiDoc(t *testing.T) {
+	srv := newTestServer(t, stubHandler{})
+
+	res := get(t, srv, "/docs/rapidoc-min.js")
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
 	}
 
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			srv := newTestServer(t, stubHandler{})
-
-			res := get(t, srv, tt.path)
-			if res.StatusCode != http.StatusOK {
-				t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
-			}
-			if got := res.Header.Get("Content-Type"); got != tt.contentType {
-				t.Errorf("Content-Type = %q, want %q", got, tt.contentType)
-			}
-			if !cmp.Equal(tt.body, readBody(t, res)) {
-				t.Error("body does not match the embedded asset")
-			}
-		})
+	if got, want := res.Header.Get("Content-Type"), "text/javascript; charset=utf-8"; got != want {
+		t.Errorf("Content-Type = %q, want %q", got, want)
+	}
+	if !cmp.Equal(rapidocJS, readBody(t, res)) {
+		t.Error("body does not match the embedded rapidoc-min.js")
 	}
 }
 

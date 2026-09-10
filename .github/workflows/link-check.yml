@@ -45,10 +45,9 @@ jobs:
             --no-progress \
             --mode plain \
             --exclude 'OWNER/REPO' \
-            --exclude-path api/internal/server/swagger-ui-bundle.js \
-            --exclude-path api/internal/server/swagger-ui-bundle.js.LICENSE.txt \
-            --exclude-path api/internal/server/swagger-ui.css \
-            --exclude-path api/internal/server/swagger.html \
+            --exclude-path api/internal/server/rapidoc-min.js \
+            --exclude-path api/internal/server/rapidoc-min.js.LICENSE.txt \
+            --exclude-path api/internal/server/docs.html \
             . 2>&1 | tee "${RUNNER_TEMP}/lychee.log"
 
       # Why this condition: docs/drift-check.md#落ちたときの通知

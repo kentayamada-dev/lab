@@ -136,7 +136,7 @@ make web-install  # web の依存を入れる（初回と、lockfile が変わ�
 api と web のコンテナは待機しているだけで、サーバは自動では起動しません。ターミナルを 2 つ使い、それぞれで起動します（Ctrl-C で止まります）。
 
 ```bash
-make run-api   # http://localhost:${API_PORT} で待ち受け、/docs に Swagger UI
+make run-api   # http://localhost:${API_PORT} で待ち受け、/docs に API ドキュメント
 make run-web   # http://localhost:${WEB_PORT} で待ち受け、/rpc/* を api に転送する（next.config.ts）
 ```
 
@@ -233,7 +233,7 @@ editorconfig-checker と shfmt は、他の検査ツールと同じく本体を 
 
 Makefile と Go はインデントの検査そのものを外しています。make のレシピは tab 必須、Go は gofmt が tab を強制する一方で、どちらも継続行や桁揃えに空白が混ざるためです。Go のインデントは `api` ジョブの `fmt-check`（gofumpt）が見ます。
 
-生成物と vendored のファイル（api/gen/、web/src/gen/、Swagger UI 一式）は editorconfig-checker の検査自体から除外しています（[.editorconfig-checker.json](.editorconfig-checker.json)）。手で書くファイルではなく、生成側・配布側の書式に従うためです。
+生成物と vendored のファイル（api/gen/、web/src/gen/、vendored の RapiDoc）は editorconfig-checker の検査自体から除外しています（[.editorconfig-checker.json](.editorconfig-checker.json)）。手で書くファイルではなく、生成側・配布側の書式に従うためです。
 
 ### issue のテンプレート
 
