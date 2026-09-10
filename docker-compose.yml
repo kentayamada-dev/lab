@@ -95,7 +95,7 @@ services:
   atlas:
     profiles:
       - tools
-    image: arigaio/atlas:1.3.2-community-alpine@sha256:bcba8c47ea8fee2b8922d9914479efe266e33f376d012e61d18a89cb477dbf0e
+    image: arigaio/atlas:1.3.3-community-alpine@sha256:9d3161bf3bf2b0ce6d0f6b63471d0a341e664e87cccec90a12139ea2cba18575
     user: *tool_user
     working_dir: /workspace/db
     environment:

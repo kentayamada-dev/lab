@@ -36,11 +36,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+      - uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-      - uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
+      - uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
         with:
           # Record results separately per language. Without this, a later
           # language overwrites the results of an earlier one.
@@ -286,7 +286,7 @@ jobs:
     permissions:
       contents: read
     container:
-      image: renovate/renovate:44.59.3@sha256:c59046f064f86fbda58c47185aa346f3478e08aeec6bf87888859779c25ab165
+      image: renovate/renovate:44.74.1@sha256:bacd588fd6bdc64c10167a81f17699bf841460a48daa57e4a9a0f8911cf45f9b
       options: --user root
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

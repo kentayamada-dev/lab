@@ -20,7 +20,7 @@ plugins:
   - remote: buf.build/protocolbuffers/go:v1.36.12
     out: api/gen/go
     opt: paths=source_relative
-  - remote: buf.build/connectrpc/go:v1.20.0
+  - remote: buf.build/connectrpc/go:v1.21.0
     out: api/gen/go
     opt: paths=source_relative
   - remote: buf.build/bufbuild/es:v2.14.1
@@ -29,7 +29,7 @@ plugins:
     # The generated TS imports the descriptors of every proto dependency
     # (buf/validate) by a relative path, so those must be generated too.
     include_imports: true
-  - remote: buf.build/community/sudorandom-connect-openapi:v0.25.8
+  - remote: buf.build/community/sudorandom-connect-openapi:v0.26.0
     out: api/gen/openapi
     # One document for the whole API rather than the default of one per proto
     # file, which also spares the empty documents that the files declaring no

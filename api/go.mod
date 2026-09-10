@@ -3,12 +3,12 @@ module example/app
 go 1.26.6
 
 require (
-	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.1
-	connectrpc.com/connect v1.20.0
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.2
+	connectrpc.com/connect v1.21.0
 	connectrpc.com/validate v0.6.0
 	github.com/google/gnostic v0.7.1
 	github.com/google/go-cmp v0.7.0
-	github.com/jackc/pgx/v5 v5.10.0
+	github.com/jackc/pgx/v5 v5.11.0
 	google.golang.org/protobuf v1.36.12
 )
 
@@ -65,7 +65,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/tools v0.8.1 // indirect
-	mvdan.cc/gofumpt v0.11.0 // indirect
+	mvdan.cc/gofumpt v0.12.0 // indirect
 )
 
 tool (

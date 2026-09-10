@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     container:
-      image: renovate/renovate:44.59.3@sha256:c59046f064f86fbda58c47185aa346f3478e08aeec6bf87888859779c25ab165
+      image: renovate/renovate:44.74.1@sha256:bacd588fd6bdc64c10167a81f17699bf841460a48daa57e4a9a0f8911cf45f9b
       # The image's non-root user cannot write the files the runner creates (docs/renovate.md).
       options: --user root
     outputs:
