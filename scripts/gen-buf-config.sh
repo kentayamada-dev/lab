@@ -81,6 +81,11 @@ managed:
     # Same for gnostic, whose annotations todo/v1/openapi.proto carries.
     - file_option: go_package
       module: buf.build/gnostic/gnostic
+    # Same for googleapis, whose google.api.http annotations todo/v1/todo.proto
+    # carries. The Go plugin generates no code for a dependency module, so the
+    # rewritten path would name a package that is never written.
+    - file_option: go_package
+      module: buf.build/googleapis/googleapis
   override:
     - file_option: go_package_prefix
       value: example/app/gen/go

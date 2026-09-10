@@ -2,6 +2,7 @@ syntax = "proto3";
 package todo.v1;
 
 import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
 import "todo/v1/rules.proto";
 
@@ -100,23 +101,37 @@ service TodoService {
   // Creates a new todo item from the given title and returns the stored
   // record. Fails with the invalid_argument code when the title breaks the
   // rules declared on CreateTodoRequest.title.
-  rpc CreateTodo(CreateTodoRequest) returns (CreateTodoResponse);
+  rpc CreateTodo(CreateTodoRequest) returns (CreateTodoResponse) {
+    option (google.api.http) = {
+      post: "/v1/todos"
+      body: "*"
+    };
+  }
 
   // Returns one page of todo items ordered by id. The response carries a
   // next_page_token whenever a further page exists; passing it back walks the
   // rest. Fails with the invalid_argument code when page_size is outside its
   // range or page_token was not taken from a previous response.
-  rpc ListTodos(ListTodosRequest) returns (ListTodosResponse);
+  rpc ListTodos(ListTodosRequest) returns (ListTodosResponse) {
+    option (google.api.http) = {get: "/v1/todos"};
+  }
 
   // Updates the todo identified by id and returns the updated record: done and
   // title are each applied only when present. Fails with the not_found code
   // when no todo has that id, and with the invalid_argument code when id is
   // not positive, the request carries neither field, or the title breaks its
   // rules.
-  rpc UpdateTodo(UpdateTodoRequest) returns (UpdateTodoResponse);
+  rpc UpdateTodo(UpdateTodoRequest) returns (UpdateTodoResponse) {
+    option (google.api.http) = {
+      patch: "/v1/todos/{id}"
+      body: "*"
+    };
+  }
 
   // Deletes the todo identified by id. Fails with the not_found code when no
   // todo has that id, and with the invalid_argument code when id is not
   // positive.
-  rpc DeleteTodo(DeleteTodoRequest) returns (DeleteTodoResponse);
+  rpc DeleteTodo(DeleteTodoRequest) returns (DeleteTodoResponse) {
+    option (google.api.http) = {delete: "/v1/todos/{id}"};
+  }
 }

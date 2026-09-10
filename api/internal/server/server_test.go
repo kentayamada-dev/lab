@@ -11,6 +11,8 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	"example/app/gen"
 	todov1 "example/app/gen/go/todo/v1"
@@ -41,10 +43,65 @@ func (panicHandler) ListTodos(
 	panic("handler exploded")
 }
 
+// recorder keeps the request the called method received, so a test can assert
+// how a REST route mapped the path, the query string and the body onto it.
+type recorder struct {
+	todov1connect.UnimplementedTodoServiceHandler
+
+	got proto.Message
+}
+
+func (r *recorder) CreateTodo(
+	_ context.Context,
+	req *connect.Request[todov1.CreateTodoRequest],
+) (*connect.Response[todov1.CreateTodoResponse], error) {
+	r.got = req.Msg
+
+	return connect.NewResponse(&todov1.CreateTodoResponse{}), nil
+}
+
+func (r *recorder) ListTodos(
+	_ context.Context,
+	req *connect.Request[todov1.ListTodosRequest],
+) (*connect.Response[todov1.ListTodosResponse], error) {
+	r.got = req.Msg
+
+	return connect.NewResponse(&todov1.ListTodosResponse{}), nil
+}
+
+func (r *recorder) UpdateTodo(
+	_ context.Context,
+	req *connect.Request[todov1.UpdateTodoRequest],
+) (*connect.Response[todov1.UpdateTodoResponse], error) {
+	r.got = req.Msg
+
+	return connect.NewResponse(&todov1.UpdateTodoResponse{}), nil
+}
+
+func (r *recorder) DeleteTodo(
+	_ context.Context,
+	req *connect.Request[todov1.DeleteTodoRequest],
+) (*connect.Response[todov1.DeleteTodoResponse], error) {
+	r.got = req.Msg
+
+	return connect.NewResponse(&todov1.DeleteTodoResponse{}), nil
+}
+
+func newServer(t *testing.T, addr string, handler todov1connect.TodoServiceHandler) *Server {
+	t.Helper()
+
+	srv, err := New(addr, handler)
+	if err != nil {
+		t.Fatalf("New() error = %v, want nil", err)
+	}
+
+	return srv
+}
+
 func newTestServer(t *testing.T, handler todov1connect.TodoServiceHandler) *httptest.Server {
 	t.Helper()
 
-	srv := httptest.NewServer(New(":0", handler).httpServer.Handler)
+	srv := httptest.NewServer(newServer(t, ":0", handler).httpServer.Handler)
 	t.Cleanup(srv.Close)
 
 	return srv
@@ -65,6 +122,71 @@ func TestNewServesTodoService(t *testing.T) {
 
 	if diff := cmp.Diff("buy milk", res.Msg.GetTodo().GetTitle()); diff != "" {
 		t.Errorf("CreateTodo() todo title (-want +got):\n%s", diff)
+	}
+}
+
+// The REST routes come from the google.api.http annotations in todo.proto, and
+// the transcoder has to map each one back onto the request message: the body
+// for a create, the query string for a list, the path for an id. A route moved
+// outside restPrefix stops reaching the transcoder and fails here.
+func TestNewServesTheAnnotatedRESTRoutes(t *testing.T) {
+	tests := map[string]struct {
+		method string
+		path   string
+		body   string
+		want   proto.Message
+	}{
+		"create takes the title from the body": {
+			method: http.MethodPost,
+			path:   "/v1/todos",
+			body:   `{"title":"buy milk"}`,
+			want:   &todov1.CreateTodoRequest{Title: "buy milk"},
+		},
+		"list takes the page from the query string": {
+			method: http.MethodGet,
+			path:   "/v1/todos?pageSize=5&pageToken=42",
+			want:   &todov1.ListTodosRequest{PageSize: 5, PageToken: "42"},
+		},
+		"update takes the id from the path and the fields from the body": {
+			method: http.MethodPatch,
+			path:   "/v1/todos/7",
+			body:   `{"done":true}`,
+			want:   &todov1.UpdateTodoRequest{Id: 7, Done: proto.Bool(true)},
+		},
+		"delete takes the id from the path": {
+			method: http.MethodDelete,
+			path:   "/v1/todos/9",
+			want:   &todov1.DeleteTodoRequest{Id: 9},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			handler := &recorder{}
+			srv := newTestServer(t, handler)
+
+			req, err := http.NewRequestWithContext(
+				t.Context(), tt.method, srv.URL+tt.path, strings.NewReader(tt.body),
+			)
+			if err != nil {
+				t.Fatalf("building the request: %v", err)
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			res, err := srv.Client().Do(req)
+			if err != nil {
+				t.Fatalf("%s %s: %v", tt.method, tt.path, err)
+			}
+			t.Cleanup(func() { res.Body.Close() })
+
+			if res.StatusCode != http.StatusOK {
+				t.Fatalf("status = %d, want %d, body: %s",
+					res.StatusCode, http.StatusOK, readBody(t, res))
+			}
+			if diff := cmp.Diff(tt.want, handler.got, protocmp.Transform()); diff != "" {
+				t.Errorf("request the handler received (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 
@@ -290,7 +412,7 @@ func TestNewUnknownPath(t *testing.T) {
 }
 
 func TestRunInvalidAddress(t *testing.T) {
-	if err := New("not-an-address", stubHandler{}).Run(t.Context()); err == nil {
+	if err := newServer(t, "not-an-address", stubHandler{}).Run(t.Context()); err == nil {
 		t.Error("Run() error = nil, want non-nil")
 	}
 }
@@ -299,7 +421,9 @@ func TestRunShutsDownOnContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 
 	errCh := make(chan error, 1)
-	go func() { errCh <- New("127.0.0.1:0", stubHandler{}).Run(ctx) }()
+	srv := newServer(t, "127.0.0.1:0", stubHandler{})
+
+	go func() { errCh <- srv.Run(ctx) }()
 
 	cancel()
 

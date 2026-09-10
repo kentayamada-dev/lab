@@ -3,86 +3,8 @@ info:
   title: Todo API
   version: v1
 paths:
-  /todo.v1.TodoService/CreateTodo:
-    post:
-      tags:
-        - todo.v1.TodoService
-      summary: CreateTodo
-      description: |-
-        Creates a new todo item from the given title and returns the stored
-         record. Fails with the invalid_argument code when the title breaks the
-         rules declared on CreateTodoRequest.title.
-      operationId: todo.v1.TodoService.CreateTodo
-      parameters:
-        - name: Connect-Protocol-Version
-          in: header
-          required: true
-          schema:
-            $ref: '#/components/schemas/connect-protocol-version'
-        - name: Connect-Timeout-Ms
-          in: header
-          schema:
-            $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/todo.v1.CreateTodoRequest'
-        required: true
-      responses:
-        default:
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/connect.error'
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/todo.v1.CreateTodoResponse'
-  /todo.v1.TodoService/DeleteTodo:
-    post:
-      tags:
-        - todo.v1.TodoService
-      summary: DeleteTodo
-      description: |-
-        Deletes the todo identified by id. Fails with the not_found code when no
-         todo has that id, and with the invalid_argument code when id is not
-         positive.
-      operationId: todo.v1.TodoService.DeleteTodo
-      parameters:
-        - name: Connect-Protocol-Version
-          in: header
-          required: true
-          schema:
-            $ref: '#/components/schemas/connect-protocol-version'
-        - name: Connect-Timeout-Ms
-          in: header
-          schema:
-            $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/todo.v1.DeleteTodoRequest'
-        required: true
-      responses:
-        default:
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/connect.error'
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/todo.v1.DeleteTodoResponse'
-  /todo.v1.TodoService/ListTodos:
-    post:
+  /v1/todos:
+    get:
       tags:
         - todo.v1.TodoService
       summary: ListTodos
@@ -93,36 +15,87 @@ paths:
          range or page_token was not taken from a previous response.
       operationId: todo.v1.TodoService.ListTodos
       parameters:
-        - name: Connect-Protocol-Version
-          in: header
-          required: true
+        - name: pageSize
+          in: query
+          description: |-
+            How many todos to return at most. Zero asks for the server's default of
+             50.
           schema:
-            $ref: '#/components/schemas/connect-protocol-version'
-        - name: Connect-Timeout-Ms
-          in: header
+            type: integer
+            title: page_size
+            maximum: 100
+            minimum: 0
+            format: int32
+        - name: pageToken
+          in: query
+          description: |
+            Opaque token taken from the previous response's next_page_token. Empty
+             starts at the first page. Clients must not build one themselves.
+            page_token.format // page_token is not a valid token
           schema:
-            $ref: '#/components/schemas/connect-timeout-header'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/todo.v1.ListTodosRequest'
-        required: true
+            type: string
+            title: page_token
       responses:
-        default:
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/connect.error'
         "200":
           description: Success
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/todo.v1.ListTodosResponse'
-  /todo.v1.TodoService/UpdateTodo:
     post:
+      tags:
+        - todo.v1.TodoService
+      summary: CreateTodo
+      description: |-
+        Creates a new todo item from the given title and returns the stored
+         record. Fails with the invalid_argument code when the title breaks the
+         rules declared on CreateTodoRequest.title.
+      operationId: todo.v1.TodoService.CreateTodo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/todo.v1.CreateTodoRequest'
+        required: true
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/todo.v1.CreateTodoResponse'
+  /v1/todos/{id}:
+    delete:
+      tags:
+        - todo.v1.TodoService
+      summary: DeleteTodo
+      description: |-
+        Deletes the todo identified by id. Fails with the not_found code when no
+         todo has that id, and with the invalid_argument code when id is not
+         positive.
+      operationId: todo.v1.TodoService.DeleteTodo
+      parameters:
+        - name: id
+          in: path
+          description: |-
+            Identifier of the todo to delete. Ids are assigned from 1 up, so a
+             smaller value cannot identify a todo.
+          required: true
+          schema:
+            exclusiveMinimum: 0
+            type:
+              - integer
+              - string
+            title: id
+            format: int64
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/todo.v1.DeleteTodoResponse'
+    patch:
       tags:
         - todo.v1.TodoService
       summary: UpdateTodo
@@ -134,28 +107,48 @@ paths:
          rules.
       operationId: todo.v1.TodoService.UpdateTodo
       parameters:
-        - name: Connect-Protocol-Version
-          in: header
+        - name: id
+          in: path
+          description: |-
+            Identifier of the todo to update. Ids are assigned from 1 up, so a
+             smaller value cannot identify a todo.
           required: true
           schema:
-            $ref: '#/components/schemas/connect-protocol-version'
-        - name: Connect-Timeout-Ms
-          in: header
-          schema:
-            $ref: '#/components/schemas/connect-timeout-header'
+            exclusiveMinimum: 0
+            type:
+              - integer
+              - string
+            title: id
+            format: int64
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/todo.v1.UpdateTodoRequest'
+              type: object
+              properties:
+                done:
+                  type:
+                    - boolean
+                    - "null"
+                  title: done
+                  description: Desired completion state. Left unchanged when absent.
+                title:
+                  type:
+                    - string
+                    - "null"
+                  title: title
+                  description: |
+                    New title for the todo. Left unchanged when absent. Trimmed and validated
+                     the same way as CreateTodoRequest.title.
+                    title.max_len = true // title must be at most 1000 characters
+                    title.not_blank = true // title must not be blank
+              title: UpdateTodoRequest
+              additionalProperties: false
+              description: |
+                Request to update an existing todo.
+                update.no_fields // at least one of done or title must be present
         required: true
       responses:
-        default:
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/connect.error'
         "200":
           description: Success
           content:
@@ -164,75 +157,6 @@ paths:
                 $ref: '#/components/schemas/todo.v1.UpdateTodoResponse'
 components:
   schemas:
-    connect-protocol-version:
-      type: number
-      title: Connect-Protocol-Version
-      enum:
-        - 1
-      description: Define the version of the Connect protocol
-      const: 1
-    connect-timeout-header:
-      type: number
-      title: Connect-Timeout-Ms
-      description: Define the timeout, in ms
-    connect.error:
-      type: object
-      properties:
-        code:
-          type: string
-          examples:
-            - not_found
-          enum:
-            - canceled
-            - unknown
-            - invalid_argument
-            - deadline_exceeded
-            - not_found
-            - already_exists
-            - permission_denied
-            - resource_exhausted
-            - failed_precondition
-            - aborted
-            - out_of_range
-            - unimplemented
-            - internal
-            - unavailable
-            - data_loss
-            - unauthenticated
-          description: The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].
-        message:
-          type: string
-          description: A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client.
-        details:
-          type: array
-          items:
-            $ref: '#/components/schemas/connect.error_details.Any'
-          description: A list of messages that carry the error details. There is no limit on the number of messages.
-      title: Connect Error
-      additionalProperties: true
-      description: 'Error type returned by Connect: https://connectrpc.com/docs/go/errors/#http-representation'
-    connect.error_details.Any:
-      type: object
-      properties:
-        type:
-          type: string
-          description: 'A URL that acts as a globally unique identifier for the type of the serialized message. For example: `type.googleapis.com/google.rpc.ErrorInfo`. This is used to determine the schema of the data in the `value` field and is the discriminator for the `debug` field.'
-        value:
-          type: string
-          format: binary
-          description: The Protobuf message, serialized as bytes and base64-encoded. The specific message type is identified by the `type` field.
-        debug:
-          oneOf:
-            - type: object
-              title: Any
-              additionalProperties: true
-              description: Detailed error information.
-          discriminator:
-            propertyName: type
-          title: Debug
-          description: Deserialized error detail payload. The 'type' field indicates the schema. This field is for easier debugging and should not be relied upon for application logic.
-      additionalProperties: true
-      description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message, with an additional debug field for ConnectRPC error details.
     google.protobuf.Timestamp:
       type: string
       examples:

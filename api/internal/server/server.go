@@ -11,6 +11,7 @@ import (
 
 	"connectrpc.com/connect"
 	"connectrpc.com/validate"
+	"connectrpc.com/vanguard"
 
 	"example/app/gen/go/todo/v1/todov1connect"
 )
@@ -22,6 +23,13 @@ const (
 	idleTimeout       = 2 * time.Minute
 	shutdownTimeout   = 10 * time.Second
 )
+
+// restPrefix is the path prefix of the google.api.http annotations in
+// todo.proto. The transcoder is mounted on it, rather than on "/", so that an
+// unknown path stays a 404 from the mux and a non-GET request to a doc route
+// stays a 405. An annotation moved outside the prefix fails the tests that call
+// the REST routes.
+const restPrefix = "/v1/"
 
 // readMaxBytes caps a decoded request message. The proto rules are checked
 // after decoding, so without this the title limit would not bound the memory a
@@ -42,19 +50,30 @@ func recoverPanic(_ context.Context, spec connect.Spec, _ http.Header, cause any
 	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
 }
 
-func New(addr string, todoService todov1connect.TodoServiceHandler) *Server {
+// New builds the routes. It fails when the transcoder rejects the service,
+// which means the HTTP transcoding annotations in the proto are unusable.
+func New(addr string, todoService todov1connect.TodoServiceHandler) (*Server, error) {
 	// Enforces the buf.validate rules declared in the proto.
 	validator := validate.NewInterceptor()
 
-	mux := http.NewServeMux()
+	// The transcoder wraps the Connect handler so the RPCs are reachable over
+	// the plain REST routes the google.api.http annotations declare, on top of
+	// the Connect procedures the generated clients call.
+	transcoder, err := vanguard.NewTranscoder([]*vanguard.Service{
+		vanguard.NewService(todov1connect.NewTodoServiceHandler(
+			todoService,
+			connect.WithInterceptors(validator),
+			connect.WithReadMaxBytes(readMaxBytes),
+			connect.WithRecover(recoverPanic),
+		)),
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	path, handler := todov1connect.NewTodoServiceHandler(
-		todoService,
-		connect.WithInterceptors(validator),
-		connect.WithReadMaxBytes(readMaxBytes),
-		connect.WithRecover(recoverPanic),
-	)
-	mux.Handle(path, handler)
+	mux := http.NewServeMux()
+	mux.Handle("/"+todov1connect.TodoServiceName+"/", transcoder)
+	mux.Handle(restPrefix, transcoder)
 
 	registerDocs(mux)
 
@@ -67,7 +86,7 @@ func New(addr string, todoService todov1connect.TodoServiceHandler) *Server {
 			WriteTimeout:      writeTimeout,
 			IdleTimeout:       idleTimeout,
 		},
-	}
+	}, nil
 }
 
 // Run serves until ctx is cancelled, then shuts down gracefully.

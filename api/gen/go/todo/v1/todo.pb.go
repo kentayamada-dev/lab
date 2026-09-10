@@ -8,6 +8,7 @@ package todov1
 
 import (
 	_ "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -501,7 +502,7 @@ var File_todo_v1_todo_proto protoreflect.FileDescriptor
 
 const file_todo_v1_todo_proto_rawDesc = "" +
 	"\n" +
-	"\x12todo/v1/todo.proto\x12\atodo.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13todo/v1/rules.proto\"{\n" +
+	"\x12todo/v1/todo.proto\x12\atodo.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x13todo/v1/rules.proto\"{\n" +
 	"\x04Todo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x12\n" +
@@ -531,15 +532,15 @@ const file_todo_v1_todo_proto_rawDesc = "" +
 	"\x04todo\x18\x01 \x01(\v2\r.todo.v1.TodoR\x04todo\",\n" +
 	"\x11DeleteTodoRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\x03B\a\xbaH\x04\"\x02 \x00R\x02id\"\x14\n" +
-	"\x12DeleteTodoResponse2\xa6\x02\n" +
-	"\vTodoService\x12E\n" +
+	"\x12DeleteTodoResponse2\x82\x03\n" +
+	"\vTodoService\x12[\n" +
 	"\n" +
-	"CreateTodo\x12\x1a.todo.v1.CreateTodoRequest\x1a\x1b.todo.v1.CreateTodoResponse\x12B\n" +
-	"\tListTodos\x12\x19.todo.v1.ListTodosRequest\x1a\x1a.todo.v1.ListTodosResponse\x12E\n" +
+	"CreateTodo\x12\x1a.todo.v1.CreateTodoRequest\x1a\x1b.todo.v1.CreateTodoResponse\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/todos\x12U\n" +
+	"\tListTodos\x12\x19.todo.v1.ListTodosRequest\x1a\x1a.todo.v1.ListTodosResponse\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/todos\x12`\n" +
 	"\n" +
-	"UpdateTodo\x12\x1a.todo.v1.UpdateTodoRequest\x1a\x1b.todo.v1.UpdateTodoResponse\x12E\n" +
+	"UpdateTodo\x12\x1a.todo.v1.UpdateTodoRequest\x1a\x1b.todo.v1.UpdateTodoResponse\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*2\x0e/v1/todos/{id}\x12]\n" +
 	"\n" +
-	"DeleteTodo\x12\x1a.todo.v1.DeleteTodoRequest\x1a\x1b.todo.v1.DeleteTodoResponseBx\n" +
+	"DeleteTodo\x12\x1a.todo.v1.DeleteTodoRequest\x1a\x1b.todo.v1.DeleteTodoResponse\"\x16\x82\xd3\xe4\x93\x02\x10*\x0e/v1/todos/{id}Bx\n" +
 	"\vcom.todo.v1B\tTodoProtoP\x01Z!example/app/gen/go/todo/v1;todov1\xa2\x02\x03TXX\xaa\x02\aTodo.V1\xca\x02\aTodo\\V1\xe2\x02\x13Todo\\V1\\GPBMetadata\xea\x02\bTodo::V1b\x06proto3"
 
 var (

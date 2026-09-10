@@ -41,5 +41,10 @@ func run() error {
 	}
 	log.Println("connected to database")
 
-	return server.New(cfg.Addr, todo.NewService(db.New(pool))).Run(ctx)
+	srv, err := server.New(cfg.Addr, todo.NewService(db.New(pool)))
+	if err != nil {
+		return err
+	}
+
+	return srv.Run(ctx)
 }
