@@ -146,7 +146,7 @@ db_gui は [CloudBeaver](https://dbeaver.com/docs/cloudbeaver/) で、アプリ�
 
 コンテナ内のユーザーは `USER_UID` / `USER_GID`（既定 1000）で作られます。ホストの `id -u` / `id -g` と違うと、依存キャッシュのボリュームや bind mount したチェックアウトの所有者がずれ、`make run-api` や `make run-web` が権限エラーで落ちることがあります。.env に 2 つを足して `make rebuild` してください（CI も runner の uid / gid に合わせています）。
 
-VS Code で編集するなら、`make code-api` / `make code-web` で同じコンテナに devcontainer として接続できます。devcontainer を開かずに api / web の Makefile のターゲットを 1 つ実行するには `make api-<target>` / `make web-<target>` を使います（`make api-test` など）。止めるのは `make down`、DB のデータも含めて消すのは `make clean` です。残りのターゲットは `make help` にあります。
+VS Code で編集するなら、`make code-api` / `make code-web` で同じコンテナに devcontainer として接続できます（この 2 つだけは docker に加えて [vscli](https://github.com/michidk/vscli) が要ります）。devcontainer を開かずに api / web の Makefile のターゲットを 1 つ実行するには `make api-<target>` / `make web-<target>` を使います（`make api-test` など）。止めるのは `make down`、DB のデータも含めて消すのは `make clean` です。残りのターゲットは `make help` にあります。
 
 ## 開発フロー
 
