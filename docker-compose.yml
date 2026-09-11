@@ -30,9 +30,22 @@ services:
     environment:
       PORT: "${API_PORT:?}"
       DB_URL: *app_db_url
+      # Signs the bearer tokens (api/internal/auth/token.go). A development
+      # value, like the db_gui credentials below: a deployment supplies its own
+      # and keeps it out of the repository.
+      TOKEN_SECRET: "local-development-token-secret-32"
+      # Off because local development is served over plain http, which a
+      # cookie carrying this attribute is withheld from
+      # (api/internal/auth/cookie.go). The api defaults it to on, which is
+      # what a deployment serving https gets without setting anything.
+      COOKIE_SECURE: "false"
       # The docs service serves the Swagger UI page from its own port, so the
       # requests that page sends are cross-origin (api/internal/server/cors.go).
       CORS_ORIGINS: "http://localhost:${DOCS_PORT:?}"
+      # Where the traces and metrics go (api/internal/telemetry). Unset means
+      # nothing collects them and the SDK stays a no-op, which is what running
+      # without the otel service gets you.
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel:4317"
     volumes:
       - .:/workspace
       - "${GO_MOD_CACHE:-go_mod_cache}:/go/pkg/mod"
@@ -78,6 +91,16 @@ services:
       # (api/internal/server/openapi.go), and the servers entry it carries
       # points "Try it out" back at the api (proto/todo/v1/openapi.proto).
       SWAGGER_JSON_URL: "http://localhost:${API_PORT:?}/openapi.yaml"
+
+  otel:
+    hostname: otel
+    container_name: otel
+    image: otel/opentelemetry-collector:0.160.0@sha256:e495787f07dbe432ce763ebaf5bc3d113850e9eee2250ade7a3da6a882d0d69a
+    command: [ "--config=/etc/otel/config.yaml" ]
+    # Reached only from inside the network, by the api, so no port is published;
+    # what it collects is read with 'make logs-otel'.
+    volumes:
+      - ./.devcontainer/otel-container/config.yaml:/etc/otel/config.yaml:ro
 
   buf:
     profiles:

@@ -25,11 +25,19 @@ var File_todo_v1_openapi_proto protoreflect.FileDescriptor
 
 const file_todo_v1_openapi_proto_rawDesc = "" +
 	"\n" +
-	"\x15todo/v1/openapi.proto\x12\atodo.v1\x1a$gnostic/openapi/v3/annotations.protoB\xbb\x01\xbaG=\x12\x0e\n" +
+	"\x15todo/v1/openapi.proto\x12\atodo.v1\x1a$gnostic/openapi/v3/annotations.protoB\xaa\x02\xbaG\xab\x01\x12\x0e\n" +
 	"\bTodo API2\x02v1\x1a+\n" +
 	"\x17http://localhost:{port}\x1a\x10\n" +
 	"\x0e\n" +
-	"\x04port\x12\x06\x12\x048080\n" +
+	"\x04port\x12\x06\x12\x048080*Z:X\n" +
+	"V\n" +
+	"\n" +
+	"bearerAuth\x12H\n" +
+	"F\n" +
+	"\x04http\x121Token issued by AuthService (auth/v1/auth.proto).*\x06bearer2\x03JWT2\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"bearerAuth\x12\x00\n" +
 	"\vcom.todo.v1B\fOpenapiProtoP\x01Z!example/app/gen/go/todo/v1;todov1\xa2\x02\x03TXX\xaa\x02\aTodo.V1\xca\x02\aTodo\\V1\xe2\x02\x13Todo\\V1\\GPBMetadata\xea\x02\bTodo::V1b\x06proto3"
 
 var file_todo_v1_openapi_proto_goTypes = []any{}

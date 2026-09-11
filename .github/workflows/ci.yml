@@ -378,8 +378,6 @@ jobs:
           # Pre-create the mount sources: docker would create a missing one
           # owned by root, and the container user could not write to it.
           mkdir -p "$GO_MOD_CACHE" "$GO_BUILD_CACHE"
-          # Migrations first (docs/ci-jobs.md).
-          make db-migrate
           make api-check
       # Save only on push (docs/ci-jobs.md).
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

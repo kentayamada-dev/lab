@@ -14,9 +14,15 @@ import (
 const maxPort = 65535
 
 type Config struct {
-	DBURL       string
-	Addr        string
-	CORSOrigins []string
+	DBURL string
+	Addr  string
+	// TokenSecret signs the bearer tokens. How short a secret is too short is
+	// settled by auth.NewIssuer, which is what uses it.
+	TokenSecret string
+	// SecureCookies withholds the session cookie from plain http
+	// (api/internal/auth/cookie.go).
+	SecureCookies bool
+	CORSOrigins   []string
 }
 
 func Load() (Config, error) {
@@ -35,6 +41,20 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("PORT must be a number between 1 and %d, got %q", maxPort, port)
 	}
 
+	tokenSecret := os.Getenv("TOKEN_SECRET")
+	if tokenSecret == "" {
+		return Config{}, errors.New("TOKEN_SECRET is not set")
+	}
+
+	// On unless something says otherwise: a session cookie offered over plain
+	// http is one a network can read, and forgetting the setting should not be
+	// what makes that happen. Local development is the one place that needs it
+	// off, and docker-compose.yml says so explicitly.
+	secureCookies, err := parseBool("COOKIE_SECURE", os.Getenv("COOKIE_SECURE"), true)
+	if err != nil {
+		return Config{}, err
+	}
+
 	// Which browser origins may call the API from a page they serve
 	// (api/internal/server/cors.go). Locally this is the docs container, which
 	// serves the Swagger UI page from another port; unset means the API answers
@@ -45,10 +65,28 @@ func Load() (Config, error) {
 	}
 
 	return Config{
-		DBURL:       dbURL,
-		Addr:        ":" + port,
-		CORSOrigins: corsOrigins,
+		DBURL:         dbURL,
+		Addr:          ":" + port,
+		TokenSecret:   tokenSecret,
+		SecureCookies: secureCookies,
+		CORSOrigins:   corsOrigins,
 	}, nil
+}
+
+// parseBool reads an optional flag. A value it cannot read is an error rather
+// than a silent fallback, which would leave a misspelling looking like a
+// deliberate setting.
+func parseBool(name, value string, fallback bool) (bool, error) {
+	if value == "" {
+		return fallback, nil
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, fmt.Errorf("%s must be a boolean, got %q", name, value)
+	}
+
+	return parsed, nil
 }
 
 // parseOrigins splits a comma separated list of browser origins. A malformed

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -16,6 +15,8 @@ import (
 
 	"example/app/gen/db"
 	todov1 "example/app/gen/go/todo/v1"
+	"example/app/internal/auth"
+	"example/app/internal/rpcerr"
 )
 
 const (
@@ -30,10 +31,10 @@ const (
 )
 
 type Querier interface {
-	CreateTodo(ctx context.Context, title string) (db.Todo, error)
+	CreateTodo(ctx context.Context, arg db.CreateTodoParams) (db.Todo, error)
 	ListTodos(ctx context.Context, arg db.ListTodosParams) ([]db.Todo, error)
 	UpdateTodo(ctx context.Context, arg db.UpdateTodoParams) (db.Todo, error)
-	DeleteTodo(ctx context.Context, id int64) (int64, error)
+	DeleteTodo(ctx context.Context, arg db.DeleteTodoParams) (int64, error)
 }
 
 type Service struct {
@@ -44,12 +45,17 @@ func NewService(queries Querier) *Service {
 	return &Service{queries: queries}
 }
 
-// internalError logs the cause and returns a generic error, keeping details
-// such as database messages out of the response.
-func internalError(op string, err error) *connect.Error {
-	log.Printf("%s: %v", op, err)
+// requestUserID returns the account the authentication interceptor
+// (api/internal/server/auth.go) resolved. Reaching a handler without one is a
+// wiring mistake rather than something a client can arrange, and the safe
+// answer to it is the same as to a missing token.
+func requestUserID(ctx context.Context) (int64, error) {
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return 0, rpcerr.Unauthenticated()
+	}
 
-	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
+	return userID, nil
 }
 
 // validTitle trims the raw title and rejects a blank or overlong result. The
@@ -97,14 +103,16 @@ func resolvePageSize(requested int32) (int32, error) {
 
 // decodePageToken reads the id the previous page ended on. The token is opaque
 // to clients, so anything the service did not hand out is rejected instead of
-// being read as a request for the first page.
+// being read as a request for the first page. ParseInt alone would also read
+// "+7" and "007" as 7, which the proto rule rejects, so the first byte is
+// checked separately to keep both sides accepting exactly the same tokens.
 func decodePageToken(token string) (int64, error) {
 	if token == "" {
 		return 0, nil
 	}
 
 	after, err := strconv.ParseInt(token, 10, 64)
-	if err != nil || after < 1 {
+	if err != nil || token[0] < '1' || token[0] > '9' {
 		return 0, connect.NewError(
 			connect.CodeInvalidArgument,
 			errors.New("page_token is not a valid token"),
@@ -132,14 +140,18 @@ func (s *Service) CreateTodo(
 	ctx context.Context,
 	req *connect.Request[todov1.CreateTodoRequest],
 ) (*connect.Response[todov1.CreateTodoResponse], error) {
+	userID, err := requestUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
 	title, err := validTitle(req.Msg.Title)
 	if err != nil {
 		return nil, err
 	}
 
-	t, err := s.queries.CreateTodo(ctx, title)
+	t, err := s.queries.CreateTodo(ctx, db.CreateTodoParams{UserID: userID, Title: title})
 	if err != nil {
-		return nil, internalError("creating todo", err)
+		return nil, rpcerr.Internal(ctx, "creating todo", err)
 	}
 
 	return connect.NewResponse(&todov1.CreateTodoResponse{Todo: toProtoTodo(t)}), nil
@@ -149,6 +161,10 @@ func (s *Service) ListTodos(
 	ctx context.Context,
 	req *connect.Request[todov1.ListTodosRequest],
 ) (*connect.Response[todov1.ListTodosResponse], error) {
+	userID, err := requestUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
 	size, err := resolvePageSize(req.Msg.GetPageSize())
 	if err != nil {
 		return nil, err
@@ -161,11 +177,12 @@ func (s *Service) ListTodos(
 	// Asking for one row beyond the page answers "is there a next page?"
 	// without a second query. The extra row is dropped below.
 	rows, err := s.queries.ListTodos(ctx, db.ListTodosParams{
+		UserID:   userID,
 		AfterID:  after,
 		PageSize: int64(size) + 1,
 	})
 	if err != nil {
-		return nil, internalError("listing todos", err)
+		return nil, rpcerr.Internal(ctx, "listing todos", err)
 	}
 
 	var nextPageToken string
@@ -189,6 +206,10 @@ func (s *Service) UpdateTodo(
 	ctx context.Context,
 	req *connect.Request[todov1.UpdateTodoRequest],
 ) (*connect.Response[todov1.UpdateTodoResponse], error) {
+	userID, err := requestUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if err := validID(req.Msg.Id); err != nil {
 		return nil, err
 	}
@@ -203,7 +224,7 @@ func (s *Service) UpdateTodo(
 		)
 	}
 
-	params := db.UpdateTodoParams{ID: req.Msg.Id}
+	params := db.UpdateTodoParams{ID: req.Msg.Id, UserID: userID}
 	if req.Msg.Done != nil {
 		params.Completed = pgtype.Bool{Bool: req.Msg.GetDone(), Valid: true}
 	}
@@ -223,7 +244,7 @@ func (s *Service) UpdateTodo(
 		)
 	}
 	if err != nil {
-		return nil, internalError("updating todo", err)
+		return nil, rpcerr.Internal(ctx, "updating todo", err)
 	}
 
 	return connect.NewResponse(&todov1.UpdateTodoResponse{Todo: toProtoTodo(t)}), nil
@@ -233,13 +254,17 @@ func (s *Service) DeleteTodo(
 	ctx context.Context,
 	req *connect.Request[todov1.DeleteTodoRequest],
 ) (*connect.Response[todov1.DeleteTodoResponse], error) {
+	userID, err := requestUserID(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if err := validID(req.Msg.Id); err != nil {
 		return nil, err
 	}
 
-	deleted, err := s.queries.DeleteTodo(ctx, req.Msg.Id)
+	deleted, err := s.queries.DeleteTodo(ctx, db.DeleteTodoParams{ID: req.Msg.Id, UserID: userID})
 	if err != nil {
-		return nil, internalError("deleting todo", err)
+		return nil, rpcerr.Internal(ctx, "deleting todo", err)
 	}
 	if deleted == 0 {
 		return nil, connect.NewError(

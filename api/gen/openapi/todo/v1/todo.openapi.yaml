@@ -8,6 +8,126 @@ servers:
       port:
         default: "8080"
 paths:
+  /auth.v1.AuthService/LogIn:
+    post:
+      tags:
+        - auth.v1.AuthService
+      summary: LogIn
+      description: |-
+        Returns a token for an existing account. Fails with the unauthenticated
+         code when the address is unknown or the password does not match: the two
+         are answered identically, so the API does not say which addresses have an
+         account.
+      operationId: auth.v1.AuthService.LogIn
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/auth.v1.LogInRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/auth.v1.LogInResponse'
+  /auth.v1.AuthService/LogOut:
+    post:
+      tags:
+        - auth.v1.AuthService
+      summary: LogOut
+      description: |-
+        Expires the session cookie. A script cannot delete an HttpOnly cookie, so
+         logging out of the browser app is something only the server can do. The
+         token itself keeps working until it expires, which is what a client
+         holding one in the Authorization header relies on.
+      operationId: auth.v1.AuthService.LogOut
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/auth.v1.LogOutRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/auth.v1.LogOutResponse'
+  /auth.v1.AuthService/SignUp:
+    post:
+      tags:
+        - auth.v1.AuthService
+      summary: SignUp
+      description: |-
+        Creates an account and returns a token for it. Fails with the
+         already_exists code when the address is taken, and with the
+         invalid_argument code when the credentials break the rules declared on
+         SignUpRequest.
+      operationId: auth.v1.AuthService.SignUp
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/auth.v1.SignUpRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/auth.v1.SignUpResponse'
   /todo.v1.TodoService/CreateTodo:
     post:
       tags:
@@ -53,9 +173,9 @@ paths:
         - todo.v1.TodoService
       summary: DeleteTodo
       description: |-
-        Deletes the todo identified by id. Fails with the not_found code when no
-         todo has that id, and with the invalid_argument code when id is not
-         positive.
+        Deletes the todo identified by id. Fails with the not_found code when the
+         account has no todo with that id, and with the invalid_argument code when
+         id is not positive.
       operationId: todo.v1.TodoService.DeleteTodo
       parameters:
         - name: Connect-Protocol-Version
@@ -92,9 +212,9 @@ paths:
         - todo.v1.TodoService
       summary: ListTodos
       description: |-
-        Returns one page of todo items ordered by id. The response carries a
-         next_page_token whenever a further page exists; passing it back walks the
-         rest. Fails with the invalid_argument code when page_size is outside its
+        Returns one page of the account's todo items ordered by id. The response
+         carries a next_page_token whenever a further page exists; passing it back
+         walks the rest. Fails with the invalid_argument code when page_size is outside its
          range or page_token was not taken from a previous response.
       operationId: todo.v1.TodoService.ListTodos
       parameters:
@@ -134,9 +254,9 @@ paths:
       description: |-
         Updates the todo identified by id and returns the updated record: done and
          title are each applied only when present. Fails with the not_found code
-         when no todo has that id, and with the invalid_argument code when id is
-         not positive, the request carries neither field, or the title breaks its
-         rules.
+         when the account has no todo with that id, and with the invalid_argument
+         code when id is not positive, the request carries neither field, or the
+         title breaks its rules.
       operationId: todo.v1.TodoService.UpdateTodo
       parameters:
         - name: Connect-Protocol-Version
@@ -169,6 +289,100 @@ paths:
                 $ref: '#/components/schemas/todo.v1.UpdateTodoResponse'
 components:
   schemas:
+    auth.v1.LogInRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          title: email
+          maxLength: 254
+          format: email
+          description: Address the account is identified by. Matched case-insensitively.
+        password:
+          type: string
+          title: password
+          description: |
+            Secret the account was created with.
+            string.max_bytes = 72
+            string.min_bytes = 8
+      title: LogInRequest
+      additionalProperties: false
+      description: Credentials of an existing account.
+    auth.v1.LogInResponse:
+      type: object
+      properties:
+        token:
+          title: token
+          description: Token for the account named in the request.
+          $ref: '#/components/schemas/auth.v1.Token'
+      title: LogInResponse
+      additionalProperties: false
+      description: Response containing the token of the account that was logged in to.
+    auth.v1.LogOutRequest:
+      type: object
+      title: LogOutRequest
+      additionalProperties: false
+      description: |-
+        Request to end the current session. It names nothing: what is ended is the
+         session the request's own cookie carries.
+    auth.v1.LogOutResponse:
+      type: object
+      title: LogOutResponse
+      additionalProperties: false
+      description: Response to logging out. It carries no data.
+    auth.v1.SignUpRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          title: email
+          maxLength: 254
+          format: email
+          description: |-
+            Address the account is identified by. Stored lower-cased, so addresses
+             differing only in case are the same account.
+        password:
+          type: string
+          title: password
+          description: |
+            Secret the account is unlocked with. Bounded in bytes rather than
+             characters because bcrypt reads at most 72 of them and would silently
+             ignore the rest, making a longer password weaker than it looks.
+            string.max_bytes = 72
+            string.min_bytes = 8
+      title: SignUpRequest
+      additionalProperties: false
+      description: Credentials for a new account.
+    auth.v1.SignUpResponse:
+      type: object
+      properties:
+        token:
+          title: token
+          description: Token for the account that was just created.
+          $ref: '#/components/schemas/auth.v1.Token'
+      title: SignUpResponse
+      additionalProperties: false
+      description: Response containing the token of the newly created account.
+    auth.v1.Token:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          title: access_token
+          description: Value of the Authorization header, after the "Bearer " prefix.
+        expiresAt:
+          title: expires_at
+          description: |-
+            When the token stops being accepted, and when the cookie expires. There is
+             nothing to refresh it with, so a client past this has to log in again.
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+      title: Token
+      additionalProperties: false
+      description: |-
+        What a client is authenticated by. SignUp and LogIn also set the same value
+         as an HttpOnly session cookie, which is what a browser is meant to use: it
+         travels on its own and no script on the page can read it. Clients that are
+         not browsers take the token from here and send it themselves.
     connect-protocol-version:
       type: number
       title: Connect-Protocol-Version
@@ -486,7 +700,21 @@ components:
       title: UpdateTodoResponse
       additionalProperties: false
       description: Response containing the updated todo.
-security: []
+  securitySchemes:
+    bearerAuth:
+      type: http
+      description: Token issued by AuthService (auth/v1/auth.proto).
+      scheme: bearer
+      bearerFormat: JWT
+security:
+  - bearerAuth: []
 tags:
+  - name: auth.v1.AuthService
+    description: |-
+      Issues the tokens the rest of the API requires. Its own procedures are the
+       only ones reachable without one.
   - name: todo.v1.TodoService
-    description: Operations on todo items.
+    description: |-
+      Operations on todo items. Every procedure works on the todos of the account
+       named by the request's bearer token (auth/v1/auth.proto) and fails with the
+       unauthenticated code without a valid one.

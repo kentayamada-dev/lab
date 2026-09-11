@@ -10,7 +10,15 @@ import (
 
 type Todo struct {
 	ID        int64
+	UserID    int64
 	Title     string
 	Completed bool
 	CreatedAt pgtype.Timestamptz
+}
+
+type User struct {
+	ID           int64
+	Email        string
+	PasswordHash string
+	CreatedAt    pgtype.Timestamptz
 }

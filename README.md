@@ -124,11 +124,11 @@ JSON から読み取りにくい点だけ補足します。承認は 0 人でセ
 
 ## 起動
 
-前提は docker だけです。
+前提は macOS と docker です。コンテナ内のユーザーは uid / gid 1000 で作られますが、ホストの `id -u` / `id -g` と合わせる必要はありません。Docker Desktop が bind mount の所有者をコンテナのユーザーに見せるためです。
 
 ```bash
 make init         # .env.example から .env を作る
-make up           # db / api / web / docs / db_gui を起動する（初回はイメージを build する）
+make up           # db / api / web / docs / db_gui / otel を起動する（初回はイメージを build する）
 make db-migrate   # スキーマを適用する
 make web-install  # web の依存を入れる（初回と、lockfile が変わったとき）
 ```
@@ -142,7 +142,15 @@ make run-web   # http://localhost:${WEB_PORT} で待ち受け、/rpc/* を api �
 
 ポートは .env の `API_PORT` / `WEB_PORT` / `DOCS_PORT` / `DB_PORT` と db_gui の 8978 で、[docker-compose.yml](docker-compose.yml) が 127.0.0.1 にだけ公開しています（.env.example では api が 8080、web が 3000、docs が 8081）。`make init` は既にある .env を触らないので、更新前から .env を持っている場合は `DOCS_PORT` を自分で足してください。
 
+アプリはアカウント制です。web を開くと最初にログイン画面が出るので、「アカウントを作成する」からメールアドレスとパスワード（8 バイト以上 72 バイト以下）で登録してください。todo は登録したアカウントのものだけが見え、他人の todo は存在しないものとして扱われます（[auth.proto](proto/auth/v1/auth.proto)）。セッションの有効期間は 24 時間で、更新の仕組みは無いため切れたら再ログインになります。トークンの署名鍵 `TOKEN_SECRET` はローカル開発用の値を [docker-compose.yml](docker-compose.yml) が直接渡しています（db_gui の認証情報と同じ扱いです）。デプロイするなら各環境で自前の値に差し替えてください。
+
+ブラウザは HttpOnly の session Cookie で認証されます（[cookie.go](api/internal/auth/cookie.go)）。ページのスクリプトからは読めないので、XSS があってもトークンを持ち出せません（開いている間に成りすまされるのは防げません）。スクリプトから消すこともできないため、ログアウトは `AuthService/LogOut` を呼んで Cookie を失効させる形にしています。Cookie に頼る以上 CSRF が問題になりますが、ハンドラが Connect の `Connect-Protocol-Version` ヘッダを必須にしているので（[server.go](api/internal/server/server.go)）、ヘッダを付けられない他サイトのフォームや、preflight を CORS に拒否されるスクリプトからは通りません。ブラウザ以外のクライアントは、応答に入っている `accessToken` を `Authorization: Bearer` で送る従来どおりの方法が使えます。Cookie には `Secure` が付き、http では送られません。ローカルは http なので [docker-compose.yml](docker-compose.yml) が `COOKIE_SECURE` を false にして外しています。api の既定は true で、https で配るデプロイでは何も設定しなくても付きます。api 自身は常に平文 http を喋るので（[h2c.go](api/internal/server/h2c.go)）、https で配るなら TLS はロードバランサなどの前段で終端してください。api が見るスキームは http のままですが、`COOKIE_SECURE` は独立した設定なので `Secure` は正しく付きます。
+
+トレースとメトリクスは OTLP で otel サービス（[OpenTelemetry Collector](https://opentelemetry.io/docs/collector/)）に送られ、[config.yaml](.devcontainer/otel-container/config.yaml) の debug exporter がそのままログに出します。`make logs-otel` で読めます。送り先は docker-compose.yml の `OTEL_EXPORTER_OTLP_ENDPOINT` で、これが未設定なら SDK は何もしません（[telemetry.go](api/internal/telemetry/telemetry.go)）。span は RPC ごとに 1 つと、その下に [otelpgx](https://github.com/exaring/otelpgx) がクエリごとに 1 つ作ります（[main.go](api/cmd/server/main.go)）。api のログは JSON で stderr に出ますが、リクエストの処理中に出た行には `trace_id` と `span_id` が入るので、トレース側から該当のログに辿れます（[slog.go](api/internal/telemetry/slog.go)）。api の死活は `GET /healthz` で、DB に ping して繋がらなければ 503 を返します（[health.go](api/internal/server/health.go)）。
+
 db_gui は [CloudBeaver](https://dbeaver.com/docs/cloudbeaver/) で、アプリの DB への接続は [initial-data-sources.conf](.devcontainer/db_gui-container/initial-data-sources.conf) で登録済みです。docs は [Swagger UI](https://hub.docker.com/r/swaggerapi/swagger-ui) で、`http://localhost:${DOCS_PORT}` に API リファレンスを出します。表示するドキュメントはブラウザが api の `/openapi.yaml` から読むので（[openapi.go](api/internal/server/openapi.go)）、`make run-api` を動かしていないとページは `Failed to load API definition.` になります。動いていればページから各 RPC を呼べます（Try it out）。送信先は docs 自身ではなく api のポートで（[openapi.proto](proto/todo/v1/openapi.proto) の servers）、別オリジンからの呼び出しを api が許すための `CORS_ORIGINS` は docker-compose.yml が渡しています（[cors.go](api/internal/server/cors.go)）。ドキュメントは生成物で環境変数を読めないため、送信先のポートは .env.example の 8080 が既定値です。`API_PORT` を変えたときは、ページ上部の server 欄で `port` を合わせてください。
+
+Try it out で TodoService の RPC を呼ぶにはトークンが要ります。docs のページは api とオリジンが違い Cookie を送らないので、先に AuthService の SignUp か LogIn を呼び、返ってきた `accessToken` をページ右上の Authorize に入れてください（[openapi.proto](proto/todo/v1/openapi.proto) の securitySchemes）。AuthService の 3 つはセッションを配る側でヘッダを読みませんが、ドキュメント上は同じ要求が付きます。
 
 コンテナ内のユーザーは `USER_UID` / `USER_GID`（既定 1000）で作られます。Linux ホストでは bind mount がチェックアウトの所有者をそのまま見せるため、ホストの `id -u` / `id -g` と違うと、チェックアウトや依存キャッシュのディレクトリへの書き込みが権限エラーになり、git も dubious ownership で止まります。.env に 2 つを足して `make rebuild` してください。macOS の Docker Desktop は所有者をコンテナのユーザーに見せるので、合わせなくても動きます（CI は Linux で走るため、runner の uid / gid に合わせています）。
 
