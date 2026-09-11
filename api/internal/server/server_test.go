@@ -44,7 +44,17 @@ func (panicHandler) ListTodos(
 func newTestServer(t *testing.T, handler todov1connect.TodoServiceHandler) *httptest.Server {
 	t.Helper()
 
-	srv := httptest.NewServer(New(":0", handler).httpServer.Handler)
+	return newCORSTestServer(t, nil, handler)
+}
+
+func newCORSTestServer(
+	t *testing.T,
+	corsOrigins []string,
+	handler todov1connect.TodoServiceHandler,
+) *httptest.Server {
+	t.Helper()
+
+	srv := httptest.NewServer(New(":0", corsOrigins, handler).httpServer.Handler)
 	t.Cleanup(srv.Close)
 
 	return srv
@@ -290,7 +300,7 @@ func TestNewUnknownPath(t *testing.T) {
 }
 
 func TestRunInvalidAddress(t *testing.T) {
-	if err := New("not-an-address", stubHandler{}).Run(t.Context()); err == nil {
+	if err := New("not-an-address", nil, stubHandler{}).Run(t.Context()); err == nil {
 		t.Error("Run() error = nil, want non-nil")
 	}
 }
@@ -299,7 +309,7 @@ func TestRunShutsDownOnContextCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 
 	errCh := make(chan error, 1)
-	go func() { errCh <- New("127.0.0.1:0", stubHandler{}).Run(ctx) }()
+	go func() { errCh <- New("127.0.0.1:0", nil, stubHandler{}).Run(ctx) }()
 
 	cancel()
 
@@ -308,59 +318,7 @@ func TestRunShutsDownOnContextCancel(t *testing.T) {
 	}
 }
 
-func TestDocsServesSwaggerUI(t *testing.T) {
-	srv := newTestServer(t, stubHandler{})
-
-	res := get(t, srv, "/docs")
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
-	}
-
-	if got, want := res.Header.Get("Content-Type"), "text/html; charset=utf-8"; got != want {
-		t.Errorf("Content-Type = %q, want %q", got, want)
-	}
-	if !cmp.Equal(swaggerHTML, readBody(t, res)) {
-		t.Error("body does not match the embedded swagger.html")
-	}
-}
-
-func TestDocsServesSwaggerAssets(t *testing.T) {
-	tests := map[string]struct {
-		path        string
-		contentType string
-		body        []byte
-	}{
-		"stylesheet": {
-			path:        "/docs/swagger-ui.css",
-			contentType: "text/css; charset=utf-8",
-			body:        swaggerCSS,
-		},
-		"bundle": {
-			path:        "/docs/swagger-ui-bundle.js",
-			contentType: "text/javascript; charset=utf-8",
-			body:        swaggerJS,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			srv := newTestServer(t, stubHandler{})
-
-			res := get(t, srv, tt.path)
-			if res.StatusCode != http.StatusOK {
-				t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
-			}
-			if got := res.Header.Get("Content-Type"); got != tt.contentType {
-				t.Errorf("Content-Type = %q, want %q", got, tt.contentType)
-			}
-			if !cmp.Equal(tt.body, readBody(t, res)) {
-				t.Error("body does not match the embedded asset")
-			}
-		})
-	}
-}
-
-func TestDocsServesOpenAPIDocument(t *testing.T) {
+func TestNewServesOpenAPIDocument(t *testing.T) {
 	srv := newTestServer(t, stubHandler{})
 
 	res := get(t, srv, "/openapi.yaml")
@@ -376,26 +334,117 @@ func TestDocsServesOpenAPIDocument(t *testing.T) {
 	}
 }
 
-func TestDocsRejectsNonGET(t *testing.T) {
+func TestNewRejectsNonGETOnTheOpenAPIDocument(t *testing.T) {
 	srv := newTestServer(t, stubHandler{})
 
-	res, err := srv.Client().Post(srv.URL+"/docs", "text/plain", nil)
-	if err != nil {
-		t.Fatalf("POST /docs: %v", err)
-	}
-	t.Cleanup(func() { res.Body.Close() })
+	res := do(t, srv, http.MethodPost, "/openapi.yaml", nil)
 
 	if res.StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want %d", res.StatusCode, http.StatusMethodNotAllowed)
 	}
 }
 
+// The Swagger UI page is served from the docs container's own port
+// (docker-compose.yml), so both the fetch of the document and the requests
+// "Try it out" sends are cross-origin: the preflight has to be answered and
+// the answer has to name the origin, or the browser hides it from the page.
+func TestNewAllowsTheConfiguredCORSOrigin(t *testing.T) {
+	const origin = "http://localhost:8081"
+
+	srv := newCORSTestServer(t, []string{origin}, stubHandler{})
+
+	pre := preflight(t, srv, origin)
+	if pre.StatusCode != http.StatusNoContent {
+		t.Fatalf("preflight status = %d, want %d", pre.StatusCode, http.StatusNoContent)
+	}
+	if got := pre.Header.Get("Access-Control-Allow-Origin"); got != origin {
+		t.Errorf("preflight Access-Control-Allow-Origin = %q, want %q", got, origin)
+	}
+	if got := pre.Header.Get("Access-Control-Allow-Methods"); !strings.Contains(got, http.MethodPost) {
+		t.Errorf("preflight Access-Control-Allow-Methods = %q, want it to contain %q", got, http.MethodPost)
+	}
+	for _, header := range []string{"content-type", "connect-protocol-version"} {
+		if got := pre.Header.Get("Access-Control-Allow-Headers"); !strings.Contains(got, header) {
+			t.Errorf("preflight Access-Control-Allow-Headers = %q, want it to contain %q", got, header)
+		}
+	}
+
+	res := getWithOrigin(t, srv, "/openapi.yaml", origin)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", res.StatusCode, http.StatusOK)
+	}
+	if got := res.Header.Get("Access-Control-Allow-Origin"); got != origin {
+		t.Errorf("Access-Control-Allow-Origin = %q, want %q", got, origin)
+	}
+}
+
+// Every origin but the configured ones is answered without the header, which is
+// what makes the browser drop the answer.
+func TestNewRefusesAnUnconfiguredCORSOrigin(t *testing.T) {
+	srv := newCORSTestServer(t, []string{"http://localhost:8081"}, stubHandler{})
+
+	if got := preflight(t, srv, "http://example.com").Header.Get("Access-Control-Allow-Origin"); got != "" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want it unset", got)
+	}
+}
+
+// A deployment that runs no docs container configures no origin, and then the
+// answers carry no CORS header at all.
+func TestNewSendsNoCORSHeaderWithoutAConfiguredOrigin(t *testing.T) {
+	srv := newTestServer(t, stubHandler{})
+
+	if got := preflight(t, srv, "http://localhost:8081").Header.Get("Access-Control-Allow-Origin"); got != "" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want it unset", got)
+	}
+}
+
 func get(t *testing.T, srv *httptest.Server, path string) *http.Response {
 	t.Helper()
 
-	res, err := srv.Client().Get(srv.URL + path)
+	return do(t, srv, http.MethodGet, path, nil)
+}
+
+func getWithOrigin(t *testing.T, srv *httptest.Server, path, origin string) *http.Response {
+	t.Helper()
+
+	return do(t, srv, http.MethodGet, path, http.Header{"Origin": []string{origin}})
+}
+
+// preflight sends the OPTIONS request a browser sends ahead of the cross-origin
+// CreateTodo the docs page offers. The requested headers are lower-cased and
+// sorted because that is the form a browser sends, and the only form the CORS
+// handler matches: given "Content-Type", or the two names in the other order,
+// it answers the preflight without the allow headers, exactly as it does for a
+// header nobody allowed.
+func preflight(t *testing.T, srv *httptest.Server, origin string) *http.Response {
+	t.Helper()
+
+	return do(t, srv, http.MethodOptions, "/todo.v1.TodoService/CreateTodo", http.Header{
+		"Origin":                         []string{origin},
+		"Access-Control-Request-Method":  []string{http.MethodPost},
+		"Access-Control-Request-Headers": []string{"connect-protocol-version,content-type"},
+	})
+}
+
+func do(
+	t *testing.T,
+	srv *httptest.Server,
+	method, path string,
+	header http.Header,
+) *http.Response {
+	t.Helper()
+
+	req, err := http.NewRequestWithContext(t.Context(), method, srv.URL+path, nil)
 	if err != nil {
-		t.Fatalf("GET %s: %v", path, err)
+		t.Fatalf("building %s %s: %v", method, path, err)
+	}
+	if header != nil {
+		req.Header = header
+	}
+
+	res, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatalf("%s %s: %v", method, path, err)
 	}
 	t.Cleanup(func() { res.Body.Close() })
 

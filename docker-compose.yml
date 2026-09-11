@@ -26,6 +26,9 @@ services:
     environment:
       PORT: "${API_PORT:?}"
       DB_URL: *app_db_url
+      # The docs service serves the Swagger UI page from its own port, so the
+      # requests that page sends are cross-origin (api/internal/server/cors.go).
+      CORS_ORIGINS: "http://localhost:${DOCS_PORT:?}"
     volumes:
       - .:/workspace
       - "${GO_MOD_CACHE:-go_mod_cache}:/go/pkg/mod"
@@ -57,6 +60,20 @@ services:
       - node_modules:/workspace/web/node_modules
       - "${PNPM_STORE:-pnpm_store}:/pnpm/store"
     command: sleep infinity
+
+  docs:
+    hostname: docs
+    container_name: docs
+    image: swaggerapi/swagger-ui:v5.32.15@sha256:9ae209e3791e6fa78e1426769bf54562a043caa969287bfd3779428ece4930e5
+    # The image's nginx listens on 8080, which the PORT variable would change.
+    ports:
+      - "127.0.0.1:${DOCS_PORT:?}:8080"
+    environment:
+      # Fetched by the browser rather than by this container, so the document
+      # the page shows is the one the running api serves
+      # (api/internal/server/openapi.go), and the servers entry it carries
+      # points "Try it out" back at the api (proto/todo/v1/openapi.proto).
+      SWAGGER_JSON_URL: "http://localhost:${API_PORT:?}/openapi.yaml"
 
   buf:
     profiles:

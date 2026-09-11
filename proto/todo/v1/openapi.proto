@@ -14,4 +14,23 @@ option (gnostic.openapi.v3.document) = {
     // version rather than on its own release schedule.
     version: "v1"
   }
+  // Where Swagger UI's "Try it out" sends the requests. Without it the page
+  // falls back to the origin it is served from, which is the docs container
+  // rather than the api (docker-compose.yml). The document is a build artifact
+  // and cannot read the environment, so the port is a server variable holding
+  // .env.example's API_PORT: another value is typed into the server field in
+  // the UI instead of regenerated here.
+  servers: [
+    {
+      url: "http://localhost:{port}"
+      variables: {
+        additional_properties: [
+          {
+            name: "port"
+            value: {default: "8080"}
+          }
+        ]
+      }
+    }
+  ]
 };
