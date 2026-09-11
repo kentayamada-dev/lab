@@ -2,6 +2,11 @@ openapi: 3.1.0
 info:
   title: Todo API
   version: v1
+servers:
+  - url: http://localhost:{port}
+    variables:
+      port:
+        default: "8080"
 paths:
   /todo.v1.TodoService/CreateTodo:
     post:

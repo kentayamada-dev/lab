@@ -9,6 +9,7 @@ import (
 func TestLoad(t *testing.T) {
 	t.Setenv("DB_URL", "postgres://user:pass@db:5432/app")
 	t.Setenv("PORT", "8080")
+	t.Setenv("CORS_ORIGINS", "http://localhost:8081, http://localhost:3000")
 
 	cfg, err := Load()
 	if err != nil {
@@ -16,11 +17,59 @@ func TestLoad(t *testing.T) {
 	}
 
 	want := Config{
-		DBURL: "postgres://user:pass@db:5432/app",
-		Addr:  ":8080",
+		DBURL:       "postgres://user:pass@db:5432/app",
+		Addr:        ":8080",
+		CORSOrigins: []string{"http://localhost:8081", "http://localhost:3000"},
 	}
 	if diff := cmp.Diff(want, cfg); diff != "" {
 		t.Errorf("Load() config (-want +got):\n%s", diff)
+	}
+}
+
+// CORS_ORIGINS is the one optional setting: without it the API answers no
+// cross-origin request (api/internal/server/cors.go).
+func TestLoadWithoutCORSOrigins(t *testing.T) {
+	t.Setenv("DB_URL", "postgres://user:pass@db:5432/app")
+	t.Setenv("PORT", "8080")
+	t.Setenv("CORS_ORIGINS", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil", err)
+	}
+
+	if cfg.CORSOrigins != nil {
+		t.Errorf("Load() CORSOrigins = %v, want nil", cfg.CORSOrigins)
+	}
+}
+
+// An origin the CORS handler could never match is caught here, where it names
+// the value, rather than in the browser, where it would look like the API
+// refusing a request it in fact answered.
+func TestLoadInvalidCORSOrigins(t *testing.T) {
+	values := []string{
+		"localhost:8081",
+		"http://localhost:8081/",
+		"http://localhost:8081/docs",
+		"*",
+		"http://",
+		"http://localhost:8081, nope",
+	}
+
+	for _, value := range values {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv("DB_URL", "postgres://user:pass@db:5432/app")
+			t.Setenv("PORT", "8080")
+			t.Setenv("CORS_ORIGINS", value)
+
+			cfg, err := Load()
+			if err == nil {
+				t.Fatal("Load() error = nil, want an error")
+			}
+			if diff := cmp.Diff(Config{}, cfg); diff != "" {
+				t.Errorf("Load() config on error (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 

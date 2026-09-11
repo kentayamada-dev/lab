@@ -42,7 +42,13 @@ func recoverPanic(_ context.Context, spec connect.Spec, _ http.Header, cause any
 	return connect.NewError(connect.CodeInternal, errors.New("internal error"))
 }
 
-func New(addr string, todoService todov1connect.TodoServiceHandler) *Server {
+// New builds the routes. corsOrigins names the browser origins allowed to call
+// the API from a page they serve (cors.go).
+func New(
+	addr string,
+	corsOrigins []string,
+	todoService todov1connect.TodoServiceHandler,
+) *Server {
 	// Enforces the buf.validate rules declared in the proto.
 	validator := validate.NewInterceptor()
 
@@ -56,12 +62,12 @@ func New(addr string, todoService todov1connect.TodoServiceHandler) *Server {
 	)
 	mux.Handle(path, handler)
 
-	registerDocs(mux)
+	registerOpenAPI(mux)
 
 	return &Server{
 		httpServer: &http.Server{
 			Addr:              addr,
-			Handler:           mux,
+			Handler:           withCORS(corsOrigins, mux),
 			ReadHeaderTimeout: readHeaderTimeout,
 			ReadTimeout:       readTimeout,
 			WriteTimeout:      writeTimeout,

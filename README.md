@@ -128,7 +128,7 @@ JSON から読み取りにくい点だけ補足します。承認は 0 人でセ
 
 ```bash
 make init         # .env.example から .env を作る
-make up           # db / api / web / db_gui を起動する（初回はイメージを build する）
+make up           # db / api / web / docs / db_gui を起動する（初回はイメージを build する）
 make db-migrate   # スキーマを適用する
 make web-install  # web の依存を入れる（初回と、lockfile が変わったとき）
 ```
@@ -136,11 +136,13 @@ make web-install  # web の依存を入れる（初回と、lockfile が変わ�
 api と web のコンテナは待機しているだけで、サーバは自動では起動しません。ターミナルを 2 つ使い、それぞれで起動します（Ctrl-C で止まります）。
 
 ```bash
-make run-api   # http://localhost:${API_PORT} で待ち受け、/docs に Swagger UI
+make run-api   # http://localhost:${API_PORT} で待ち受ける
 make run-web   # http://localhost:${WEB_PORT} で待ち受け、/rpc/* を api に転送する（next.config.ts）
 ```
 
-ポートは .env の `API_PORT` / `WEB_PORT` / `DB_PORT` と db_gui の 8978 で、[docker-compose.yml](docker-compose.yml) が 127.0.0.1 にだけ公開しています（.env.example では api が 8080、web が 3000）。db_gui は [CloudBeaver](https://dbeaver.com/docs/cloudbeaver/) で、アプリの DB への接続は [initial-data-sources.conf](.devcontainer/db_gui-container/initial-data-sources.conf) で登録済みです。
+ポートは .env の `API_PORT` / `WEB_PORT` / `DOCS_PORT` / `DB_PORT` と db_gui の 8978 で、[docker-compose.yml](docker-compose.yml) が 127.0.0.1 にだけ公開しています（.env.example では api が 8080、web が 3000、docs が 8081）。`make init` は既にある .env を触らないので、更新前から .env を持っている場合は `DOCS_PORT` を自分で足してください。
+
+db_gui は [CloudBeaver](https://dbeaver.com/docs/cloudbeaver/) で、アプリの DB への接続は [initial-data-sources.conf](.devcontainer/db_gui-container/initial-data-sources.conf) で登録済みです。docs は [Swagger UI](https://hub.docker.com/r/swaggerapi/swagger-ui) で、`http://localhost:${DOCS_PORT}` に API リファレンスを出します。表示するドキュメントはブラウザが api の `/openapi.yaml` から読むので（[openapi.go](api/internal/server/openapi.go)）、`make run-api` を動かしていないとページは `Failed to load API definition.` になります。動いていればページから各 RPC を呼べます（Try it out）。送信先は docs 自身ではなく api のポートで（[openapi.proto](proto/todo/v1/openapi.proto) の servers）、別オリジンからの呼び出しを api が許すための `CORS_ORIGINS` は docker-compose.yml が渡しています（[cors.go](api/internal/server/cors.go)）。ドキュメントは生成物で環境変数を読めないため、送信先のポートは .env.example の 8080 が既定値です。`API_PORT` を変えたときは、ページ上部の server 欄で `port` を合わせてください。
 
 コンテナ内のユーザーは `USER_UID` / `USER_GID`（既定 1000）で作られます。ホストの `id -u` / `id -g` と違うと、依存キャッシュのボリュームや bind mount したチェックアウトの所有者がずれ、`make run-api` や `make run-web` が権限エラーで落ちることがあります。.env に 2 つを足して `make rebuild` してください（CI も runner の uid / gid に合わせています）。
 
@@ -233,7 +235,7 @@ editorconfig-checker と shfmt は、他の検査ツールと同じく本体を 
 
 Makefile と Go はインデントの検査そのものを外しています。make のレシピは tab 必須、Go は gofmt が tab を強制する一方で、どちらも継続行や桁揃えに空白が混ざるためです。Go のインデントは `api` ジョブの `fmt-check`（gofumpt）が見ます。
 
-生成物と vendored のファイル（api/gen/、web/src/gen/、Swagger UI 一式）は editorconfig-checker の検査自体から除外しています（[.editorconfig-checker.json](.editorconfig-checker.json)）。手で書くファイルではなく、生成側・配布側の書式に従うためです。
+生成物（api/gen/、web/src/gen/）は editorconfig-checker の検査自体から除外しています（[.editorconfig-checker.json](.editorconfig-checker.json)）。手で書くファイルではなく、生成側・配布側の書式に従うためです。
 
 ### issue のテンプレート
 
