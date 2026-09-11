@@ -16,17 +16,18 @@ import (
 
 	"example/app/gen/db"
 	todov1 "example/app/gen/go/todo/v1"
+	"example/app/internal/auth"
 )
 
 type fakeQuerier struct {
-	createTodo func(ctx context.Context, title string) (db.Todo, error)
+	createTodo func(ctx context.Context, arg db.CreateTodoParams) (db.Todo, error)
 	listTodos  func(ctx context.Context, arg db.ListTodosParams) ([]db.Todo, error)
 	updateTodo func(ctx context.Context, arg db.UpdateTodoParams) (db.Todo, error)
-	deleteTodo func(ctx context.Context, id int64) (int64, error)
+	deleteTodo func(ctx context.Context, arg db.DeleteTodoParams) (int64, error)
 }
 
-func (f fakeQuerier) CreateTodo(ctx context.Context, title string) (db.Todo, error) {
-	return f.createTodo(ctx, title)
+func (f fakeQuerier) CreateTodo(ctx context.Context, arg db.CreateTodoParams) (db.Todo, error) {
+	return f.createTodo(ctx, arg)
 }
 
 func (f fakeQuerier) ListTodos(ctx context.Context, arg db.ListTodosParams) ([]db.Todo, error) {
@@ -37,13 +38,23 @@ func (f fakeQuerier) UpdateTodo(ctx context.Context, arg db.UpdateTodoParams) (d
 	return f.updateTodo(ctx, arg)
 }
 
-func (f fakeQuerier) DeleteTodo(ctx context.Context, id int64) (int64, error) {
-	return f.deleteTodo(ctx, id)
+func (f fakeQuerier) DeleteTodo(ctx context.Context, arg db.DeleteTodoParams) (int64, error) {
+	return f.deleteTodo(ctx, arg)
 }
 
 var _ Querier = fakeQuerier{}
 
 var errQuery = errors.New("query failed")
+
+// testUserID stands for the account the authentication interceptor resolved
+// (api/internal/server/auth.go); every call below is made as that account.
+const testUserID int64 = 7
+
+func authed(t *testing.T) context.Context {
+	t.Helper()
+
+	return auth.ContextWithUserID(t.Context(), testUserID)
+}
 
 // assertNoLeak checks that the client-facing message hides the query error.
 func assertNoLeak(t *testing.T, err error) {
@@ -61,25 +72,26 @@ func assertNoLeak(t *testing.T, err error) {
 func TestServiceCreateTodo(t *testing.T) {
 	t.Parallel()
 
-	var gotTitle string
+	var gotParams db.CreateTodoParams
 	svc := NewService(fakeQuerier{
-		createTodo: func(_ context.Context, title string) (db.Todo, error) {
-			gotTitle = title
+		createTodo: func(_ context.Context, arg db.CreateTodoParams) (db.Todo, error) {
+			gotParams = arg
 
-			return db.Todo{ID: 1, Title: title, Completed: false}, nil
+			return db.Todo{ID: 1, Title: arg.Title, Completed: false}, nil
 		},
 	})
 
 	res, err := svc.CreateTodo(
-		t.Context(),
+		authed(t),
 		connect.NewRequest(&todov1.CreateTodoRequest{Title: "buy milk"}),
 	)
 	if err != nil {
 		t.Fatalf("CreateTodo() error = %v, want nil", err)
 	}
 
-	if diff := cmp.Diff("buy milk", gotTitle); diff != "" {
-		t.Errorf("title passed to the query (-want +got):\n%s", diff)
+	wantParams := db.CreateTodoParams{UserID: testUserID, Title: "buy milk"}
+	if diff := cmp.Diff(wantParams, gotParams); diff != "" {
+		t.Errorf("params passed to the query (-want +got):\n%s", diff)
 	}
 
 	want := &todov1.Todo{Id: 1, Title: "buy milk", Done: false}
@@ -91,25 +103,26 @@ func TestServiceCreateTodo(t *testing.T) {
 func TestServiceCreateTodoTrimsTitle(t *testing.T) {
 	t.Parallel()
 
-	var gotTitle string
+	var gotParams db.CreateTodoParams
 	svc := NewService(fakeQuerier{
-		createTodo: func(_ context.Context, title string) (db.Todo, error) {
-			gotTitle = title
+		createTodo: func(_ context.Context, arg db.CreateTodoParams) (db.Todo, error) {
+			gotParams = arg
 
-			return db.Todo{ID: 1, Title: title, Completed: false}, nil
+			return db.Todo{ID: 1, Title: arg.Title, Completed: false}, nil
 		},
 	})
 
 	_, err := svc.CreateTodo(
-		t.Context(),
+		authed(t),
 		connect.NewRequest(&todov1.CreateTodoRequest{Title: "  buy milk\t\n"}),
 	)
 	if err != nil {
 		t.Fatalf("CreateTodo() error = %v, want nil", err)
 	}
 
-	if diff := cmp.Diff("buy milk", gotTitle); diff != "" {
-		t.Errorf("title passed to the query (-want +got):\n%s", diff)
+	wantParams := db.CreateTodoParams{UserID: testUserID, Title: "buy milk"}
+	if diff := cmp.Diff(wantParams, gotParams); diff != "" {
+		t.Errorf("params passed to the query (-want +got):\n%s", diff)
 	}
 }
 
@@ -140,17 +153,17 @@ func TestServiceCreateTodoTitleLength(t *testing.T) {
 			t.Parallel()
 
 			svc := NewService(fakeQuerier{
-				createTodo: func(_ context.Context, title string) (db.Todo, error) {
+				createTodo: func(_ context.Context, arg db.CreateTodoParams) (db.Todo, error) {
 					if tt.wantCode != 0 {
 						t.Error("CreateTodo query called, want the request rejected first")
 					}
 
-					return db.Todo{ID: 1, Title: title, Completed: false}, nil
+					return db.Todo{ID: 1, Title: arg.Title, Completed: false}, nil
 				},
 			})
 
 			_, err := svc.CreateTodo(
-				t.Context(),
+				authed(t),
 				connect.NewRequest(&todov1.CreateTodoRequest{Title: tt.title}),
 			)
 			if tt.wantCode == 0 {
@@ -178,7 +191,7 @@ func TestServiceCreateTodoBlankTitle(t *testing.T) {
 			t.Parallel()
 
 			svc := NewService(fakeQuerier{
-				createTodo: func(context.Context, string) (db.Todo, error) {
+				createTodo: func(context.Context, db.CreateTodoParams) (db.Todo, error) {
 					t.Error("CreateTodo query called, want the request rejected first")
 
 					return db.Todo{}, nil
@@ -186,7 +199,7 @@ func TestServiceCreateTodoBlankTitle(t *testing.T) {
 			})
 
 			res, err := svc.CreateTodo(
-				t.Context(),
+				authed(t),
 				connect.NewRequest(&todov1.CreateTodoRequest{Title: title}),
 			)
 			if res != nil {
@@ -203,13 +216,13 @@ func TestServiceCreateTodoQueryError(t *testing.T) {
 	t.Parallel()
 
 	svc := NewService(fakeQuerier{
-		createTodo: func(context.Context, string) (db.Todo, error) {
+		createTodo: func(context.Context, db.CreateTodoParams) (db.Todo, error) {
 			return db.Todo{}, errQuery
 		},
 	})
 
 	res, err := svc.CreateTodo(
-		t.Context(),
+		authed(t),
 		connect.NewRequest(&todov1.CreateTodoRequest{Title: "buy milk"}),
 	)
 	if res != nil {
@@ -254,7 +267,7 @@ func TestServiceListTodos(t *testing.T) {
 				},
 			})
 
-			res, err := svc.ListTodos(t.Context(), connect.NewRequest(&todov1.ListTodosRequest{}))
+			res, err := svc.ListTodos(authed(t), connect.NewRequest(&todov1.ListTodosRequest{}))
 			if err != nil {
 				t.Fatalf("ListTodos() error = %v, want nil", err)
 			}
@@ -280,19 +293,19 @@ func TestServiceListTodosPageParams(t *testing.T) {
 	}{
 		"defaults": {
 			req:        &todov1.ListTodosRequest{},
-			wantParams: db.ListTodosParams{AfterID: 0, PageSize: defaultPageSize + 1},
+			wantParams: db.ListTodosParams{UserID: testUserID, AfterID: 0, PageSize: defaultPageSize + 1},
 		},
 		"explicit page size": {
 			req:        &todov1.ListTodosRequest{PageSize: 10},
-			wantParams: db.ListTodosParams{AfterID: 0, PageSize: 11},
+			wantParams: db.ListTodosParams{UserID: testUserID, AfterID: 0, PageSize: 11},
 		},
 		"page size at the maximum": {
 			req:        &todov1.ListTodosRequest{PageSize: maxPageSize},
-			wantParams: db.ListTodosParams{AfterID: 0, PageSize: maxPageSize + 1},
+			wantParams: db.ListTodosParams{UserID: testUserID, AfterID: 0, PageSize: maxPageSize + 1},
 		},
 		"page token becomes the cursor": {
 			req:        &todov1.ListTodosRequest{PageSize: 2, PageToken: "42"},
-			wantParams: db.ListTodosParams{AfterID: 42, PageSize: 3},
+			wantParams: db.ListTodosParams{UserID: testUserID, AfterID: 42, PageSize: 3},
 		},
 	}
 
@@ -309,7 +322,7 @@ func TestServiceListTodosPageParams(t *testing.T) {
 				},
 			})
 
-			if _, err := svc.ListTodos(t.Context(), connect.NewRequest(tt.req)); err != nil {
+			if _, err := svc.ListTodos(authed(t), connect.NewRequest(tt.req)); err != nil {
 				t.Fatalf("ListTodos() error = %v, want nil", err)
 			}
 
@@ -364,7 +377,7 @@ func TestServiceListTodosNextPageToken(t *testing.T) {
 			})
 
 			res, err := svc.ListTodos(
-				t.Context(),
+				authed(t),
 				connect.NewRequest(&todov1.ListTodosRequest{PageSize: 3}),
 			)
 			if err != nil {
@@ -418,7 +431,7 @@ func TestServiceListTodosInvalidPageRequest(t *testing.T) {
 				},
 			})
 
-			res, err := svc.ListTodos(t.Context(), connect.NewRequest(req))
+			res, err := svc.ListTodos(authed(t), connect.NewRequest(req))
 			if res != nil {
 				t.Errorf("ListTodos() response = %v, want nil", res)
 			}
@@ -438,7 +451,7 @@ func TestServiceListTodosQueryError(t *testing.T) {
 		},
 	})
 
-	res, err := svc.ListTodos(t.Context(), connect.NewRequest(&todov1.ListTodosRequest{}))
+	res, err := svc.ListTodos(authed(t), connect.NewRequest(&todov1.ListTodosRequest{}))
 	if res != nil {
 		t.Errorf("ListTodos() response = %v, want nil", res)
 	}
@@ -461,14 +474,14 @@ func TestServiceUpdateTodo(t *testing.T) {
 	})
 
 	res, err := svc.UpdateTodo(
-		t.Context(),
+		authed(t),
 		connect.NewRequest(&todov1.UpdateTodoRequest{Id: 7, Done: proto.Bool(true)}),
 	)
 	if err != nil {
 		t.Fatalf("UpdateTodo() error = %v, want nil", err)
 	}
 
-	wantParams := db.UpdateTodoParams{ID: 7, Completed: pgtype.Bool{Bool: true, Valid: true}}
+	wantParams := db.UpdateTodoParams{ID: 7, UserID: testUserID, Completed: pgtype.Bool{Bool: true, Valid: true}}
 	if diff := cmp.Diff(wantParams, gotParams); diff != "" {
 		t.Errorf("params passed to the query (-want +got):\n%s", diff)
 	}
@@ -492,7 +505,7 @@ func TestServiceUpdateTodoWithTitle(t *testing.T) {
 	})
 
 	_, err := svc.UpdateTodo(
-		t.Context(),
+		authed(t),
 		connect.NewRequest(&todov1.UpdateTodoRequest{Id: 7, Done: proto.Bool(true), Title: proto.String("  walk the dog  ")}),
 	)
 	if err != nil {
@@ -501,6 +514,7 @@ func TestServiceUpdateTodoWithTitle(t *testing.T) {
 
 	wantParams := db.UpdateTodoParams{
 		ID:        7,
+		UserID:    testUserID,
 		Completed: pgtype.Bool{Bool: true, Valid: true},
 		Title:     pgtype.Text{String: "walk the dog", Valid: true},
 	}
@@ -521,11 +535,11 @@ func TestServiceUpdateTodoLeavesAbsentFieldsUntouched(t *testing.T) {
 	}{
 		"title only": {
 			req:        &todov1.UpdateTodoRequest{Id: 7, Title: proto.String("walk the dog")},
-			wantParams: db.UpdateTodoParams{ID: 7, Title: pgtype.Text{String: "walk the dog", Valid: true}},
+			wantParams: db.UpdateTodoParams{ID: 7, UserID: testUserID, Title: pgtype.Text{String: "walk the dog", Valid: true}},
 		},
 		"done only": {
 			req:        &todov1.UpdateTodoRequest{Id: 7, Done: proto.Bool(false)},
-			wantParams: db.UpdateTodoParams{ID: 7, Completed: pgtype.Bool{Bool: false, Valid: true}},
+			wantParams: db.UpdateTodoParams{ID: 7, UserID: testUserID, Completed: pgtype.Bool{Bool: false, Valid: true}},
 		},
 	}
 
@@ -542,7 +556,7 @@ func TestServiceUpdateTodoLeavesAbsentFieldsUntouched(t *testing.T) {
 				},
 			})
 
-			if _, err := svc.UpdateTodo(t.Context(), connect.NewRequest(tt.req)); err != nil {
+			if _, err := svc.UpdateTodo(authed(t), connect.NewRequest(tt.req)); err != nil {
 				t.Fatalf("UpdateTodo() error = %v, want nil", err)
 			}
 
@@ -564,7 +578,7 @@ func TestServiceUpdateTodoNoFields(t *testing.T) {
 		},
 	})
 
-	res, err := svc.UpdateTodo(t.Context(), connect.NewRequest(&todov1.UpdateTodoRequest{Id: 7}))
+	res, err := svc.UpdateTodo(authed(t), connect.NewRequest(&todov1.UpdateTodoRequest{Id: 7}))
 	if res != nil {
 		t.Errorf("UpdateTodo() response = %v, want nil", res)
 	}
@@ -594,7 +608,7 @@ func TestServiceUpdateTodoInvalidID(t *testing.T) {
 			})
 
 			res, err := svc.UpdateTodo(
-				t.Context(),
+				authed(t),
 				connect.NewRequest(&todov1.UpdateTodoRequest{Id: id, Done: proto.Bool(true)}),
 			)
 			if res != nil {
@@ -619,7 +633,7 @@ func TestServiceUpdateTodoBlankTitle(t *testing.T) {
 	})
 
 	_, err := svc.UpdateTodo(
-		t.Context(),
+		authed(t),
 		connect.NewRequest(&todov1.UpdateTodoRequest{Id: 7, Title: proto.String("   ")}),
 	)
 	if got := connect.CodeOf(err); got != connect.CodeInvalidArgument {
@@ -659,7 +673,7 @@ func TestServiceUpdateTodoErrors(t *testing.T) {
 			})
 
 			res, err := svc.UpdateTodo(
-				t.Context(),
+				authed(t),
 				connect.NewRequest(&todov1.UpdateTodoRequest{Id: 42, Done: proto.Bool(true)}),
 			)
 			if res != nil {
@@ -685,7 +699,7 @@ func TestServiceUpdateTodoNotFoundMentionsID(t *testing.T) {
 	})
 
 	_, err := svc.UpdateTodo(
-		t.Context(),
+		authed(t),
 		connect.NewRequest(&todov1.UpdateTodoRequest{Id: 42, Done: proto.Bool(true)}),
 	)
 
@@ -698,19 +712,90 @@ func TestServiceUpdateTodoNotFoundMentionsID(t *testing.T) {
 	}
 }
 
+// Nothing here is reachable without the authentication interceptor having
+// resolved an account, so a context without one is refused before any query
+// runs rather than falling back to a default owner.
+func TestServiceRefusesAnUnauthenticatedContext(t *testing.T) {
+	t.Parallel()
+
+	fail := func(t *testing.T) fakeQuerier {
+		t.Helper()
+
+		return fakeQuerier{
+			createTodo: func(context.Context, db.CreateTodoParams) (db.Todo, error) {
+				t.Error("CreateTodo query called, want the request rejected first")
+
+				return db.Todo{}, nil
+			},
+			listTodos: func(context.Context, db.ListTodosParams) ([]db.Todo, error) {
+				t.Error("ListTodos query called, want the request rejected first")
+
+				return nil, nil
+			},
+			updateTodo: func(context.Context, db.UpdateTodoParams) (db.Todo, error) {
+				t.Error("UpdateTodo query called, want the request rejected first")
+
+				return db.Todo{}, nil
+			},
+			deleteTodo: func(context.Context, db.DeleteTodoParams) (int64, error) {
+				t.Error("DeleteTodo query called, want the request rejected first")
+
+				return 0, nil
+			},
+		}
+	}
+
+	tests := map[string]func(context.Context, *Service) error{
+		"CreateTodo": func(ctx context.Context, svc *Service) error {
+			_, err := svc.CreateTodo(ctx, connect.NewRequest(&todov1.CreateTodoRequest{Title: "buy milk"}))
+
+			return err
+		},
+		"ListTodos": func(ctx context.Context, svc *Service) error {
+			_, err := svc.ListTodos(ctx, connect.NewRequest(&todov1.ListTodosRequest{}))
+
+			return err
+		},
+		"UpdateTodo": func(ctx context.Context, svc *Service) error {
+			_, err := svc.UpdateTodo(ctx, connect.NewRequest(&todov1.UpdateTodoRequest{
+				Id:   7,
+				Done: proto.Bool(true),
+			}))
+
+			return err
+		},
+		"DeleteTodo": func(ctx context.Context, svc *Service) error {
+			_, err := svc.DeleteTodo(ctx, connect.NewRequest(&todov1.DeleteTodoRequest{Id: 7}))
+
+			return err
+		},
+	}
+
+	for name, call := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			err := call(t.Context(), NewService(fail(t)))
+			if got := connect.CodeOf(err); got != connect.CodeUnauthenticated {
+				t.Errorf("%s() code = %v, want %v", name, got, connect.CodeUnauthenticated)
+			}
+		})
+	}
+}
+
 func TestServiceDeleteTodo(t *testing.T) {
 	t.Parallel()
 
-	var gotID int64
+	var gotParams db.DeleteTodoParams
 	svc := NewService(fakeQuerier{
-		deleteTodo: func(_ context.Context, id int64) (int64, error) {
-			gotID = id
+		deleteTodo: func(_ context.Context, arg db.DeleteTodoParams) (int64, error) {
+			gotParams = arg
 
 			return 1, nil
 		},
 	})
 
-	res, err := svc.DeleteTodo(t.Context(), connect.NewRequest(&todov1.DeleteTodoRequest{Id: 7}))
+	res, err := svc.DeleteTodo(authed(t), connect.NewRequest(&todov1.DeleteTodoRequest{Id: 7}))
 	if err != nil {
 		t.Fatalf("DeleteTodo() error = %v, want nil", err)
 	}
@@ -718,8 +803,9 @@ func TestServiceDeleteTodo(t *testing.T) {
 		t.Fatal("DeleteTodo() response = nil, want non-nil")
 	}
 
-	if diff := cmp.Diff(int64(7), gotID); diff != "" {
-		t.Errorf("id passed to the query (-want +got):\n%s", diff)
+	wantParams := db.DeleteTodoParams{ID: 7, UserID: testUserID}
+	if diff := cmp.Diff(wantParams, gotParams); diff != "" {
+		t.Errorf("params passed to the query (-want +got):\n%s", diff)
 	}
 }
 
@@ -736,14 +822,14 @@ func TestServiceDeleteTodoInvalidID(t *testing.T) {
 			t.Parallel()
 
 			svc := NewService(fakeQuerier{
-				deleteTodo: func(context.Context, int64) (int64, error) {
+				deleteTodo: func(context.Context, db.DeleteTodoParams) (int64, error) {
 					t.Error("DeleteTodo query called, want the request rejected first")
 
 					return 0, nil
 				},
 			})
 
-			res, err := svc.DeleteTodo(t.Context(), connect.NewRequest(&todov1.DeleteTodoRequest{Id: id}))
+			res, err := svc.DeleteTodo(authed(t), connect.NewRequest(&todov1.DeleteTodoRequest{Id: id}))
 			if res != nil {
 				t.Errorf("DeleteTodo() response = %v, want nil", res)
 			}
@@ -777,12 +863,12 @@ func TestServiceDeleteTodoErrors(t *testing.T) {
 			t.Parallel()
 
 			svc := NewService(fakeQuerier{
-				deleteTodo: func(context.Context, int64) (int64, error) {
+				deleteTodo: func(context.Context, db.DeleteTodoParams) (int64, error) {
 					return tt.deleted, tt.queryErr
 				},
 			})
 
-			res, err := svc.DeleteTodo(t.Context(), connect.NewRequest(&todov1.DeleteTodoRequest{Id: 42}))
+			res, err := svc.DeleteTodo(authed(t), connect.NewRequest(&todov1.DeleteTodoRequest{Id: 42}))
 			if res != nil {
 				t.Errorf("DeleteTodo() response = %v, want nil", res)
 			}
@@ -800,12 +886,12 @@ func TestServiceDeleteTodoNotFoundMentionsID(t *testing.T) {
 	t.Parallel()
 
 	svc := NewService(fakeQuerier{
-		deleteTodo: func(context.Context, int64) (int64, error) {
+		deleteTodo: func(context.Context, db.DeleteTodoParams) (int64, error) {
 			return 0, nil
 		},
 	})
 
-	_, err := svc.DeleteTodo(t.Context(), connect.NewRequest(&todov1.DeleteTodoRequest{Id: 42}))
+	_, err := svc.DeleteTodo(authed(t), connect.NewRequest(&todov1.DeleteTodoRequest{Id: 42}))
 
 	var connectErr *connect.Error
 	if !errors.As(err, &connectErr) {

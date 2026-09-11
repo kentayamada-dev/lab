@@ -1,7 +1,7 @@
 package server
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 
 	"example/app/gen"
@@ -11,10 +11,10 @@ import (
 // the docs container loads it from here (docker-compose.yml), so the document
 // the page shows is always the one the running binary was built from.
 func registerOpenAPI(mux *http.ServeMux) {
-	mux.HandleFunc("GET /openapi.yaml", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("GET /openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/yaml")
 		if _, err := w.Write(gen.OpenAPIYAML); err != nil {
-			log.Printf("serving /openapi.yaml: %v", err)
+			slog.ErrorContext(r.Context(), "serving /openapi.yaml", "error", err)
 		}
 	})
 }

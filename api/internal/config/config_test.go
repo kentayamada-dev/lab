@@ -9,6 +9,8 @@ import (
 func TestLoad(t *testing.T) {
 	t.Setenv("DB_URL", "postgres://user:pass@db:5432/app")
 	t.Setenv("PORT", "8080")
+	t.Setenv("TOKEN_SECRET", "token-secret-for-tests-only-0123")
+	t.Setenv("COOKIE_SECURE", "true")
 	t.Setenv("CORS_ORIGINS", "http://localhost:8081, http://localhost:3000")
 
 	cfg, err := Load()
@@ -17,9 +19,11 @@ func TestLoad(t *testing.T) {
 	}
 
 	want := Config{
-		DBURL:       "postgres://user:pass@db:5432/app",
-		Addr:        ":8080",
-		CORSOrigins: []string{"http://localhost:8081", "http://localhost:3000"},
+		DBURL:         "postgres://user:pass@db:5432/app",
+		Addr:          ":8080",
+		TokenSecret:   "token-secret-for-tests-only-0123",
+		SecureCookies: true,
+		CORSOrigins:   []string{"http://localhost:8081", "http://localhost:3000"},
 	}
 	if diff := cmp.Diff(want, cfg); diff != "" {
 		t.Errorf("Load() config (-want +got):\n%s", diff)
@@ -31,6 +35,7 @@ func TestLoad(t *testing.T) {
 func TestLoadWithoutCORSOrigins(t *testing.T) {
 	t.Setenv("DB_URL", "postgres://user:pass@db:5432/app")
 	t.Setenv("PORT", "8080")
+	t.Setenv("TOKEN_SECRET", "token-secret-for-tests-only-0123")
 	t.Setenv("CORS_ORIGINS", "")
 
 	cfg, err := Load()
@@ -60,6 +65,7 @@ func TestLoadInvalidCORSOrigins(t *testing.T) {
 		t.Run(value, func(t *testing.T) {
 			t.Setenv("DB_URL", "postgres://user:pass@db:5432/app")
 			t.Setenv("PORT", "8080")
+			t.Setenv("TOKEN_SECRET", "token-secret-for-tests-only-0123")
 			t.Setenv("CORS_ORIGINS", value)
 
 			cfg, err := Load()
@@ -75,18 +81,21 @@ func TestLoadInvalidCORSOrigins(t *testing.T) {
 
 func TestLoadMissingEnv(t *testing.T) {
 	tests := map[string]struct {
-		dbURL   string
-		apiPort string
+		dbURL       string
+		apiPort     string
+		tokenSecret string
 	}{
-		"DB_URL unset": {dbURL: "", apiPort: "8080"},
-		"PORT unset":   {dbURL: "postgres://db", apiPort: ""},
-		"both unset":   {dbURL: "", apiPort: ""},
+		"DB_URL unset":       {dbURL: "", apiPort: "8080", tokenSecret: "token-secret-for-tests-only-0123"},
+		"PORT unset":         {dbURL: "postgres://db", apiPort: "", tokenSecret: "token-secret-for-tests-only-0123"},
+		"TOKEN_SECRET unset": {dbURL: "postgres://db", apiPort: "8080", tokenSecret: ""},
+		"all unset":          {dbURL: "", apiPort: "", tokenSecret: ""},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv("DB_URL", tt.dbURL)
 			t.Setenv("PORT", tt.apiPort)
+			t.Setenv("TOKEN_SECRET", tt.tokenSecret)
 
 			cfg, err := Load()
 			if err == nil {
@@ -108,6 +117,62 @@ func TestLoadInvalidPort(t *testing.T) {
 		t.Run(port, func(t *testing.T) {
 			t.Setenv("DB_URL", "postgres://user:pass@db:5432/app")
 			t.Setenv("PORT", port)
+			t.Setenv("TOKEN_SECRET", "token-secret-for-tests-only-0123")
+
+			cfg, err := Load()
+			if err == nil {
+				t.Fatal("Load() error = nil, want an error")
+			}
+			if diff := cmp.Diff(Config{}, cfg); diff != "" {
+				t.Errorf("Load() config on error (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// Forgetting the setting must not be what offers the session cookie over plain
+// http, so an unset COOKIE_SECURE is the safe answer rather than the lax one.
+func TestLoadWithoutCookieSecure(t *testing.T) {
+	t.Setenv("DB_URL", "postgres://user:pass@db:5432/app")
+	t.Setenv("PORT", "8080")
+	t.Setenv("TOKEN_SECRET", "token-secret-for-tests-only-0123")
+	t.Setenv("COOKIE_SECURE", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil", err)
+	}
+
+	if !cfg.SecureCookies {
+		t.Error("Load() SecureCookies = false, want true when unset")
+	}
+}
+
+func TestLoadCookieSecureOff(t *testing.T) {
+	t.Setenv("DB_URL", "postgres://user:pass@db:5432/app")
+	t.Setenv("PORT", "8080")
+	t.Setenv("TOKEN_SECRET", "token-secret-for-tests-only-0123")
+	t.Setenv("COOKIE_SECURE", "false")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil", err)
+	}
+
+	if cfg.SecureCookies {
+		t.Error("Load() SecureCookies = true, want the setting to be able to turn it off")
+	}
+}
+
+// A value that cannot be read as a boolean is an error rather than a quiet
+// false, which would leave a misspelling looking like a deliberate off.
+func TestLoadInvalidCookieSecure(t *testing.T) {
+	for _, value := range []string{"maybe", "yes please", "2"} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv("DB_URL", "postgres://user:pass@db:5432/app")
+			t.Setenv("PORT", "8080")
+			t.Setenv("TOKEN_SECRET", "token-secret-for-tests-only-0123")
+			t.Setenv("COOKIE_SECURE", value)
 
 			cfg, err := Load()
 			if err == nil {

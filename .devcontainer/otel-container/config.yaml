@@ -1,0 +1,21 @@
+# The collector the api exports to (docker-compose.yml). It prints what it
+# receives to its own log, which is all a local setup needs; a deployment
+# replaces the debug exporter with a real backend.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      exporters: [debug]

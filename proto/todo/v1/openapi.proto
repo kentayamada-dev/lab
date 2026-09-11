@@ -32,4 +32,36 @@ option (gnostic.openapi.v3.document) = {
       }
     }
   ]
+  components: {
+    security_schemes: {
+      additional_properties: [
+        {
+          name: "bearerAuth"
+          value: {
+            security_scheme: {
+              type: "http"
+              scheme: "bearer"
+              bearer_format: "JWT"
+              description: "Token issued by AuthService (auth/v1/auth.proto)."
+            }
+          }
+        }
+      ]
+    }
+  }
+  // Required by every operation, which is what puts the Authorize button on
+  // the docs page and makes it send the header. It overstates the two
+  // AuthService procedures, which issue a token rather than need one and
+  // ignore the header; naming the requirement per operation instead would mean
+  // annotating the service files, which openapi.proto exists to avoid.
+  security: [
+    {
+      additional_properties: [
+        {
+          name: "bearerAuth"
+          value: {}
+        }
+      ]
+    }
+  ]
 };

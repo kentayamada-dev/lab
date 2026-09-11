@@ -67,7 +67,7 @@ jobs:
 | `proto` | `make proto-check`。breaking は origin/main と比較するため、`fetch-depth: 0` で checkout します |
 | `gen` | `make gen-check` |
 | `db` | `make db-check`。lint は origin/main 以降に増えたマイグレーションだけを見るため、`proto` と同じく `fetch-depth: 0` で checkout します |
-| `api` | `make db-migrate` でスキーマを適用してから `make api-check`。sqlc の `db-prepare` ルールが実 DB に対してクエリを prepare するため、先にテーブルが要ります |
+| `api` | `make api-check`。スキーマの適用は [Makefile](../Makefile) が依存として持っているので、ジョブは呼ぶだけです。[internal/integration](../api/internal/integration) のテストも同じ DB を使いますが、こちらは実行ごとに専用スキーマを作って捨てるので、マイグレーションの適用状態には依存しません（`DB_URL` が無いとスキップします） |
 | `web` | `make web-check`。`pnpm install --frozen-lockfile` は pnpm の既定 `minimumReleaseAge`（1440 分）により、lockfile の全エントリを見て公開から 24 時間未満の版を `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` で拒否します。Renovate がそうした版を提案しないようにする設定は [renovate.md](renovate.md#このリポジトリに合わせてある設定) にあります |
 
 各ターゲットの内容は `make help` にあります。5 ジョブとも make の前に [setup-compose](../.github/actions/setup-compose/action.yaml) を呼びます。`make init` で `.env` を作り（追跡していないため、チェックアウト直後には存在しません）、`USER_UID` / `USER_GID` を runner の uid / gid に合わせる composite action です。bind mount したチェックアウトをコンテナ側が読み書きできるようにするためで、buf が `.git` を読むときの dubious ownership 判定もこれで避けます（macOS の Docker Desktop は所有者をコンテナのユーザーに見せるため、手元が macOS なら合わせる必要はありません）。`api` ジョブは `API_BUILD_TARGET=base` でイメージを build します（dev target が足す gopls は検査で使わず、コンパイルに時間がかかるためです）。

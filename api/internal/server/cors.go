@@ -27,13 +27,19 @@ func withCORS(origins []string, handler http.Handler) http.Handler {
 		// Named rather than left to the default, which happens to cover both.
 		AllowedMethods: []string{http.MethodGet, http.MethodPost},
 		// The JSON body's content type, which is what makes a preflight
-		// necessary in the first place, and the two headers the Connect
-		// protocol puts on a unary request. Missing headers reach the handler
-		// as a request the browser then refuses to read the answer of.
+		// necessary in the first place, the two headers the Connect protocol
+		// puts on a unary request, and the bearer token a client that is not
+		// the app authenticates with (auth.go). Missing headers reach the
+		// handler as a request the browser then refuses to read the answer of.
+		//
+		// Credentials are deliberately not allowed: the session cookie is for
+		// the app, which reaches the API on its own origin through the rewrite
+		// in web/next.config.ts and needs none of this.
 		AllowedHeaders: []string{
 			"Content-Type",
 			"Connect-Protocol-Version",
 			"Connect-Timeout-Ms",
+			"Authorization",
 		},
 	}).Handler(handler)
 }

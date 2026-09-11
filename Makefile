@@ -188,6 +188,13 @@ db-migrate: ## Apply the pending migrations
 	$(RUN_ATLAS) migrate apply --env $(ATLAS_ENV)
 
 # ---- API -------------------------------------------------------------------------
+# sqlc prepares every query against the running database (api/sqlc.yaml), so
+# these targets need the schema to be there; without it they fail on a missing
+# relation, which reads as a broken query rather than an unmigrated database.
+# Applying an already applied migration does nothing, so the dependency costs a
+# no-op run. api-test is not among them: the integration tests build a schema of
+# their own from schema.sql (api/internal/integration).
+api-check api-db-gen api-db-gen-check api-db-vet: db-migrate
 api-%: FORCE ## Run one api/Makefile target inside the api container, pass compose run flags with API_RUN_FLAGS=
 	$(COMPOSE) run --rm$(if $(API_RUN_FLAGS), $(API_RUN_FLAGS)) --workdir /workspace/api api make $*
 

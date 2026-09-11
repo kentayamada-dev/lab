@@ -95,28 +95,30 @@ message DeleteTodoRequest {
 // Response to a deletion. It carries no data.
 message DeleteTodoResponse {}
 
-// Operations on todo items.
+// Operations on todo items. Every procedure works on the todos of the account
+// named by the request's bearer token (auth/v1/auth.proto) and fails with the
+// unauthenticated code without a valid one.
 service TodoService {
   // Creates a new todo item from the given title and returns the stored
   // record. Fails with the invalid_argument code when the title breaks the
   // rules declared on CreateTodoRequest.title.
   rpc CreateTodo(CreateTodoRequest) returns (CreateTodoResponse);
 
-  // Returns one page of todo items ordered by id. The response carries a
-  // next_page_token whenever a further page exists; passing it back walks the
-  // rest. Fails with the invalid_argument code when page_size is outside its
+  // Returns one page of the account's todo items ordered by id. The response
+  // carries a next_page_token whenever a further page exists; passing it back
+  // walks the rest. Fails with the invalid_argument code when page_size is outside its
   // range or page_token was not taken from a previous response.
   rpc ListTodos(ListTodosRequest) returns (ListTodosResponse);
 
   // Updates the todo identified by id and returns the updated record: done and
   // title are each applied only when present. Fails with the not_found code
-  // when no todo has that id, and with the invalid_argument code when id is
-  // not positive, the request carries neither field, or the title breaks its
-  // rules.
+  // when the account has no todo with that id, and with the invalid_argument
+  // code when id is not positive, the request carries neither field, or the
+  // title breaks its rules.
   rpc UpdateTodo(UpdateTodoRequest) returns (UpdateTodoResponse);
 
-  // Deletes the todo identified by id. Fails with the not_found code when no
-  // todo has that id, and with the invalid_argument code when id is not
-  // positive.
+  // Deletes the todo identified by id. Fails with the not_found code when the
+  // account has no todo with that id, and with the invalid_argument code when
+  // id is not positive.
   rpc DeleteTodo(DeleteTodoRequest) returns (DeleteTodoResponse);
 }

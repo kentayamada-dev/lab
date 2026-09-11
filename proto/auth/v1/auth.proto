@@ -1,0 +1,89 @@
+syntax = "proto3";
+package auth.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+// What a client is authenticated by. SignUp and LogIn also set the same value
+// as an HttpOnly session cookie, which is what a browser is meant to use: it
+// travels on its own and no script on the page can read it. Clients that are
+// not browsers take the token from here and send it themselves.
+message Token {
+  // Value of the Authorization header, after the "Bearer " prefix.
+  string access_token = 1;
+  // When the token stops being accepted, and when the cookie expires. There is
+  // nothing to refresh it with, so a client past this has to log in again.
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+// Credentials for a new account.
+message SignUpRequest {
+  // Address the account is identified by. Stored lower-cased, so addresses
+  // differing only in case are the same account.
+  string email = 1 [(buf.validate.field).string = {
+    email: true
+    max_len: 254
+  }];
+  // Secret the account is unlocked with. Bounded in bytes rather than
+  // characters because bcrypt reads at most 72 of them and would silently
+  // ignore the rest, making a longer password weaker than it looks.
+  string password = 2 [(buf.validate.field).string = {
+    min_bytes: 8
+    max_bytes: 72
+  }];
+}
+
+// Response containing the token of the newly created account.
+message SignUpResponse {
+  // Token for the account that was just created.
+  Token token = 1;
+}
+
+// Credentials of an existing account.
+message LogInRequest {
+  // Address the account is identified by. Matched case-insensitively.
+  string email = 1 [(buf.validate.field).string = {
+    email: true
+    max_len: 254
+  }];
+  // Secret the account was created with.
+  string password = 2 [(buf.validate.field).string = {
+    min_bytes: 8
+    max_bytes: 72
+  }];
+}
+
+// Response containing the token of the account that was logged in to.
+message LogInResponse {
+  // Token for the account named in the request.
+  Token token = 1;
+}
+
+// Request to end the current session. It names nothing: what is ended is the
+// session the request's own cookie carries.
+message LogOutRequest {}
+
+// Response to logging out. It carries no data.
+message LogOutResponse {}
+
+// Issues the tokens the rest of the API requires. Its own procedures are the
+// only ones reachable without one.
+service AuthService {
+  // Creates an account and returns a token for it. Fails with the
+  // already_exists code when the address is taken, and with the
+  // invalid_argument code when the credentials break the rules declared on
+  // SignUpRequest.
+  rpc SignUp(SignUpRequest) returns (SignUpResponse);
+
+  // Returns a token for an existing account. Fails with the unauthenticated
+  // code when the address is unknown or the password does not match: the two
+  // are answered identically, so the API does not say which addresses have an
+  // account.
+  rpc LogIn(LogInRequest) returns (LogInResponse);
+
+  // Expires the session cookie. A script cannot delete an HttpOnly cookie, so
+  // logging out of the browser app is something only the server can do. The
+  // token itself keeps working until it expires, which is what a client
+  // holding one in the Authorization header relies on.
+  rpc LogOut(LogOutRequest) returns (LogOutResponse);
+}

@@ -255,7 +255,9 @@ export const DeleteTodoResponseSchema: GenMessage<DeleteTodoResponse> = /*@__PUR
   messageDesc(file_todo_v1_todo, 8);
 
 /**
- * Operations on todo items.
+ * Operations on todo items. Every procedure works on the todos of the account
+ * named by the request's bearer token (auth/v1/auth.proto) and fails with the
+ * unauthenticated code without a valid one.
  *
  * @generated from service todo.v1.TodoService
  */
@@ -273,9 +275,9 @@ export const TodoService: GenService<{
     output: typeof CreateTodoResponseSchema;
   },
   /**
-   * Returns one page of todo items ordered by id. The response carries a
-   * next_page_token whenever a further page exists; passing it back walks the
-   * rest. Fails with the invalid_argument code when page_size is outside its
+   * Returns one page of the account's todo items ordered by id. The response
+   * carries a next_page_token whenever a further page exists; passing it back
+   * walks the rest. Fails with the invalid_argument code when page_size is outside its
    * range or page_token was not taken from a previous response.
    *
    * @generated from rpc todo.v1.TodoService.ListTodos
@@ -288,9 +290,9 @@ export const TodoService: GenService<{
   /**
    * Updates the todo identified by id and returns the updated record: done and
    * title are each applied only when present. Fails with the not_found code
-   * when no todo has that id, and with the invalid_argument code when id is
-   * not positive, the request carries neither field, or the title breaks its
-   * rules.
+   * when the account has no todo with that id, and with the invalid_argument
+   * code when id is not positive, the request carries neither field, or the
+   * title breaks its rules.
    *
    * @generated from rpc todo.v1.TodoService.UpdateTodo
    */
@@ -300,9 +302,9 @@ export const TodoService: GenService<{
     output: typeof UpdateTodoResponseSchema;
   },
   /**
-   * Deletes the todo identified by id. Fails with the not_found code when no
-   * todo has that id, and with the invalid_argument code when id is not
-   * positive.
+   * Deletes the todo identified by id. Fails with the not_found code when the
+   * account has no todo with that id, and with the invalid_argument code when
+   * id is not positive.
    *
    * @generated from rpc todo.v1.TodoService.DeleteTodo
    */

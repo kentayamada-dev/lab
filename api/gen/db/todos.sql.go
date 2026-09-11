@@ -12,16 +12,22 @@ import (
 )
 
 const createTodo = `-- name: CreateTodo :one
-INSERT INTO todos (title)
-VALUES ($1)
-RETURNING id, title, completed, created_at
+INSERT INTO todos (user_id, title)
+VALUES ($1, $2)
+RETURNING id, user_id, title, completed, created_at
 `
 
-func (q *Queries) CreateTodo(ctx context.Context, title string) (Todo, error) {
-	row := q.db.QueryRow(ctx, createTodo, title)
+type CreateTodoParams struct {
+	UserID int64
+	Title  string
+}
+
+func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (Todo, error) {
+	row := q.db.QueryRow(ctx, createTodo, arg.UserID, arg.Title)
 	var i Todo
 	err := row.Scan(
 		&i.ID,
+		&i.UserID,
 		&i.Title,
 		&i.Completed,
 		&i.CreatedAt,
@@ -31,11 +37,16 @@ func (q *Queries) CreateTodo(ctx context.Context, title string) (Todo, error) {
 
 const deleteTodo = `-- name: DeleteTodo :execrows
 DELETE FROM todos
-WHERE id = $1
+WHERE id = $1 AND user_id = $2
 `
 
-func (q *Queries) DeleteTodo(ctx context.Context, id int64) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteTodo, id)
+type DeleteTodoParams struct {
+	ID     int64
+	UserID int64
+}
+
+func (q *Queries) DeleteTodo(ctx context.Context, arg DeleteTodoParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteTodo, arg.ID, arg.UserID)
 	if err != nil {
 		return 0, err
 	}
@@ -43,19 +54,20 @@ func (q *Queries) DeleteTodo(ctx context.Context, id int64) (int64, error) {
 }
 
 const listTodos = `-- name: ListTodos :many
-SELECT id, title, completed, created_at FROM todos
-WHERE id > $1
+SELECT id, user_id, title, completed, created_at FROM todos
+WHERE user_id = $1 AND id > $2
 ORDER BY id
-LIMIT $2
+LIMIT $3
 `
 
 type ListTodosParams struct {
+	UserID   int64
 	AfterID  int64
 	PageSize int64
 }
 
 func (q *Queries) ListTodos(ctx context.Context, arg ListTodosParams) ([]Todo, error) {
-	rows, err := q.db.Query(ctx, listTodos, arg.AfterID, arg.PageSize)
+	rows, err := q.db.Query(ctx, listTodos, arg.UserID, arg.AfterID, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +77,7 @@ func (q *Queries) ListTodos(ctx context.Context, arg ListTodosParams) ([]Todo, e
 		var i Todo
 		if err := rows.Scan(
 			&i.ID,
+			&i.UserID,
 			&i.Title,
 			&i.Completed,
 			&i.CreatedAt,
@@ -82,21 +95,30 @@ func (q *Queries) ListTodos(ctx context.Context, arg ListTodosParams) ([]Todo, e
 const updateTodo = `-- name: UpdateTodo :one
 UPDATE todos
 SET completed = coalesce($1, completed), title = coalesce($2, title)
-WHERE id = $3
-RETURNING id, title, completed, created_at
+WHERE id = $3 AND user_id = $4
+RETURNING id, user_id, title, completed, created_at
 `
 
 type UpdateTodoParams struct {
 	Completed pgtype.Bool
 	Title     pgtype.Text
 	ID        int64
+	UserID    int64
 }
 
+// A todo of another user is left alone and reported as missing, so the answer
+// says nothing about whether that id exists.
 func (q *Queries) UpdateTodo(ctx context.Context, arg UpdateTodoParams) (Todo, error) {
-	row := q.db.QueryRow(ctx, updateTodo, arg.Completed, arg.Title, arg.ID)
+	row := q.db.QueryRow(ctx, updateTodo,
+		arg.Completed,
+		arg.Title,
+		arg.ID,
+		arg.UserID,
+	)
 	var i Todo
 	err := row.Scan(
 		&i.ID,
+		&i.UserID,
 		&i.Title,
 		&i.Completed,
 		&i.CreatedAt,
