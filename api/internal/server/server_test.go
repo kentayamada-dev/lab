@@ -344,10 +344,9 @@ func TestNewRejectsNonGETOnTheOpenAPIDocument(t *testing.T) {
 	}
 }
 
-// The Swagger UI page is served from the docs container's own port
-// (docker-compose.yml), so both the fetch of the document and the requests
-// "Try it out" sends are cross-origin: the preflight has to be answered and
-// the answer has to name the origin, or the browser hides it from the page.
+// Why the docs page's requests are cross-origin: cors.go. The preflight has to
+// be answered and the answer has to name the origin, or the browser hides it
+// from the page.
 func TestNewAllowsTheConfiguredCORSOrigin(t *testing.T) {
 	const origin = "http://localhost:8081"
 

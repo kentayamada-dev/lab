@@ -26,9 +26,8 @@ RUN mkdir -p /workspace/web/node_modules \
   && mkdir -p ${PNPM_HOME}/store \
   && chown -R ${USER_NAME}:${USER_NAME} ${PNPM_HOME}
 
-# Docker Desktop leaves the /workspace mount point itself owned by root while
-# the repository under it belongs to ${USER_NAME}, so git reads the worktree as
-# someone else's and refuses to run ("detected dubious ownership", exit 128).
+# Why git needs this for the bind-mounted worktree: the same setting in
+# ../api-container/Dockerfile
 RUN git config --system --add safe.directory /workspace
 
 USER ${USER_NAME}

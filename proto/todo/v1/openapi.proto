@@ -18,8 +18,7 @@ option (gnostic.openapi.v3.document) = {
   // falls back to the origin it is served from, which is the docs container
   // rather than the api (docker-compose.yml). The document is a build artifact
   // and cannot read the environment, so the port is a server variable holding
-  // .env.example's API_PORT: another value is typed into the server field in
-  // the UI instead of regenerated here.
+  // .env.example's API_PORT (README.md#起動).
   servers: [
     {
       url: "http://localhost:{port}"
