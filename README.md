@@ -124,7 +124,7 @@ JSON から読み取りにくい点だけ補足します。承認は 0 人でセ
 
 ## 起動
 
-前提は macOS と docker です。コンテナ内のユーザーは uid / gid 1000 で作られますが、ホストの `id -u` / `id -g` と合わせる必要はありません。Docker Desktop が bind mount の所有者をコンテナのユーザーに見せるためです。
+前提は docker だけです。
 
 ```bash
 make init         # .env.example から .env を作る
@@ -143,6 +143,8 @@ make run-web   # http://localhost:${WEB_PORT} で待ち受け、/rpc/* を api �
 ポートは .env の `API_PORT` / `WEB_PORT` / `DOCS_PORT` / `DB_PORT` と db_gui の 8978 で、[docker-compose.yml](docker-compose.yml) が 127.0.0.1 にだけ公開しています（.env.example では api が 8080、web が 3000、docs が 8081）。`make init` は既にある .env を触らないので、更新前から .env を持っている場合は `DOCS_PORT` を自分で足してください。
 
 db_gui は [CloudBeaver](https://dbeaver.com/docs/cloudbeaver/) で、アプリの DB への接続は [initial-data-sources.conf](.devcontainer/db_gui-container/initial-data-sources.conf) で登録済みです。docs は [Swagger UI](https://hub.docker.com/r/swaggerapi/swagger-ui) で、`http://localhost:${DOCS_PORT}` に API リファレンスを出します。表示するドキュメントはブラウザが api の `/openapi.yaml` から読むので（[openapi.go](api/internal/server/openapi.go)）、`make run-api` を動かしていないとページは `Failed to load API definition.` になります。動いていればページから各 RPC を呼べます（Try it out）。送信先は docs 自身ではなく api のポートで（[openapi.proto](proto/todo/v1/openapi.proto) の servers）、別オリジンからの呼び出しを api が許すための `CORS_ORIGINS` は docker-compose.yml が渡しています（[cors.go](api/internal/server/cors.go)）。ドキュメントは生成物で環境変数を読めないため、送信先のポートは .env.example の 8080 が既定値です。`API_PORT` を変えたときは、ページ上部の server 欄で `port` を合わせてください。
+
+コンテナ内のユーザーは `USER_UID` / `USER_GID`（既定 1000）で作られます。Linux ホストでは bind mount がチェックアウトの所有者をそのまま見せるため、ホストの `id -u` / `id -g` と違うと、チェックアウトや依存キャッシュのディレクトリへの書き込みが権限エラーになり、git も dubious ownership で止まります。.env に 2 つを足して `make rebuild` してください。macOS の Docker Desktop は所有者をコンテナのユーザーに見せるので、合わせなくても動きます（CI は Linux で走るため、runner の uid / gid に合わせています）。
 
 VS Code で編集するなら、`make code-api` / `make code-web` で同じコンテナに devcontainer として接続できます（この 2 つだけは docker に加えて [vscli](https://github.com/michidk/vscli) が要ります）。devcontainer を開かずに api / web の Makefile のターゲットを 1 つ実行するには `make api-<target>` / `make web-<target>` を使います（`make api-test` など）。止めるのは `make down`、DB のデータも含めて消すのは `make clean` です。残りのターゲットは `make help` にあります。
 

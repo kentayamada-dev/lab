@@ -3,10 +3,10 @@ name: lab
 x-env:
   app_db_url: &app_db_url "postgres://${DB_USER:?}:${DB_PASSWORD:?}@db:${DB_PORT:?}/${DB_NAME:?}?${DB_OPTS:?}&application_name=app"
   atlas_db_url: &atlas_db_url "postgres://${DB_USER:?}:${DB_PASSWORD:?}@db:${DB_PORT:?}/${ATLAS_DEV_DB:?}?${DB_OPTS:?}&application_name=atlas"
-  # Who the containers run as. A macOS host needs no override, since Docker
-  # Desktop shows the bind mount as owned by whoever runs in the container; CI
-  # runs on Linux, where it does not, and sets these to the runner's own ids so
-  # the checkout stays writable (docs/ci-jobs.md).
+  # Who the containers run as. A Linux host shows the bind mount with the
+  # ownership it has outside, so these take the host user's ids there and CI
+  # sets them to the runner's. A macOS host needs no override: Docker Desktop
+  # shows the mount as owned by whoever runs in the container (README.md).
   uid: &uid "${USER_UID:-1000}"
   gid: &gid "${USER_GID:-1000}"
   user: &tool_user "${USER_UID:-1000}:${USER_GID:-1000}"
