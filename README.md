@@ -124,7 +124,7 @@ JSON から読み取りにくい点だけ補足します。承認は 0 人でセ
 
 ## 起動
 
-前提は macOS と docker です。コンテナ内のユーザーは uid / gid 1000 で作られますが、ホストの `id -u` / `id -g` と合わせる必要はありません。Docker Desktop が bind mount の所有者をコンテナのユーザーに見せるためです。
+前提は docker だけです。
 
 ```bash
 make init         # .env.example から .env を作る
