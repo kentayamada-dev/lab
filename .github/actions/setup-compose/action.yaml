@@ -1,0 +1,23 @@
+# What every job that runs a make target inside the compose services does first: the
+# app-code jobs in ci.yml. It lives here rather than in each job so that the reason
+# below has one home instead of five copies (docs/ci-jobs.md#アプリコードの検査).
+name: setup-compose
+description: Creates .env and points the containers at the runner's own uid and gid.
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare the compose environment
+      shell: bash
+      run: |
+        set -euo pipefail
+        # A Linux bind mount shows the checkout with the ownership it has on the
+        # host, so a container running as anyone else can neither write to it nor
+        # let git read it (which is what buf and go's VCS stamping need).
+        # docker-compose.yml takes the ids from the environment.
+        {
+          echo "USER_UID=$(id -u)"
+          echo "USER_GID=$(id -g)"
+        } >> "${GITHUB_ENV}"
+        # .env is not tracked, so a fresh checkout has none.
+        make init

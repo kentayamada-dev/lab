@@ -70,7 +70,7 @@ jobs:
 | `api` | `make db-migrate` でスキーマを適用してから `make api-check`。sqlc の `db-prepare` ルールが実 DB に対してクエリを prepare するため、先にテーブルが要ります |
 | `web` | `make web-check`。`pnpm install --frozen-lockfile` は pnpm の既定 `minimumReleaseAge`（1440 分）により、lockfile の全エントリを見て公開から 24 時間未満の版を `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` で拒否します。Renovate がそうした版を提案しないようにする設定は [renovate.md](renovate.md#このリポジトリに合わせてある設定) にあります |
 
-各ターゲットの内容は `make help` にあります。各ジョブは make の前に `make init` で `.env` を作り（追跡していないため、チェックアウト直後には存在しません）、`USER_UID` / `USER_GID` を runner の uid / gid に合わせてから make を呼びます。bind mount したチェックアウトをコンテナ側が読み書きできるようにするためで、buf が `.git` を読むときの dubious ownership 判定もこれで避けます。`api` ジョブは `API_BUILD_TARGET=base` でイメージを build します（dev target が足す gopls は検査で使わず、コンパイルに時間がかかるためです）。
+各ターゲットの内容は `make help` にあります。5 ジョブとも make の前に [setup-compose](../.github/actions/setup-compose/action.yaml) を呼びます。`make init` で `.env` を作り（追跡していないため、チェックアウト直後には存在しません）、`USER_UID` / `USER_GID` を runner の uid / gid に合わせる composite action です。bind mount したチェックアウトをコンテナ側が読み書きできるようにするためで、buf が `.git` を読むときの dubious ownership 判定もこれで避けます（macOS の Docker Desktop は所有者をコンテナのユーザーに見せるため、手元では合わせる必要がありません）。`api` ジョブは `API_BUILD_TARGET=base` でイメージを build します（dev target が足す gopls は検査で使わず、コンパイルに時間がかかるためです）。
 
 `api` と `web` は依存物のキャッシュを run をまたいで持ち越します。[docker-compose.yml](../docker-compose.yml) の `GO_MOD_CACHE` / `GO_BUILD_CACHE` / `PNPM_STORE` は named volume を任意のホストディレクトリに差し替えるための変数で、CI はここに actions/cache で restore したディレクトリを渡します（ローカルでは未設定のまま named volume が使われます）。保存は [mise のキャッシュ](#ツールの導入と検証)と同じ理由で main への push のときだけです。`proto` / `gen` / `db` はイメージの pull だけで動くため、キャッシュしていません。
 

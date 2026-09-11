@@ -315,12 +315,9 @@ jobs:
           persist-credentials: false
           # buf breaking needs origin/main (docs/ci-jobs.md).
           fetch-depth: 0
+      - uses: $/.github/actions/setup-compose
       - name: Check the proto files
-        run: |
-          USER_UID="$(id -u)" USER_GID="$(id -g)"
-          export USER_UID USER_GID
-          make init
-          make proto-check
+        run: make proto-check
 
   gen:
     runs-on: ubuntu-24.04-arm
@@ -331,12 +328,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: $/.github/actions/setup-compose
       - name: Check that buf.gen.yaml and the generated code are up to date
-        run: |
-          USER_UID="$(id -u)" USER_GID="$(id -g)"
-          export USER_UID USER_GID
-          make init
-          make gen-check
+        run: make gen-check
 
   db:
     runs-on: ubuntu-24.04-arm
@@ -349,12 +343,9 @@ jobs:
           persist-credentials: false
           # migrate lint needs origin/main (docs/ci-jobs.md).
           fetch-depth: 0
+      - uses: $/.github/actions/setup-compose
       - name: Check the migrations
-        run: |
-          USER_UID="$(id -u)" USER_GID="$(id -g)"
-          export USER_UID USER_GID
-          make init
-          make db-check
+        run: make db-check
 
   api:
     runs-on: ubuntu-24.04-arm
@@ -365,6 +356,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: $/.github/actions/setup-compose
       # The build cache changes on every compile, hence the sha suffix; the
       # restore falls back to the newest cache of the same go.sum, then any.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -381,14 +373,11 @@ jobs:
           # base skips the dev target's gopls (docs/ci-jobs.md).
           API_BUILD_TARGET: base
         run: |
-          USER_UID="$(id -u)" USER_GID="$(id -g)"
-          export USER_UID USER_GID
           GO_MOD_CACHE="$HOME/.cache/lab/go-mod" GO_BUILD_CACHE="$HOME/.cache/lab/go-build"
           export GO_MOD_CACHE GO_BUILD_CACHE
           # Pre-create the mount sources: docker would create a missing one
           # owned by root, and the container user could not write to it.
           mkdir -p "$GO_MOD_CACHE" "$GO_BUILD_CACHE"
-          make init
           # Migrations first (docs/ci-jobs.md).
           make db-migrate
           make api-check
@@ -410,6 +399,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: $/.github/actions/setup-compose
       # The store's content is fully determined by the lockfile, so the key
       # needs no further suffix.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -420,13 +410,10 @@ jobs:
             web-pnpm-
       - name: Run the web checks
         run: |
-          USER_UID="$(id -u)" USER_GID="$(id -g)"
-          export USER_UID USER_GID
           PNPM_STORE="$HOME/.cache/lab/pnpm-store"
           export PNPM_STORE
           # Pre-create the mount source (see the api job).
           mkdir -p "$PNPM_STORE"
-          make init
           make web-check
       # Save only on push (docs/ci-jobs.md).
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
