@@ -18,7 +18,7 @@ ENV PNPM_HOME=/pnpm \
 # the only pnpm install that Scorecard's Pinned-Dependencies accepts (npm install
 # has no hash to pin to). The executable loads dist/ relative to itself, so the
 # whole directory comes along and only the symlink goes in PATH.
-COPY --from=ghcr.io/pnpm/pnpm:12.4.0@sha256:4fcb6db39468ecafef34f3e866730df106f7639ba4512e42885d80f868ccb257 /opt/pnpm /opt/pnpm
+COPY --from=ghcr.io/pnpm/pnpm:12.4.1@sha256:f37ab4b175b5b3bcd8f7334287f908959b09a849b73d5e13678d9fa70ffdb246 /opt/pnpm /opt/pnpm
 RUN ln -s /opt/pnpm/pnpm /usr/local/bin/pnpm
 
 RUN mkdir -p /workspace/web/node_modules \

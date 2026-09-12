@@ -105,7 +105,7 @@ services:
   buf:
     profiles:
       - tools
-    image: bufbuild/buf:1.72@sha256:65bd496a89c762ad7151ca9e7d885a45dacb3671a8e8ec39738b9f844d3405ea
+    image: bufbuild/buf:1.73@sha256:75d8f756f0919dcded71e67968a91adfe55fe4dd62c4900c57bbfcd7fe625608
     user: *tool_user
     working_dir: /workspace
     environment:
