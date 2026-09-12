@@ -29,7 +29,7 @@ plugins:
     # The generated TS imports the descriptors of every proto dependency
     # (buf/validate) by a relative path, so those must be generated too.
     include_imports: true
-  - remote: buf.build/community/sudorandom-connect-openapi:v0.26.0
+  - remote: buf.build/community/sudorandom-connect-openapi:v0.27.1
     out: api/gen/openapi
     # One document for the whole API rather than the default of one per proto
     # file, which also spares the empty documents that the files declaring no
