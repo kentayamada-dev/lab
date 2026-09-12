@@ -7,6 +7,7 @@ if (!apiPort) {
 }
 
 const nextConfig: NextConfig = {
+  reactCompiler: true,
   async rewrites() {
     return [
       {
@@ -17,4 +18,4 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
+export default nextConfig;
