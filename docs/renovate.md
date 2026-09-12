@@ -98,7 +98,6 @@ Renovate には更新状況を issue にまとめる [Dependency Dashboard](http
 | 更新の種類 | タイトルの例 |
 | --- | --- |
 | まとめた更新（`non-major` のグループ） | `chore(deps): update non-major dependencies` |
-| まとめた更新（`buf plugin` のグループ） | `chore(deps): update buf plugin dependencies` |
 | major | `chore(deps): update actions/checkout to v8` |
 | ダイジェストのみ | `chore(deps): update renovate/renovate digest to e49d149` |
 | バージョンの固定（`pinDigests: true` の初回など） | `chore(deps): pin dependency versions` |
@@ -107,7 +106,7 @@ Renovate には更新状況を issue にまとめる [Dependency Dashboard](http
 
 `chore(deps):` の接頭辞は `semanticCommits: 'enabled'` が付けます（`config:recommended` に含まれるプリセットにより、アプリ本体の依存では `fix(deps):` になります）。接頭辞が付く形は変えていないので、CI の [`pr-title`](../README.md#pr-タイトルの書式) は通ります。
 
-`packageRules` には `groupSlug` を明示しています。グループ名の言い回しに関係なくブランチ名を固定するためです。ブランチ名はこの slug から作られ（`renovate/non-major`、`renovate/buf-plugin`）、ここが崩れると[更新の一覧の issue](#更新の一覧の-issue) の絞り込み（`renovate/` で始まるブランチ）にも響きます。
+`packageRules` には `groupSlug` を明示しています。グループ名の言い回しに関係なくブランチ名を固定するためです。ブランチ名はこの slug から作られ（`renovate/non-major`）、ここが崩れると[更新の一覧の issue](#更新の一覧の-issue) の絞り込み（`renovate/` で始まるブランチ）にも響きます。
 
 ### 本文
 
@@ -193,43 +192,11 @@ docker run --rm -v "$PWD:/repo:ro" -w /repo \
 | `extends` の `security:minimumReleaseAgeNpm` | npm パッケージは公開から 3 日経つまで更新に含めない（`internalChecksFilter: 'strict'` 付きなので、最新版が若すぎるときは条件を満たす直近の版を提案する）。[`web`](ci-jobs.md#アプリコードの検査) の pnpm が公開 24 時間未満の版を拒否するため、Renovate 側も待たせて提案した版が拒否されないようにする | 公開から 24 時間未満の版が PR に入り、24 時間経つまで `web` が落ちる |
 | `statusCheckWhen: { minimumReleaseAge: 'never' }` | `security:minimumReleaseAgeNpm` が付ける `renovate/stability-days` のステータスチェックを止める。`internalChecksFilter: 'strict'` が若すぎる版を候補から外しているので、このチェックは常に green を書くだけの飾りで、しかも push 直後のコミットに対する API 呼び出しなので[実行の中断](#実行の途中で中断したとき)を招く | 更新 PR に green の `renovate/stability-days` が付く。必須チェックではないので判定は変わらないが、中断の入り口が 1 つ増える |
 | `packageRules` の `non-major` | minor・patch・ダイジェストの更新を 1 本の PR にまとめる | 更新ごとに PR が立ち、本数が増える |
-| `packageRules` の `buf plugin` | [buf.gen.yaml](../buf.gen.yaml) のプラグインのバージョン元になる 4 つの依存を `non-major` から外し、別の PR にする（[理由](#buf-のプラグインを別の-pr-に分ける理由)） | BSR にまだ無いバージョンを提案されたとき、その週の更新がすべて道連れでマージできなくなる |
 | `commitMessage*` / `pr*` の文面 | 更新 PR のタイトルと本文を自前で書く（[PR の文面](#pr-の文面)） | 自動生成の既定の文面に戻り、自動 issue と体裁が揃わない |
 | `fetchChangeLogs: 'off'` | リリースノートを PR に出さないので取得しない（[本文](#本文)） | 表示しないリリースノートを実行ごとに取りに行く |
 | `postUpdateOptions: ['gomodTidy']` | go.mod を更新した後に `go mod tidy` を走らせる。既定の `go get` だけでは、旧バージョンの行が go.sum に残ったり（indirect な依存では新バージョンの h1 ハッシュも入らない）して、[`api`](ci-jobs.md#アプリコードの検査) ジョブの `tidy-check` が落ちる | Go 依存の更新 PR が `tidy-check` で落ち、手で `make api-tidy` して push する必要がある |
 | `postUpgradeTasks` | 依存を更新した後に `./scripts/gen-buf-config.sh --write` を走らせ、[buf.gen.yaml](../buf.gen.yaml) を作り直す。このファイルは api/go.mod・web/package.json・[Makefile](../Makefile) のバージョンから作られる生成物なので、元のバージョンだけ更新すると取り残されて [`gen`](ci-jobs.md#アプリコードの検査) ジョブの `gen-config-check` が落ちる。生成コード自体（`gen-code-check`）は buf の実行が要るため、このタスクでは扱わない。コマンドの許可リストはセルフホスト専用の設定でここには書けず、[renovate.yml](../.github/workflows/renovate.yml) の `RENOVATE_ALLOWED_COMMANDS` にある | 更新 PR が `gen` で落ちる。手で `make gen` して push しても、`rebaseWhen: 'behind-base-branch'` によるブランチの作り直しでそのコミットは消える |
 | `vulnerabilityAlerts: { enabled: true }` | gomod マネージャは `// indirect` な依存を無効にしていて、脆弱性の修正 PR も既定ではそれを上書きしない。ここで `enabled` を書くと修正 PR の設定として強制され、indirect な依存の脆弱性にも修正 PR が立つ（通常の更新には indirect を含めないまま） | Dependabot alerts が `// indirect` な依存（Go では大半）に出ても修正 PR が立たず、アラートが残り続ける |
-
-## buf のプラグインを別の PR に分ける理由
-
-**[buf.gen.yaml](../buf.gen.yaml) のプラグインのバージョン元になる 4 つの依存だけは、`non-major` から外して `buf plugin` という別のグループにしてあります。** この 4 つは「Renovate が追うバージョン」と「実際に使うバージョン」が別物で、他の依存には無い落ち方をするためです。
-
-| buf.gen.yaml のプラグイン | Renovate が追う依存 |
-| --- | --- |
-| `buf.build/protocolbuffers/go` | api/go.mod の `google.golang.org/protobuf` |
-| `buf.build/connectrpc/go` | api/go.mod の `connectrpc.com/connect` |
-| `buf.build/bufbuild/es` | web/package.json の `@bufbuild/protobuf` |
-| `buf.build/community/sudorandom-connect-openapi` | Makefile の `CONNECT_OPENAPI_VERSION` |
-
-プラグインは BSR（Buf Schema Registry）にあるリモートプラグインで、そのバージョンは [gen-buf-config.sh](../scripts/gen-buf-config.sh) が上の依存から組み立てます。ところが Renovate が見ているのは上流（go.mod・package.json・GitHub リリース）で、buf が取りに行くのは BSR に公開されたプラグインです。**BSR への公開は上流のリリースより遅れることがあり、その間に更新されると、まだ存在しないプラグインを指したまま [`gen`](ci-jobs.md#アプリコードの検査) が落ちます。**
-
-```text
-Failure: not_found: plugin version "v0.27.1" was not found for existing plugin
-"buf.build/community/sudorandom-connect-openapi" with latest version "v0.26.0"
-```
-
-これは待てば直るので、PR を閉じる必要も設定を直す必要もありません。BSR に公開された後の実行でそのまま通ります。分けてあるのは**待っている間、他の依存の更新まで止めないため**です。4 つをひとまとめにしたのは、同じ生成物に入り、同じ `gen` ジョブが検査し、同じ落ち方をするからです。なお実際に遅れが出たのは community のプラグインだけで、残り 3 つは Buf 自身がリリースに合わせて公開するため遅れは小さいはずですが、BSR の公開時刻を測る手段が無いので確かめていません。構造は同じなので同じグループに入れてあります。
-
-### 根本的に直せない理由
-
-一致させるのが本来の解ですが、どちらの道も今は取れません。
-
-| 直し方 | 取れない理由 |
-| --- | --- |
-| Renovate に BSR のバージョンを追わせる | BSR 用の datasource が Renovate に無い。`customDatasources` で自作するには BSR 側に安定した公開 API が要るが、確認できていない |
-| リモートプラグインをやめてローカルプラグインにする | 上流のバイナリを直接使えば一致するが、[docker-compose.yml](../docker-compose.yml) の `buf` サービスが使っている配布イメージを捨てて、プラグイン入りのイメージを自前で作ることになる |
-
-`minimumReleaseAge` で公開を待たせる手も使いません。`security:minimumReleaseAgeNpm`（[このリポジトリに合わせてある設定](#このリポジトリに合わせてある設定)）は pnpm が公開 24 時間未満の版を拒否するという**確定した閾値**に合わせたものですが、BSR の遅れにはそういう値がありません。短ければ再発し、長ければ更新が無駄に遅れるだけです。
 
 ## 何が更新対象になるか
 
