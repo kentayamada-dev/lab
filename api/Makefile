@@ -32,7 +32,7 @@ COVERAGE_HTML := coverage.html
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run-race check test cover cover-html lint fmt fmt-check \
+.PHONY: help run run-race purge check test cover cover-html lint fmt fmt-check \
         db-gen db-gen-check db-vet tidy tidy-check deps-update
 
 # ---- Run -------------------------------------------------------------------
@@ -41,6 +41,9 @@ run: require-go ## Run the server
 
 run-race: require-go ## Run the server with the race detector
 	go run -race ./cmd/server
+
+purge: require-go ## Erase the accounts whose grace period is up
+	go run ./cmd/purge
 
 # ---- CI aggregate ----------------------------------------------------------
 check: fmt-check tidy-check lint db-gen-check db-vet test ## Run every CI check

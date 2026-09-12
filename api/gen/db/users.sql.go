@@ -7,12 +7,58 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const closeAccount = `-- name: CloseAccount :one
+WITH closed AS (
+  UPDATE users
+  SET deleted_at = now()
+  WHERE id = $1::bigint AND deleted_at IS NULL
+  RETURNING id, email, password_hash, created_at, deleted_at
+), ended AS (
+  DELETE FROM sessions
+  WHERE user_id IN (SELECT id FROM closed)
+)
+SELECT id, email, password_hash, created_at, deleted_at FROM closed
+`
+
+type CloseAccountRow struct {
+	ID           int64
+	Email        string
+	PasswordHash string
+	CreatedAt    pgtype.Timestamptz
+	DeletedAt    pgtype.Timestamptz
+}
+
+// Closing the account and ending its sessions is one statement because the two
+// cannot be allowed to come apart: a row marked closed whose sessions survived
+// would go on being served, the session lookup having no reason to read this
+// table twice (api/queries/sessions.sql). The sessions go by what the update
+// returned rather than by the same id, so an account that was already closed
+// takes nothing with it.
+//
+// The cast is what sqlc needs: a parameter inside a CTE is one it otherwise
+// reads as nullable, and the generated signature would take a pgtype.Int8
+// where every other query in here takes the id itself.
+func (q *Queries) CloseAccount(ctx context.Context, id int64) (CloseAccountRow, error) {
+	row := q.db.QueryRow(ctx, closeAccount, id)
+	var i CloseAccountRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.CreatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password_hash)
 VALUES ($1, $2)
-RETURNING id, email, password_hash, created_at
+RETURNING id, email, password_hash, created_at, deleted_at
 `
 
 type CreateUserParams struct {
@@ -28,15 +74,20 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Email,
 		&i.PasswordHash,
 		&i.CreatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, created_at FROM users
-WHERE email = $1
+SELECT id, email, password_hash, created_at, deleted_at FROM users
+WHERE email = $1 AND deleted_at IS NULL
 `
 
+// A closed account is not an account: the condition is what refuses it a
+// login rather than a tidying detail. It never has to choose between rows, the
+// address staying with the closed one until the purge erases it
+// (api/schema.sql).
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByEmail, email)
 	var i User
@@ -45,20 +96,42 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Email,
 		&i.PasswordHash,
 		&i.CreatedAt,
+		&i.DeletedAt,
 	)
 	return i, err
 }
 
-const userExists = `-- name: UserExists :one
-SELECT EXISTS (
-  SELECT 1 FROM users
-  WHERE id = $1
-) AS user_exists
+const getUserByID = `-- name: GetUserByID :one
+SELECT id, email, password_hash, created_at, deleted_at FROM users
+WHERE id = $1 AND deleted_at IS NULL
 `
 
-func (q *Queries) UserExists(ctx context.Context, id int64) (bool, error) {
-	row := q.db.QueryRow(ctx, userExists, id)
-	var user_exists bool
-	err := row.Scan(&user_exists)
-	return user_exists, err
+func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByID, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.CreatedAt,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const purgeClosedAccounts = `-- name: PurgeClosedAccounts :execrows
+DELETE FROM users
+WHERE deleted_at IS NOT NULL AND deleted_at <= $1
+`
+
+// Erases the accounts closed long enough ago, taking their todos with them
+// through the foreign keys. This is the only thing that deletes a user row, so
+// it is also the only thing that frees the storage a closed account still
+// occupies (api/cmd/purge).
+func (q *Queries) PurgeClosedAccounts(ctx context.Context, closedBefore pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, purgeClosedAccounts, closedBefore)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

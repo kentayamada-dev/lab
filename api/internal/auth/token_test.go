@@ -43,27 +43,38 @@ func TestNewIssuerRejectsAShortSecret(t *testing.T) {
 	}
 }
 
+// issue signs a token the way the service does, for the tests that only need
+// one back.
+func issue(t *testing.T, issuer *Issuer, userID, sessionID int64, now time.Time) string {
+	t.Helper()
+
+	token, err := issuer.Issue(userID, sessionID, now, issuer.Expiry(now))
+	if err != nil {
+		t.Fatalf("Issue() error = %v, want nil", err)
+	}
+
+	return token
+}
+
 func TestIssuerRoundTrip(t *testing.T) {
 	t.Parallel()
 
 	issuer := newTestIssuer(t)
 	now := time.Now()
 
-	token, expiresAt, err := issuer.Issue(42, now)
-	if err != nil {
-		t.Fatalf("Issue() error = %v, want nil", err)
+	if want := now.Add(tokenTTL); !issuer.Expiry(now).Equal(want) {
+		t.Errorf("Expiry() = %v, want %v", issuer.Expiry(now), want)
 	}
 
-	if want := now.Add(tokenTTL); !expiresAt.Equal(want) {
-		t.Errorf("Issue() expiresAt = %v, want %v", expiresAt, want)
-	}
-
-	userID, err := issuer.Verify(token)
+	userID, sessionID, err := issuer.Verify(issue(t, issuer, 42, 9, now))
 	if err != nil {
 		t.Fatalf("Verify() error = %v, want nil", err)
 	}
 	if userID != 42 {
 		t.Errorf("Verify() userID = %d, want 42", userID)
+	}
+	if sessionID != 9 {
+		t.Errorf("Verify() sessionID = %d, want 9", sessionID)
 	}
 }
 
@@ -73,21 +84,16 @@ func TestIssuerVerifyRejects(t *testing.T) {
 	issuer := newTestIssuer(t)
 	now := time.Now()
 
-	expired, _, err := issuer.Issue(42, now.Add(-2*tokenTTL))
-	if err != nil {
-		t.Fatalf("Issue() error = %v, want nil", err)
-	}
+	expired := issue(t, issuer, 42, 9, now.Add(-2*tokenTTL))
 
 	otherIssuer, err := NewIssuer(strings.Repeat("b", minSecretLen))
 	if err != nil {
 		t.Fatalf("NewIssuer() error = %v, want nil", err)
 	}
-	signedByAnother, _, err := otherIssuer.Issue(42, now)
-	if err != nil {
-		t.Fatalf("Issue() error = %v, want nil", err)
-	}
+	signedByAnother := issue(t, otherIssuer, 42, 9, now)
 
 	valid := jwt.RegisteredClaims{
+		ID:        "9",
 		Subject:   "42",
 		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(now.Add(tokenTTL)),
@@ -101,15 +107,29 @@ func TestIssuerVerifyRejects(t *testing.T) {
 		"unsigned":          signWith(t, jwt.SigningMethodNone, jwt.UnsafeAllowNoneSignatureType, valid),
 		"another algorithm": signWith(t, jwt.SigningMethodHS512, []byte(testSecret), valid),
 		"no expiry": signWith(t, signingMethod, []byte(testSecret), jwt.RegisteredClaims{
+			ID:       "9",
 			Subject:  "42",
 			IssuedAt: jwt.NewNumericDate(now),
 		}),
 		"subject is not a number": signWith(t, signingMethod, []byte(testSecret), jwt.RegisteredClaims{
+			ID:        "9",
 			Subject:   "nobody",
 			ExpiresAt: jwt.NewNumericDate(now.Add(tokenTTL)),
 		}),
 		"subject is an id no account can have": signWith(t, signingMethod, []byte(testSecret), jwt.RegisteredClaims{
+			ID:        "9",
 			Subject:   "0",
+			ExpiresAt: jwt.NewNumericDate(now.Add(tokenTTL)),
+		}),
+		// A token from before sessions existed would carry no jti, and naming
+		// no session it names nothing that can be closed.
+		"no session": signWith(t, signingMethod, []byte(testSecret), jwt.RegisteredClaims{
+			Subject:   "42",
+			ExpiresAt: jwt.NewNumericDate(now.Add(tokenTTL)),
+		}),
+		"session is an id no row can have": signWith(t, signingMethod, []byte(testSecret), jwt.RegisteredClaims{
+			ID:        "0",
+			Subject:   "42",
 			ExpiresAt: jwt.NewNumericDate(now.Add(tokenTTL)),
 		}),
 	}
@@ -118,7 +138,7 @@ func TestIssuerVerifyRejects(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			if _, err := issuer.Verify(token); err == nil {
+			if _, _, err := issuer.Verify(token); err == nil {
 				t.Error("Verify() error = nil, want an error")
 			}
 		})

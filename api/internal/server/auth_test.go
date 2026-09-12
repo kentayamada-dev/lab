@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -9,6 +10,8 @@ import (
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
 
+	accountv1 "example/app/gen/go/account/v1"
+	"example/app/gen/go/account/v1/accountv1connect"
 	authv1 "example/app/gen/go/auth/v1"
 	"example/app/gen/go/auth/v1/authv1connect"
 	todov1 "example/app/gen/go/todo/v1"
@@ -246,5 +249,79 @@ func TestNewReportsAFailedTokenLookupAsInternal(t *testing.T) {
 	)
 	if got := connect.CodeOf(err); got != connect.CodeInternal {
 		t.Errorf("CreateTodo() code = %v, want %v", got, connect.CodeInternal)
+	}
+}
+
+// A connect.UnaryInterceptorFunc is skipped entirely by a streaming procedure,
+// which is how an authenticated service could grow one that is served without
+// a token. Neither service declares a stream today, so there is no generated
+// handler to send one through and the interceptor is exercised directly.
+func TestWithAuthRefusesAStream(t *testing.T) {
+	handler := withAuth(stubAuthenticator{}).WrapStreamingHandler(
+		func(context.Context, connect.StreamingHandlerConn) error {
+			t.Error("the stream reached the handler")
+
+			return nil
+		},
+	)
+
+	err := handler(t.Context(), nil)
+	if got := connect.CodeOf(err); got != connect.CodeUnimplemented {
+		t.Errorf("WrapStreamingHandler() code = %v, want %v", got, connect.CodeUnimplemented)
+	}
+}
+
+// The client half of the interface has no part in serving, so it has to hand
+// back what it was given rather than refuse the way the handler half does.
+func TestWithAuthLeavesTheStreamingClientAlone(t *testing.T) {
+	reached := false
+
+	next := connect.StreamingClientFunc(func(context.Context, connect.Spec) connect.StreamingClientConn {
+		reached = true
+
+		return nil
+	})
+
+	withAuth(stubAuthenticator{}).WrapStreamingClient(next)(t.Context(), connect.Spec{})
+
+	if !reached {
+		t.Error("WrapStreamingClient() did not hand back the func it was given")
+	}
+}
+
+// The account service is guarded by the same interceptor the todo service is.
+// It is a separate registration, so nothing but a test says the token is
+// checked there at all: DeleteAccount reads the account off the context and
+// would close whatever it found if the guard were left off.
+func TestNewGuardsAccountService(t *testing.T) {
+	srv := serve(t, Deps{Account: panicOnCallAccountHandler{t: t}})
+
+	client := accountv1connect.NewAccountServiceClient(srv.Client(), srv.URL)
+
+	_, err := client.DeleteAccount(
+		t.Context(),
+		connect.NewRequest(&accountv1.DeleteAccountRequest{Password: "correct horse"}),
+	)
+	if got := connect.CodeOf(err); got != connect.CodeUnauthenticated {
+		t.Errorf("DeleteAccount() code = %v, want %v", got, connect.CodeUnauthenticated)
+	}
+}
+
+// The guard hands the account on, the way it does to the todo service.
+func TestNewAuthenticatesAccountService(t *testing.T) {
+	srv := serve(t, Deps{Account: accountUserIDHandler{}})
+
+	client := accountv1connect.NewAccountServiceClient(srv.Client(), srv.URL, bearer(testToken))
+
+	res, err := client.DeleteAccount(
+		t.Context(),
+		connect.NewRequest(&accountv1.DeleteAccountRequest{Password: "correct horse"}),
+	)
+	if err != nil {
+		t.Fatalf("DeleteAccount() error = %v, want nil", err)
+	}
+
+	if got := res.Msg.GetPurgeAt().GetSeconds(); got != testUserID {
+		t.Errorf("handler saw account %d, want %d", got, testUserID)
 	}
 }

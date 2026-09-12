@@ -33,6 +33,8 @@ type Token struct {
 	AccessToken string `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
 	// When the token stops being accepted, and when the cookie expires. There is
 	// nothing to refresh it with, so a client past this has to log in again.
+	// LogOut ends a session before this, so a token can stop being served
+	// earlier than it says here.
 	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -288,7 +290,7 @@ func (x *LogInResponse) GetToken() *Token {
 }
 
 // Request to end the current session. It names nothing: what is ended is the
-// session the request's own cookie carries.
+// session the request carries, in its cookie or its Authorization header.
 type LogOutRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields

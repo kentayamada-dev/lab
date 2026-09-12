@@ -25,10 +25,22 @@ type Config struct {
 	CORSOrigins   []string
 }
 
-func Load() (Config, error) {
+// LoadDBURL reads the one setting a command that does nothing but reach the
+// database needs (api/cmd/purge). Load goes through it too, so the variable is
+// named and reported in one place rather than in each command that wants it.
+func LoadDBURL() (string, error) {
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
-		return Config{}, errors.New("DB_URL is not set")
+		return "", errors.New("DB_URL is not set")
+	}
+
+	return dbURL, nil
+}
+
+func Load() (Config, error) {
+	dbURL, err := LoadDBURL()
+	if err != nil {
+		return Config{}, err
 	}
 
 	port := os.Getenv("PORT")

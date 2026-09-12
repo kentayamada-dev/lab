@@ -1,0 +1,49 @@
+syntax = "proto3";
+package account.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+// Request to close the account the request is authenticated as. It names no
+// account: what is closed is the one the token resolves to, so a client cannot
+// aim this at anybody else.
+message DeleteAccountRequest {
+  // Password of the account being closed. The session alone would be enough to
+  // reach this procedure, which is exactly why it is not enough to run it: the
+  // account cannot be brought back by whoever closed it, so a borrowed session
+  // or an unattended browser should not be able to spend it. Bounded the same
+  // way the sign-up field is, in bytes, because bcrypt reads at most 72 of
+  // them (auth/v1/auth.proto).
+  string password = 1 [(buf.validate.field).string = {
+    min_bytes: 8
+    max_bytes: 72
+  }];
+}
+
+// Response to closing an account.
+message DeleteAccountResponse {
+  // When the account and everything belonging to it stops existing. Closing is
+  // recorded rather than carried out, so that an account closed by mistake can
+  // still be restored until this instant; afterwards the rows are deleted and
+  // nothing can be. Restoring is not something the API offers, since a closed
+  // account cannot log in to ask for it. The address stays taken until this
+  // instant as well, SignUp refusing it like any other address in use, so that
+  // what is restored still has somewhere to be (auth/v1/auth.proto).
+  google.protobuf.Timestamp purge_at = 1;
+}
+
+// Acts on the account a token names, as opposed to AuthService, which hands
+// the tokens out. Every procedure here requires one.
+service AccountService {
+  // Closes the account the request is authenticated as, ends every session it
+  // has, and reports when the data behind it is erased. Fails with the
+  // unauthenticated code when the password does not match, which is the same
+  // answer a request carrying no usable token gets.
+  //
+  // The sessions go immediately, this one included: a closed account is one
+  // nothing can be done with, and leaving the browser signed in to it would
+  // say otherwise. Logging back in is refused as well, so the grace period is
+  // for an operator restoring the account, not for the person changing their
+  // mind through the app.
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
+}
