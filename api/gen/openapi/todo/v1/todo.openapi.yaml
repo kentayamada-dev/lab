@@ -8,6 +8,51 @@ servers:
       port:
         default: "8080"
 paths:
+  /account.v1.AccountService/DeleteAccount:
+    post:
+      tags:
+        - account.v1.AccountService
+      summary: |-
+        Closes the account the request is authenticated as, ends every session it
+         has, and reports when the data behind it is erased. Fails with the
+         unauthenticated code when the password does not match, which is the same
+         answer a request carrying no usable token gets.
+      description: |-
+        The sessions go immediately, this one included: a closed account is one
+         nothing can be done with, and leaving the browser signed in to it would
+         say otherwise. Logging back in is refused as well, so the grace period is
+         for an operator restoring the account, not for the person changing their
+         mind through the app.
+      operationId: account.v1.AccountService.DeleteAccount
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/account.v1.DeleteAccountRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/account.v1.DeleteAccountResponse'
   /auth.v1.AuthService/LogIn:
     post:
       tags:
@@ -54,10 +99,14 @@ paths:
         - auth.v1.AuthService
       summary: LogOut
       description: |-
-        Expires the session cookie. A script cannot delete an HttpOnly cookie, so
-         logging out of the browser app is something only the server can do. The
-         token itself keeps working until it expires, which is what a client
-         holding one in the Authorization header relies on.
+        Ends the session the request carries and expires the session cookie. A
+         script cannot delete an HttpOnly cookie, so logging out of the browser app
+         is something only the server can do. The token stays signed and unexpired
+         either way, so what stops it working is the session it names being gone: a
+         client that kept a copy of the token is logged out with the browser. Other
+         sessions of the same account are left open. Reaching it needs no token,
+         and one that cannot be read is answered as a success rather than refused,
+         so it says nothing about whether a token is good.
       operationId: auth.v1.AuthService.LogOut
       parameters:
         - name: Connect-Protocol-Version
@@ -289,6 +338,44 @@ paths:
                 $ref: '#/components/schemas/todo.v1.UpdateTodoResponse'
 components:
   schemas:
+    account.v1.DeleteAccountRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          title: password
+          description: |
+            Password of the account being closed. The session alone would be enough to
+             reach this procedure, which is exactly why it is not enough to run it: the
+             account cannot be brought back by whoever closed it, so a borrowed session
+             or an unattended browser should not be able to spend it. Bounded the same
+             way the sign-up field is, in bytes, because bcrypt reads at most 72 of
+             them (auth/v1/auth.proto).
+            string.max_bytes = 72
+            string.min_bytes = 8
+      title: DeleteAccountRequest
+      additionalProperties: false
+      description: |-
+        Request to close the account the request is authenticated as. It names no
+         account: what is closed is the one the token resolves to, so a client cannot
+         aim this at anybody else.
+    account.v1.DeleteAccountResponse:
+      type: object
+      properties:
+        purgeAt:
+          title: purge_at
+          description: |-
+            When the account and everything belonging to it stops existing. Closing is
+             recorded rather than carried out, so that an account closed by mistake can
+             still be restored until this instant; afterwards the rows are deleted and
+             nothing can be. Restoring is not something the API offers, since a closed
+             account cannot log in to ask for it. The address stays taken until this
+             instant as well, SignUp refusing it like any other address in use, so that
+             what is restored still has somewhere to be (auth/v1/auth.proto).
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+      title: DeleteAccountResponse
+      additionalProperties: false
+      description: Response to closing an account.
     auth.v1.LogInRequest:
       type: object
       properties:
@@ -324,7 +411,7 @@ components:
       additionalProperties: false
       description: |-
         Request to end the current session. It names nothing: what is ended is the
-         session the request's own cookie carries.
+         session the request carries, in its cookie or its Authorization header.
     auth.v1.LogOutResponse:
       type: object
       title: LogOutResponse
@@ -375,6 +462,8 @@ components:
           description: |-
             When the token stops being accepted, and when the cookie expires. There is
              nothing to refresh it with, so a client past this has to log in again.
+             LogOut ends a session before this, so a token can stop being served
+             earlier than it says here.
           $ref: '#/components/schemas/google.protobuf.Timestamp'
       title: Token
       additionalProperties: false
@@ -709,6 +798,10 @@ components:
 security:
   - bearerAuth: []
 tags:
+  - name: account.v1.AccountService
+    description: |-
+      Acts on the account a token names, as opposed to AuthService, which hands
+       the tokens out. Every procedure here requires one.
   - name: auth.v1.AuthService
     description: |-
       Issues the tokens the rest of the API requires. Its own procedures are the

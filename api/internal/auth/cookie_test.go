@@ -68,7 +68,7 @@ func TestServiceSignUpSetsAnHTTPOnlySessionCookie(t *testing.T) {
 
 	// It has to be a token the API will accept, and the same one the response
 	// body carries for clients that send it themselves.
-	userID, err := issuer.Verify(cookie.Value)
+	userID, _, err := issuer.Verify(cookie.Value)
 	if err != nil {
 		t.Fatalf("Verify() on the cookie error = %v, want nil", err)
 	}
@@ -98,7 +98,7 @@ func TestServiceLogInSetsTheSessionCookie(t *testing.T) {
 		t.Fatalf("LogIn() error = %v, want nil", err)
 	}
 
-	if _, err := issuer.Verify(sessionCookieOf(t, res.Header()).Value); err != nil {
+	if _, _, err := issuer.Verify(sessionCookieOf(t, res.Header()).Value); err != nil {
 		t.Errorf("Verify() on the cookie error = %v, want nil", err)
 	}
 }
@@ -168,7 +168,7 @@ func TestSessionCookieSecure(t *testing.T) {
 	if !sessionCookie("a-token", time.Now().Add(time.Hour), true).Secure {
 		t.Error("cookie is not Secure with the flag on")
 	}
-	if !clearedSessionCookie(true).Secure {
+	if !ClearedSessionCookie(true).Secure {
 		t.Error("cleared cookie is not Secure with the flag on")
 	}
 }

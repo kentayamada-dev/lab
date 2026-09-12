@@ -17,10 +17,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"example/app/gen/db"
 	authv1 "example/app/gen/go/auth/v1"
+	"example/app/internal/account"
 	"example/app/internal/auth"
 )
 
@@ -293,8 +295,32 @@ func TestDeletingAUserTakesTheirTodos(t *testing.T) {
 	}
 }
 
+// openSession writes the row a token names, the way SignUp and LogIn do, and
+// returns a token for it.
+func openSession(t *testing.T, queries *db.Queries, issuer *auth.Issuer, userID int64) (string, db.Session) {
+	t.Helper()
+
+	now := time.Now()
+	expiresAt := issuer.Expiry(now)
+
+	session, err := queries.CreateSession(t.Context(), db.CreateSessionParams{
+		UserID:    userID,
+		ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("CreateSession(): %v", err)
+	}
+
+	token, err := issuer.Issue(userID, session.ID, now, expiresAt)
+	if err != nil {
+		t.Fatalf("Issue(): %v", err)
+	}
+
+	return token, session
+}
+
 // The token of a deleted account stays signed and unexpired, so what settles
-// it is the lookup the verifier makes against the table the row went from.
+// it is the session row, which the account's deletion cascades away.
 func TestTokensOfADeletedUserStopVerifying(t *testing.T) {
 	pool := newPool(t)
 	queries := db.New(pool)
@@ -307,11 +333,7 @@ func TestTokensOfADeletedUserStopVerifying(t *testing.T) {
 	verifier := auth.NewVerifier(issuer, queries)
 
 	user := createUser(t, queries, "leaving@example.com")
-
-	token, _, err := issuer.Issue(user.ID, time.Now())
-	if err != nil {
-		t.Fatalf("Issue(): %v", err)
-	}
+	token, _ := openSession(t, queries, issuer, user.ID)
 
 	if _, err := verifier.Verify(ctx, token); err != nil {
 		t.Fatalf("Verify() before the deletion: error = %v, want nil", err)
@@ -323,6 +345,193 @@ func TestTokensOfADeletedUserStopVerifying(t *testing.T) {
 
 	if _, err := verifier.Verify(ctx, token); !errors.Is(err, auth.ErrRejected) {
 		t.Errorf("Verify() after the deletion: error = %v, want one matching ErrRejected", err)
+	}
+}
+
+// Logging out is the whole reason the rows exist: the token stays signed and
+// unexpired afterwards, and has to stop being served anyway.
+func TestLogOutStopsTheTokenItWasGiven(t *testing.T) {
+	pool := newPool(t)
+	queries := db.New(pool)
+	ctx := t.Context()
+
+	issuer, err := auth.NewIssuer("token-secret-for-tests-only-0123")
+	if err != nil {
+		t.Fatalf("NewIssuer(): %v", err)
+	}
+
+	authService := auth.NewService(queries, issuer, false)
+	verifier := auth.NewVerifier(issuer, queries)
+
+	res, err := authService.SignUp(ctx, connect.NewRequest(&authv1.SignUpRequest{
+		Email:    "logsout@example.com",
+		Password: "correct horse",
+	}))
+	if err != nil {
+		t.Fatalf("SignUp(): %v", err)
+	}
+
+	token := res.Msg.GetToken().GetAccessToken()
+	if _, err := verifier.Verify(ctx, token); err != nil {
+		t.Fatalf("Verify() before the log out: error = %v, want nil", err)
+	}
+
+	req := connect.NewRequest(&authv1.LogOutRequest{})
+	req.Header().Set("Authorization", "Bearer "+token)
+
+	if _, err := authService.LogOut(ctx, req); err != nil {
+		t.Fatalf("LogOut(): %v", err)
+	}
+
+	if _, err := verifier.Verify(ctx, token); !errors.Is(err, auth.ErrRejected) {
+		t.Errorf("Verify() after the log out: error = %v, want one matching ErrRejected", err)
+	}
+}
+
+// Only the session that logged out ends. The other devices an account is
+// signed in on carry tokens of their own, and none of them is what was closed.
+func TestLogOutLeavesTheAccountsOtherSessions(t *testing.T) {
+	pool := newPool(t)
+	queries := db.New(pool)
+	ctx := t.Context()
+
+	issuer, err := auth.NewIssuer("token-secret-for-tests-only-0123")
+	if err != nil {
+		t.Fatalf("NewIssuer(): %v", err)
+	}
+
+	authService := auth.NewService(queries, issuer, false)
+	verifier := auth.NewVerifier(issuer, queries)
+
+	user := createUser(t, queries, "twodevices@example.com")
+	first, _ := openSession(t, queries, issuer, user.ID)
+	second, _ := openSession(t, queries, issuer, user.ID)
+
+	req := connect.NewRequest(&authv1.LogOutRequest{})
+	req.Header().Set("Authorization", "Bearer "+first)
+
+	if _, err := authService.LogOut(ctx, req); err != nil {
+		t.Fatalf("LogOut(): %v", err)
+	}
+
+	if _, err := verifier.Verify(ctx, first); !errors.Is(err, auth.ErrRejected) {
+		t.Errorf("Verify() on the session that logged out: error = %v, want one matching ErrRejected", err)
+	}
+	if _, err := verifier.Verify(ctx, second); err != nil {
+		t.Errorf("Verify() on the other session: error = %v, want nil", err)
+	}
+}
+
+// A token has to name the session it was issued with: pairing a session with
+// another account's id is what the two-column lookup is there to catch.
+func TestASessionOnlyServesTheAccountItWasOpenedFor(t *testing.T) {
+	pool := newPool(t)
+	queries := db.New(pool)
+
+	issuer, err := auth.NewIssuer("token-secret-for-tests-only-0123")
+	if err != nil {
+		t.Fatalf("NewIssuer(): %v", err)
+	}
+	verifier := auth.NewVerifier(issuer, queries)
+
+	owner := createUser(t, queries, "owns-the-session@example.com")
+	other := createUser(t, queries, "wants-it@example.com")
+
+	_, session := openSession(t, queries, issuer, owner.ID)
+
+	now := time.Now()
+	borrowed, err := issuer.Issue(other.ID, session.ID, now, issuer.Expiry(now))
+	if err != nil {
+		t.Fatalf("Issue(): %v", err)
+	}
+
+	if _, err := verifier.Verify(t.Context(), borrowed); !errors.Is(err, auth.ErrRejected) {
+		t.Errorf("Verify() on a borrowed session: error = %v, want one matching ErrRejected", err)
+	}
+}
+
+// Closing a session names the account too (api/queries/sessions.sql). LogOut
+// takes both out of one verified token and so cannot hand over a mismatched
+// pair, which is why the condition is pinned at the query rather than through
+// the service.
+func TestDeletingASessionOfAnotherAccountLeavesItOpen(t *testing.T) {
+	pool := newPool(t)
+	queries := db.New(pool)
+	ctx := t.Context()
+
+	issuer, err := auth.NewIssuer("token-secret-for-tests-only-0123")
+	if err != nil {
+		t.Fatalf("NewIssuer(): %v", err)
+	}
+	verifier := auth.NewVerifier(issuer, queries)
+
+	owner := createUser(t, queries, "keeps-the-session@example.com")
+	other := createUser(t, queries, "reaches-for-it@example.com")
+
+	token, session := openSession(t, queries, issuer, owner.ID)
+
+	if err := queries.DeleteSession(ctx, db.DeleteSessionParams{
+		ID:     session.ID,
+		UserID: other.ID,
+	}); err != nil {
+		t.Fatalf("DeleteSession(): %v", err)
+	}
+	if _, err := verifier.Verify(ctx, token); err != nil {
+		t.Errorf("Verify() after another account named the session: error = %v, want nil", err)
+	}
+
+	// The owner still closes it, so what the condition refuses is the pair and
+	// not the id.
+	if err := queries.DeleteSession(ctx, db.DeleteSessionParams{
+		ID:     session.ID,
+		UserID: owner.ID,
+	}); err != nil {
+		t.Fatalf("DeleteSession(): %v", err)
+	}
+	if _, err := verifier.Verify(ctx, token); !errors.Is(err, auth.ErrRejected) {
+		t.Errorf("Verify() after the owner closed the session: error = %v, want one matching ErrRejected", err)
+	}
+}
+
+// Nothing sweeps the table on a schedule, so opening a session is what drops
+// the account's finished ones (api/queries/sessions.sql).
+func TestOpeningASessionSweepsTheAccountsExpiredOnes(t *testing.T) {
+	pool := newPool(t)
+	queries := db.New(pool)
+	ctx := t.Context()
+
+	user := createUser(t, queries, "sweeps@example.com")
+
+	expired, err := queries.CreateSession(ctx, db.CreateSessionParams{
+		UserID:    user.ID,
+		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(-time.Hour), Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("CreateSession(): %v", err)
+	}
+
+	fresh, err := queries.CreateSession(ctx, db.CreateSessionParams{
+		UserID:    user.ID,
+		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true},
+	})
+	if err != nil {
+		t.Fatalf("CreateSession(): %v", err)
+	}
+
+	gone, err := queries.SessionExists(ctx, db.SessionExistsParams{ID: expired.ID, UserID: user.ID})
+	if err != nil {
+		t.Fatalf("SessionExists(): %v", err)
+	}
+	if gone {
+		t.Error("the expired session survived, want it swept")
+	}
+
+	kept, err := queries.SessionExists(ctx, db.SessionExistsParams{ID: fresh.ID, UserID: user.ID})
+	if err != nil {
+		t.Fatalf("SessionExists(): %v", err)
+	}
+	if !kept {
+		t.Error("the session that was just opened is gone")
 	}
 }
 
@@ -347,7 +556,7 @@ func TestSignUpThenOwnTodos(t *testing.T) {
 		t.Fatalf("SignUp(): %v", err)
 	}
 
-	userID, err := issuer.Verify(res.Msg.GetToken().GetAccessToken())
+	userID, _, err := issuer.Verify(res.Msg.GetToken().GetAccessToken())
 	if err != nil {
 		t.Fatalf("Verify(): %v", err)
 	}
@@ -365,11 +574,265 @@ func TestSignUpThenOwnTodos(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LogIn(): %v", err)
 	}
-	loggedInID, err := issuer.Verify(logIn.Msg.GetToken().GetAccessToken())
+	loggedInID, _, err := issuer.Verify(logIn.Msg.GetToken().GetAccessToken())
 	if err != nil {
 		t.Fatalf("Verify(): %v", err)
 	}
 	if loggedInID != userID {
 		t.Errorf("LogIn() names account %d, want %d", loggedInID, userID)
+	}
+}
+
+// countClosed reports how many rows the account still has, closed or not, by
+// going around the queries: every one of them filters deleted_at, which is
+// exactly what these tests need to see past.
+func countClosed(t *testing.T, pool *pgxpool.Pool, userID int64) int {
+	t.Helper()
+
+	var count int
+	if err := pool.QueryRow(t.Context(),
+		"SELECT count(*) FROM users WHERE id = $1 AND deleted_at IS NOT NULL", userID,
+	).Scan(&count); err != nil {
+		t.Fatalf("counting the closed rows of account %d: %v", userID, err)
+	}
+
+	return count
+}
+
+// Closing an account is the whole point of deleted_at: the row stays, and
+// everything that reads it has to stop finding it anyway.
+func TestClosingAnAccountEndsEverySessionItHas(t *testing.T) {
+	pool := newPool(t)
+	queries := db.New(pool)
+	ctx := t.Context()
+
+	issuer, err := auth.NewIssuer("token-secret-for-tests-only-0123")
+	if err != nil {
+		t.Fatalf("NewIssuer(): %v", err)
+	}
+	verifier := auth.NewVerifier(issuer, queries)
+
+	user := createUser(t, queries, "closing@example.com")
+	phone, _ := openSession(t, queries, issuer, user.ID)
+	laptop, _ := openSession(t, queries, issuer, user.ID)
+
+	if _, err := verifier.Verify(ctx, phone); err != nil {
+		t.Fatalf("Verify() before the closing: error = %v, want nil", err)
+	}
+
+	closed, err := queries.CloseAccount(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("CloseAccount(): %v", err)
+	}
+	if !closed.DeletedAt.Valid {
+		t.Fatal("the closed row carries no instant")
+	}
+
+	// Both of them, not only the one that asked: there is no account left for
+	// either to act as.
+	for name, token := range map[string]string{"phone": phone, "laptop": laptop} {
+		if _, err := verifier.Verify(ctx, token); !errors.Is(err, auth.ErrRejected) {
+			t.Errorf("Verify() on the %s: error = %v, want one matching ErrRejected", name, err)
+		}
+	}
+
+	// The row survives, which is what the grace period is: a purge finds it
+	// later, and until then an operator can put deleted_at back to null.
+	if got := countClosed(t, pool, user.ID); got != 1 {
+		t.Errorf("closed rows = %d, want 1", got)
+	}
+}
+
+// The session lookup reads the account as well, so a session that outlives the
+// closing serves nothing. Nothing should leave one behind, the closing taking
+// them in the same statement; this is the backstop for when something does
+// (api/queries/sessions.sql).
+func TestASessionThatOutlivesTheClosingServesNothing(t *testing.T) {
+	pool := newPool(t)
+	queries := db.New(pool)
+	ctx := t.Context()
+
+	issuer, err := auth.NewIssuer("token-secret-for-tests-only-0123")
+	if err != nil {
+		t.Fatalf("NewIssuer(): %v", err)
+	}
+	verifier := auth.NewVerifier(issuer, queries)
+
+	user := createUser(t, queries, "leftover@example.com")
+
+	if _, err := queries.CloseAccount(ctx, user.ID); err != nil {
+		t.Fatalf("CloseAccount(): %v", err)
+	}
+
+	// Opened after the closing, which is the only way to have one: it is the
+	// same row a session that survived the closing would leave.
+	token, _ := openSession(t, queries, issuer, user.ID)
+
+	if _, err := verifier.Verify(ctx, token); !errors.Is(err, auth.ErrRejected) {
+		t.Errorf("Verify() error = %v, want one matching ErrRejected", err)
+	}
+}
+
+// A closed account cannot be logged back in to, which is why the grace period
+// is an operator's window rather than the owner's.
+func TestAClosedAccountCannotLogIn(t *testing.T) {
+	queries := newQueries(t)
+	ctx := t.Context()
+
+	issuer, err := auth.NewIssuer("token-secret-for-tests-only-0123")
+	if err != nil {
+		t.Fatalf("NewIssuer(): %v", err)
+	}
+	authService := auth.NewService(queries, issuer, false)
+
+	const email, password = "shutsthedoor@example.com", "correct horse"
+
+	signUp, err := authService.SignUp(ctx, connect.NewRequest(&authv1.SignUpRequest{
+		Email:    email,
+		Password: password,
+	}))
+	if err != nil {
+		t.Fatalf("SignUp(): %v", err)
+	}
+
+	userID, _, err := issuer.Verify(signUp.Msg.GetToken().GetAccessToken())
+	if err != nil {
+		t.Fatalf("Verify(): %v", err)
+	}
+
+	if _, err := queries.CloseAccount(ctx, userID); err != nil {
+		t.Fatalf("CloseAccount(): %v", err)
+	}
+
+	_, err = authService.LogIn(ctx, connect.NewRequest(&authv1.LogInRequest{
+		Email:    email,
+		Password: password,
+	}))
+	// The same answer a wrong password gets, the password here being right:
+	// which of the two it was is not something the API says.
+	if got := connect.CodeOf(err); got != connect.CodeUnauthenticated {
+		t.Errorf("LogIn() code = %v, want %v", got, connect.CodeUnauthenticated)
+	}
+}
+
+// The address stays with the closed account until the purge erases the row, so
+// that an account closed by mistake always has somewhere to be restored to
+// (api/schema.sql). Nobody can take it in the meantime.
+func TestTheAddressOfAClosedAccountIsHeldUntilThePurge(t *testing.T) {
+	pool := newPool(t)
+	queries := db.New(pool)
+	ctx := t.Context()
+
+	issuer, err := auth.NewIssuer("token-secret-for-tests-only-0123")
+	if err != nil {
+		t.Fatalf("NewIssuer(): %v", err)
+	}
+	authService := auth.NewService(queries, issuer, false)
+
+	const email = "comesback@example.com"
+
+	first := createUser(t, queries, email)
+	if _, err := queries.CloseAccount(ctx, first.ID); err != nil {
+		t.Fatalf("CloseAccount(): %v", err)
+	}
+
+	// The closed row answers no login, the lookup passing over it...
+	if _, err := queries.GetUserByEmail(ctx, email); !errors.Is(err, pgx.ErrNoRows) {
+		t.Errorf("GetUserByEmail() on the closed account: error = %v, want %v", err, pgx.ErrNoRows)
+	}
+
+	// ...and still holds the address against a new account.
+	_, err = authService.SignUp(ctx, connect.NewRequest(&authv1.SignUpRequest{
+		Email:    email,
+		Password: "a different password",
+	}))
+	if got := connect.CodeOf(err); got != connect.CodeAlreadyExists {
+		t.Fatalf("SignUp() during the grace period: code = %v, want %v", got, connect.CodeAlreadyExists)
+	}
+
+	// Erasing the row is what frees the address. Backdated rather than waited
+	// out, as in TestPurgeErasesOnlyTheAccountsPastTheGracePeriod.
+	if _, err := pool.Exec(ctx,
+		"UPDATE users SET deleted_at = now() - $1::interval WHERE id = $2",
+		(account.GracePeriod + time.Hour).String(), first.ID,
+	); err != nil {
+		t.Fatalf("backdating the closing: %v", err)
+	}
+	if _, err := account.Purge(ctx, queries, time.Now()); err != nil {
+		t.Fatalf("Purge(): %v", err)
+	}
+
+	again, err := authService.SignUp(ctx, connect.NewRequest(&authv1.SignUpRequest{
+		Email:    email,
+		Password: "a different password",
+	}))
+	if err != nil {
+		t.Fatalf("SignUp() after the purge: error = %v, want nil", err)
+	}
+
+	// A new account rather than the old one back.
+	secondID, _, err := issuer.Verify(again.Msg.GetToken().GetAccessToken())
+	if err != nil {
+		t.Fatalf("Verify(): %v", err)
+	}
+	if secondID == first.ID {
+		t.Error("SignUp() reopened the closed account, want a new one")
+	}
+}
+
+// What the purge erases is the accounts whose grace period is up, and nothing
+// else. An open account and one closed a moment ago are both left alone.
+func TestPurgeErasesOnlyTheAccountsPastTheGracePeriod(t *testing.T) {
+	pool := newPool(t)
+	queries := db.New(pool)
+	ctx := t.Context()
+
+	open := createUser(t, queries, "stays@example.com")
+	recent := createUser(t, queries, "justleft@example.com")
+	old := createUser(t, queries, "longgone@example.com")
+
+	createTodo(t, queries, old.ID, "goes with the account")
+
+	for _, user := range []db.User{recent, old} {
+		if _, err := queries.CloseAccount(ctx, user.ID); err != nil {
+			t.Fatalf("CloseAccount(%d): %v", user.ID, err)
+		}
+	}
+
+	// Backdated rather than waited out: the grace period is a month, and the
+	// column is what the purge reads.
+	if _, err := pool.Exec(ctx,
+		"UPDATE users SET deleted_at = now() - $1::interval WHERE id = $2",
+		(account.GracePeriod + time.Hour).String(), old.ID,
+	); err != nil {
+		t.Fatalf("backdating the closing: %v", err)
+	}
+
+	erased, err := account.Purge(ctx, queries, time.Now())
+	if err != nil {
+		t.Fatalf("Purge(): %v", err)
+	}
+	if erased != 1 {
+		t.Errorf("Purge() erased %d accounts, want 1", erased)
+	}
+
+	if got := countClosed(t, pool, old.ID); got != 0 {
+		t.Errorf("the account past its grace period has %d rows left, want 0", got)
+	}
+	if got := countClosed(t, pool, recent.ID); got != 1 {
+		t.Errorf("the account just closed has %d rows, want 1", got)
+	}
+	if _, err := queries.GetUserByID(ctx, open.ID); err != nil {
+		t.Errorf("GetUserByID() on the open account: error = %v, want nil", err)
+	}
+
+	// The todos go through the foreign key, which is what makes the purge the
+	// erasure the answer to DeleteAccount promised.
+	todos, err := queries.ListTodos(ctx, db.ListTodosParams{UserID: old.ID, PageSize: 10})
+	if err != nil {
+		t.Fatalf("ListTodos(): %v", err)
+	}
+	if len(todos) != 0 {
+		t.Errorf("the erased account still has %d todos, want 0", len(todos))
 	}
 }

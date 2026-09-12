@@ -1,5 +1,6 @@
 import { createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
+import { AccountService } from "../gen/account/v1/account_pb";
 import { AuthService } from "../gen/auth/v1/auth_pb";
 import { TodoService } from "../gen/todo/v1/todo_pb";
 
@@ -16,3 +17,4 @@ const transport = createConnectTransport({ baseUrl: "/rpc" });
 
 export const authClient = createClient(AuthService, transport);
 export const todoClient = createClient(TodoService, transport);
+export const accountClient = createClient(AccountService, transport);

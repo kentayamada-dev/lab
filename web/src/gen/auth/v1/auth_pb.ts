@@ -34,6 +34,8 @@ export type Token = Message<"auth.v1.Token"> & {
   /**
    * When the token stops being accepted, and when the cookie expires. There is
    * nothing to refresh it with, so a client past this has to log in again.
+   * LogOut ends a session before this, so a token can stop being served
+   * earlier than it says here.
    *
    * @generated from field: google.protobuf.Timestamp expires_at = 2;
    */
@@ -150,7 +152,7 @@ export const LogInResponseSchema: GenMessage<LogInResponse> = /*@__PURE__*/
 
 /**
  * Request to end the current session. It names nothing: what is ended is the
- * session the request's own cookie carries.
+ * session the request carries, in its cookie or its Authorization header.
  *
  * @generated from message auth.v1.LogOutRequest
  */
@@ -213,10 +215,14 @@ export const AuthService: GenService<{
     output: typeof LogInResponseSchema;
   },
   /**
-   * Expires the session cookie. A script cannot delete an HttpOnly cookie, so
-   * logging out of the browser app is something only the server can do. The
-   * token itself keeps working until it expires, which is what a client
-   * holding one in the Authorization header relies on.
+   * Ends the session the request carries and expires the session cookie. A
+   * script cannot delete an HttpOnly cookie, so logging out of the browser app
+   * is something only the server can do. The token stays signed and unexpired
+   * either way, so what stops it working is the session it names being gone: a
+   * client that kept a copy of the token is logged out with the browser. Other
+   * sessions of the same account are left open. Reaching it needs no token,
+   * and one that cannot be read is answered as a success rather than refused,
+   * so it says nothing about whether a token is good.
    *
    * @generated from rpc auth.v1.AuthService.LogOut
    */

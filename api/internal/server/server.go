@@ -13,6 +13,7 @@ import (
 	"connectrpc.com/otelconnect"
 	"connectrpc.com/validate"
 
+	"example/app/gen/go/account/v1/accountv1connect"
 	"example/app/gen/go/auth/v1/authv1connect"
 	"example/app/gen/go/todo/v1/todov1connect"
 )
@@ -51,8 +52,10 @@ type Deps struct {
 	Auth authv1connect.AuthServiceHandler
 	// Todo serves the TodoService procedures.
 	Todo todov1connect.TodoServiceHandler
-	// Authenticator checks the bearer token of every TodoService request
-	// (auth.go).
+	// Account serves the AccountService procedures.
+	Account accountv1connect.AccountServiceHandler
+	// Authenticator checks the bearer token of every request to the services
+	// that are not AuthService (auth.go).
 	Authenticator Authenticator
 }
 
@@ -100,7 +103,7 @@ func New(deps Deps) (*Server, error) {
 	// Interceptors wrap the handler in the order they are given, so the span
 	// covers the whole call and the deadline covers validation too. AuthService
 	// hands out the sessions, which makes it the one service reachable without
-	// one; on TodoService the token is checked before the request is examined
+	// one; on the others the token is checked before the request is examined
 	// any further.
 	authPath, authHandler := authv1connect.NewAuthServiceHandler(
 		deps.Auth,
@@ -119,6 +122,15 @@ func New(deps Deps) (*Server, error) {
 		csrf,
 	)
 	mux.Handle(todoPath, todoHandler)
+
+	accountPath, accountHandler := accountv1connect.NewAccountServiceHandler(
+		deps.Account,
+		connect.WithInterceptors(otel, timeout, withAuth(deps.Authenticator), validator),
+		connect.WithReadMaxBytes(readMaxBytes),
+		connect.WithRecover(recoverPanic),
+		csrf,
+	)
+	mux.Handle(accountPath, accountHandler)
 
 	registerOpenAPI(mux)
 	registerHealth(mux, deps.Health)

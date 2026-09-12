@@ -38,10 +38,13 @@ func sessionCookie(token string, expiresAt time.Time, secure bool) *http.Cookie 
 	}
 }
 
-// clearedSessionCookie expires the session cookie. Every attribute that
+// ClearedSessionCookie expires the session cookie. Every attribute that
 // identifies the cookie has to match the one being replaced, or the browser
 // stores a second cookie instead of overwriting the first.
-func clearedSessionCookie(secure bool) *http.Cookie {
+//
+// Exported because logging out is not the only thing that ends a session:
+// closing an account ends all of them at once (api/internal/account).
+func ClearedSessionCookie(secure bool) *http.Cookie {
 	return &http.Cookie{
 		Name:     SessionCookieName,
 		Value:    "",

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"example/app/gen/db"
+	"example/app/internal/account"
 	"example/app/internal/auth"
 	"example/app/internal/config"
 	"example/app/internal/server"
@@ -90,6 +91,7 @@ func run() error {
 		Health:        pool,
 		Auth:          auth.NewService(queries, issuer, cfg.SecureCookies),
 		Todo:          todo.NewService(queries),
+		Account:       account.NewService(queries, cfg.SecureCookies),
 		Authenticator: auth.NewVerifier(issuer, queries),
 	})
 	if err != nil {

@@ -13,8 +13,11 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"example/app/gen"
+	accountv1 "example/app/gen/go/account/v1"
+	"example/app/gen/go/account/v1/accountv1connect"
 	authv1 "example/app/gen/go/auth/v1"
 	"example/app/gen/go/auth/v1/authv1connect"
 	todov1 "example/app/gen/go/todo/v1"
@@ -161,6 +164,43 @@ func (h panicOnCallHandler) CreateTodo(
 	return connect.NewResponse(&todov1.CreateTodoResponse{}), nil
 }
 
+// panicOnCallAccountHandler fails the test if a request ever reaches it.
+type panicOnCallAccountHandler struct {
+	accountv1connect.UnimplementedAccountServiceHandler
+
+	t *testing.T
+}
+
+func (h panicOnCallAccountHandler) DeleteAccount(
+	context.Context,
+	*connect.Request[accountv1.DeleteAccountRequest],
+) (*connect.Response[accountv1.DeleteAccountResponse], error) {
+	h.t.Error("the handler ran, want the request turned away first")
+
+	return connect.NewResponse(&accountv1.DeleteAccountResponse{}), nil
+}
+
+// accountUserIDHandler answers with the account the authentication interceptor
+// resolved, as the seconds of the instant it returns. A timestamp is the only
+// field the response has, and what it carries does not matter here.
+type accountUserIDHandler struct {
+	accountv1connect.UnimplementedAccountServiceHandler
+}
+
+func (accountUserIDHandler) DeleteAccount(
+	ctx context.Context,
+	_ *connect.Request[accountv1.DeleteAccountRequest],
+) (*connect.Response[accountv1.DeleteAccountResponse], error) {
+	userID, ok := auth.UserIDFromContext(ctx)
+	if !ok {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("no account on the context"))
+	}
+
+	return connect.NewResponse(&accountv1.DeleteAccountResponse{
+		PurgeAt: &timestamppb.Timestamp{Seconds: userID},
+	}), nil
+}
+
 // stubPinger stands in for the database behind GET /healthz.
 type stubPinger struct {
 	err error
@@ -177,6 +217,12 @@ func newServer(t *testing.T, deps Deps) *Server {
 	}
 	if deps.Auth == nil {
 		deps.Auth = stubAuthHandler{}
+	}
+	if deps.Todo == nil {
+		deps.Todo = todov1connect.UnimplementedTodoServiceHandler{}
+	}
+	if deps.Account == nil {
+		deps.Account = accountv1connect.UnimplementedAccountServiceHandler{}
 	}
 	if deps.Authenticator == nil {
 		deps.Authenticator = stubAuthenticator{}

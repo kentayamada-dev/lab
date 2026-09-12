@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -51,6 +53,8 @@ var dummyHash = sync.OnceValue(func() []byte {
 type Querier interface {
 	CreateUser(ctx context.Context, arg db.CreateUserParams) (db.User, error)
 	GetUserByEmail(ctx context.Context, email string) (db.User, error)
+	CreateSession(ctx context.Context, arg db.CreateSessionParams) (db.Session, error)
+	DeleteSession(ctx context.Context, arg db.DeleteSessionParams) error
 }
 
 type Service struct {
@@ -73,12 +77,18 @@ func invalidCredentials() *connect.Error {
 	)
 }
 
-// validEmail lower-cases the address so that addresses differing only in case
-// are one account, and rejects what could not be one. The proto field declares
-// the same rules, enforced by the server's validate interceptor; the check
-// here keeps the service safe on its own.
+// validEmail lower-cases the address, so that addresses differing only in
+// case are one account, and rejects what could not be one. The proto field
+// declares a stricter rule, enforced by the server's validate interceptor
+// (proto/auth/v1/auth.proto); what is here keeps the service safe when it is
+// called without one.
+//
+// The trim serves only that second purpose. An address padded with space is
+// not one the proto rule accepts, so none arrives here through the API; taking
+// the space off is what would stop two spellings of one address from reaching
+// the unique constraint as two, were the service ever called unguarded.
 func validEmail(raw string) (string, error) {
-	email := strings.ToLower(raw)
+	email := strings.ToLower(strings.TrimSpace(raw))
 	if email == "" || utf8.RuneCountInString(email) > maxEmailLen || !strings.Contains(email, "@") {
 		return "", connect.NewError(
 			connect.CodeInvalidArgument,
@@ -102,14 +112,30 @@ func validPassword(password string) error {
 	return nil
 }
 
-// issueToken signs a token for the account, puts it on the response as the
-// session cookie, and returns it for the clients that carry it themselves.
+// issueToken opens a session for the account, signs a token naming it, puts
+// that token on the response as the session cookie, and returns it for the
+// clients that carry it themselves.
+//
+// The row comes first because the token has to name it. A row whose token was
+// never signed authenticates nothing and is swept with the account's other
+// finished sessions (api/queries/sessions.sql).
 func (s *Service) issueToken(
 	ctx context.Context,
 	userID int64,
 	header http.Header,
 ) (*authv1.Token, error) {
-	accessToken, expiresAt, err := s.issuer.Issue(userID, time.Now())
+	now := time.Now()
+	expiresAt := s.issuer.Expiry(now)
+
+	session, err := s.queries.CreateSession(ctx, db.CreateSessionParams{
+		UserID:    userID,
+		ExpiresAt: pgtype.Timestamptz{Time: expiresAt, Valid: true},
+	})
+	if err != nil {
+		return nil, rpcerr.Internal(ctx, "opening session", err)
+	}
+
+	accessToken, err := s.issuer.Issue(userID, session.ID, now, expiresAt)
 	if err != nil {
 		return nil, rpcerr.Internal(ctx, "issuing token", err)
 	}
@@ -203,15 +229,43 @@ func (s *Service) LogIn(
 	return res, nil
 }
 
-// LogOut expires the session cookie. It answers the same way whether or not
-// the request carried one: there is nothing to report about a session the
-// client is giving up anyway.
+// LogOut deletes the session the request carries and expires the cookie that
+// held it. Deleting the row is what makes this mean something: the token is
+// signed and cannot be withdrawn, so until the row is gone it still names an
+// open session, and a client that kept a copy of it would go on being served.
+//
+// The procedure needs no token to reach, so the session is read off the
+// request itself. A request carrying nothing usable is answered as a success:
+// the client is giving its session up either way, and saying which of the two
+// happened would only tell an unauthenticated caller whether a token is good.
 func (s *Service) LogOut(
-	_ context.Context,
-	_ *connect.Request[authv1.LogOutRequest],
+	ctx context.Context,
+	req *connect.Request[authv1.LogOutRequest],
 ) (*connect.Response[authv1.LogOutResponse], error) {
 	res := connect.NewResponse(&authv1.LogOutResponse{})
-	res.Header().Add("Set-Cookie", clearedSessionCookie(s.secureCookies).String())
+	res.Header().Add("Set-Cookie", ClearedSessionCookie(s.secureCookies).String())
+
+	token, ok := RequestToken(req.Header())
+	if !ok {
+		return res, nil
+	}
+
+	userID, sessionID, err := s.issuer.Verify(token)
+	if err != nil {
+		slog.DebugContext(ctx, "logging out on a token that does not verify", "error", err)
+
+		return res, nil
+	}
+
+	// Reported rather than swallowed. The row is what holds the session open,
+	// so a client told it had logged out while the row survived would be wrong
+	// about the one thing it asked for.
+	if err := s.queries.DeleteSession(ctx, db.DeleteSessionParams{
+		ID:     sessionID,
+		UserID: userID,
+	}); err != nil {
+		return nil, rpcerr.Internal(ctx, "closing session", err)
+	}
 
 	return res, nil
 }

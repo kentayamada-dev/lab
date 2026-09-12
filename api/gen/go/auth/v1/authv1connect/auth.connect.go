@@ -53,10 +53,14 @@ type AuthServiceClient interface {
 	// are answered identically, so the API does not say which addresses have an
 	// account.
 	LogIn(context.Context, *connect.Request[v1.LogInRequest]) (*connect.Response[v1.LogInResponse], error)
-	// Expires the session cookie. A script cannot delete an HttpOnly cookie, so
-	// logging out of the browser app is something only the server can do. The
-	// token itself keeps working until it expires, which is what a client
-	// holding one in the Authorization header relies on.
+	// Ends the session the request carries and expires the session cookie. A
+	// script cannot delete an HttpOnly cookie, so logging out of the browser app
+	// is something only the server can do. The token stays signed and unexpired
+	// either way, so what stops it working is the session it names being gone: a
+	// client that kept a copy of the token is logged out with the browser. Other
+	// sessions of the same account are left open. Reaching it needs no token,
+	// and one that cannot be read is answered as a success rather than refused,
+	// so it says nothing about whether a token is good.
 	LogOut(context.Context, *connect.Request[v1.LogOutRequest]) (*connect.Response[v1.LogOutResponse], error)
 }
 
@@ -126,10 +130,14 @@ type AuthServiceHandler interface {
 	// are answered identically, so the API does not say which addresses have an
 	// account.
 	LogIn(context.Context, *connect.Request[v1.LogInRequest]) (*connect.Response[v1.LogInResponse], error)
-	// Expires the session cookie. A script cannot delete an HttpOnly cookie, so
-	// logging out of the browser app is something only the server can do. The
-	// token itself keeps working until it expires, which is what a client
-	// holding one in the Authorization header relies on.
+	// Ends the session the request carries and expires the session cookie. A
+	// script cannot delete an HttpOnly cookie, so logging out of the browser app
+	// is something only the server can do. The token stays signed and unexpired
+	// either way, so what stops it working is the session it names being gone: a
+	// client that kept a copy of the token is logged out with the browser. Other
+	// sessions of the same account are left open. Reaching it needs no token,
+	// and one that cannot be read is answered as a success rather than refused,
+	// so it says nothing about whether a token is good.
 	LogOut(context.Context, *connect.Request[v1.LogOutRequest]) (*connect.Response[v1.LogOutResponse], error)
 }
 
