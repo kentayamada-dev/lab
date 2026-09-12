@@ -7,6 +7,7 @@ if (!apiPort) {
 }
 
 const nextConfig: NextConfig = {
+  reactCompiler: true,
   async rewrites() {
     return [
       {
