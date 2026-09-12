@@ -86,18 +86,5 @@ This PR was created automatically by Renovate (configuration in [`.github/renova
       groupName: 'non-major',
       groupSlug: 'non-major',
     },
-    {
-      // Why: docs/renovate.md#buf-のプラグインを別の-pr-に分ける理由
-      description: 'Keep the versions buf.gen.yaml derives its remote plugin versions from out of the non-major group',
-      matchUpdateTypes: ['minor', 'patch', 'digest'],
-      matchDepNames: [
-        'google.golang.org/protobuf',
-        'connectrpc.com/connect',
-        '@bufbuild/protobuf',
-        'sudorandom/protoc-gen-connect-openapi',
-      ],
-      groupName: 'buf plugin',
-      groupSlug: 'buf-plugin',
-    },
   ],
 }
