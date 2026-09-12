@@ -105,6 +105,8 @@ Renovate には更新状況を issue にまとめる [Dependency Dashboard](http
 | 置き換え（`replacements:all` が拾ったとき） | `chore(deps): replace old with new` |
 | ロールバック（固定していたバージョンが配布元から消えたとき） | `chore(deps): roll actions/checkout back to v7.0.1` |
 
+グループにまとめる対象が 1 つしか無かったときは、グループ名ではなくその依存のタイトルになります（`renovate/non-major` から `chore(deps): update renovate/renovate digest to e49d149` が出る、など）。ブランチ名は `groupSlug` のままなので、タイトルだけを見てどちらのグループか判断しないでください。
+
 `chore(deps):` の接頭辞は `semanticCommits: 'enabled'` が付けます（`config:recommended` に含まれるプリセットにより、アプリ本体の依存では `fix(deps):` になります）。接頭辞が付く形は変えていないので、CI の [`pr-title`](../README.md#pr-タイトルの書式) は通ります。
 
 `packageRules` には `groupSlug` を明示しています。グループ名の言い回しに関係なくブランチ名を固定するためです。ブランチ名はこの slug から作られ（`renovate/non-major`、`renovate/buf-plugin`）、ここが崩れると[更新の一覧の issue](#更新の一覧の-issue) の絞り込み（`renovate/` で始まるブランチ）にも響きます。
