@@ -1,0 +1,91 @@
+// Renovate のリポジトリ設定（何をどう更新するか）。
+//
+// 実行基盤はホスト型サービスではなく、このリポジトリの Actions（.github/workflows/renovate.yml）で自前運用している。
+// 実行に関わる設定（対象リポジトリ・認証・ログレベル）はそちらの環境変数で渡し、ここには置かない。
+// https://docs.renovatebot.com/getting-started/running/
+//
+// JSON ではなく JSON5 にしているのは、設定の「なぜ」をコメントで残すため。
+// そのため CI の jq による構文検査の対象外になるので、代わりに renovate-config-validator で検査する（ci.yml）。
+//
+// customManagers（regex）は持たない。ワークフローが使うツールは、Renovate が標準で追える形
+// （アクションの SHA 固定、ジョブの container image）に寄せている。
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+
+  // config:recommended に加えて、GitHub Actions のコミット SHA 固定（helpers:pinGitHubActionDigests）や
+  // 設定の自動マイグレーション（:configMigration）などが含まれる。
+  // https://docs.renovatebot.com/upgrade-best-practices/#use-the-configbest-practices-preset
+  extends: ['config:best-practices'],
+
+  // :maintainLockFilesWeekly など、プリセット内のスケジュールを評価する基準時刻
+  timezone: 'Asia/Tokyo',
+
+  // ラベルは scripts/apply-repo-settings.sh が管理しているものを使う
+  labels: ['dependencies'],
+  dependencyDashboardLabels: ['dependencies'],
+
+  // コミットメッセージと PR タイトルは Conventional Commits 形式・内容は日本語（CLAUDE.md）。
+  // 既定は "chore(deps): update dependency X to v1.2.3" のように
+  // "{prefix} {action} {topic} {extra}" の順で組み立てられるため、日本語の語順に合わせて各部品を差し替える。
+  // commitMessage そのものの上書きは非推奨なので部品側を変える。
+  // https://docs.renovatebot.com/configuration-options/#commitmessage
+  semanticCommits: 'enabled',
+  commitMessageAction: '',
+  commitMessageTopic: '{{depName}} を',
+  commitMessageExtra: '{{#if isMajor}}v{{{newMajor}}}{{else}}{{#if isSingleVersion}}v{{{newVersion}}}{{else}}{{{newValue}}}{{/if}}{{/if}} に更新',
+  // 既定（auto）だと semanticCommitType が小文字のとき件名全体を小文字化し、depName の大文字（owner 名など）が潰れる
+  commitMessageLowerCase: 'never',
+
+  // 更新種別ごとの既定値（digest は "{{depName}} digest" / "to {{newDigestShort}}"、pin 系は action "Pin" など）は
+  // 上の部品より後に合成されて英語に戻るため、種別側でも日本語に揃える。
+  // https://docs.renovatebot.com/configuration-options/#digest
+  //
+  // pin / pinDigest のグループでは、更新先のバージョンや digest が依存ごとに異なると Renovate が commitMessageExtra を
+  // 削除する（lib/workers/repository/updates/generate.ts）。group の文言を commitMessageExtra に置くと
+  // PR タイトルが "chore(deps):" だけになった（dry-run で実測）ため、削除されない commitMessageTopic 側に置く。
+  digest: {
+    commitMessageTopic: '{{depName}} の digest を',
+    commitMessageExtra: '{{newDigestShort}} に更新',
+  },
+  pin: {
+    commitMessageAction: '',
+    commitMessageExtra: '{{newValue}} に固定',
+    group: { commitMessageTopic: '依存関係のバージョンを固定', commitMessageExtra: '' },
+  },
+  pinDigest: {
+    commitMessageAction: '',
+    commitMessageExtra: '{{newDigestShort}} に固定',
+    group: { commitMessageTopic: '依存関係の digest を固定', commitMessageExtra: '' },
+  },
+  rollback: {
+    commitMessageAction: '',
+    commitMessageExtra: '{{newValue}} に戻す',
+  },
+  replacement: {
+    commitMessageAction: '',
+    commitMessageExtra: '{{newName}} {{newValue}} に置き換え',
+  },
+
+  packageRules: [
+    // minor / patch / digest / pinDigest は CI が通れば自動マージする。major は人が確認する。
+    // pinDigest（未固定のタグに初めて digest を付ける更新）は、そのタグが現時点で指す内容を書き足すだけで
+    // 実行されるイメージは変わらないため、自動マージに含める。digest とは別の更新種別なので明示が必要。
+    // https://docs.renovatebot.com/configuration-options/#pindigest
+    // platformAutomerge（既定 true）により GitHub の auto-merge を使うので、
+    // リポジトリ側の "Allow auto-merge" とルールセットの必須ステータスチェックが前提（apply-repo-settings.sh / rulesets/main.json）。
+    // https://docs.renovatebot.com/configuration-options/#automerge
+    {
+      matchUpdateTypes: ['minor', 'patch', 'digest', 'pinDigest'],
+      automerge: true,
+    },
+    // renovatebot/github-action の renovate-version 入力（depType: uses-with）は docker 依存として認識されるが、
+    // github-actions manager はこの入力へ digest を書き込めない。docker:pinDigests のまま放置すると
+    // "Digest is not updated" で pin-dependencies ブランチ全体の更新が失敗し、他の依存の pin も止まる（dry-run で実測）。
+    // バージョン更新自体は引き続き Renovate が追う。
+    {
+      matchManagers: ['github-actions'],
+      matchDepTypes: ['uses-with'],
+      pinDigests: false,
+    },
+  ],
+}

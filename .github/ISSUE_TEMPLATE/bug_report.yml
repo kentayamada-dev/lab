@@ -1,0 +1,58 @@
+name: バグ報告
+description: 意図しない挙動を報告する
+title: "fix: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        調査を始められるだけの情報を記入してください。特に **再現手順** が最も重要です。
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: 他の人が同じ操作をたどれるように、番号付きで具体的に書いてください
+      placeholder: |
+        1. ログイン画面で test@example.com を入力
+        2. パスワード欄を空のまま「送信」をクリック
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する挙動
+      description: 本来どうなるべきだと考えているか
+      placeholder: バリデーションエラーが表示される
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の挙動
+      description: 実際に何が起きたか。エラーメッセージやスタックトレースがあれば貼ってください
+      placeholder: 500エラーになる
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境
+      description: 発生した環境の情報
+      value: |
+        - OS:
+        - ブラウザ / ランタイム:
+        - バージョン:
+    validations:
+      required: false
+
+  - type: textarea
+    id: guess
+    attributes:
+      label: 推測（任意）
+      description: 原因の見当がついていれば書いてください。事実（ログ等）とは分けて記載します
+    validations:
+      required: false

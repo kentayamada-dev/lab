@@ -1,0 +1,161 @@
+name: Claude Code settings drift check
+
+on:
+  schedule:
+    # 毎日 09:00 JST。GitHubの仕様上、実行時刻は数分〜数十分遅れることがある。
+    # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#schedule
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# 同時実行すると同じ内容のissueが二重に作られうるため、直列化する
+concurrency:
+  group: settings-drift
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-26.04-arm
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SETTINGS_FILE: .claude/settings.json
+      ISSUE_TITLE: "chore: .claude/settings.json のキーが公式ドキュメントと一致していない"
+      ISSUE_LABEL: maintenance
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # 検査ロジックはローカルでも同じ結果を再現できるようにスクリプトに置いている。
+      # 終了コード 1 = drift あり、2 = ドキュメント取得失敗など検査自体の失敗（このステップで即失敗させる）
+      - name: 公式ドキュメントとスキーマに対して settings.json を検査
+        id: check
+        run: |
+          set -euo pipefail
+
+          status=0
+          scripts/check-settings-drift.sh "$SETTINGS_FILE" > report.md || status=$?
+
+          case "$status" in
+            0) echo "drift=false" >> "$GITHUB_OUTPUT" ;;
+            1) echo "drift=true" >> "$GITHUB_OUTPUT" ;;
+            *) cat report.md; exit "$status" ;;
+          esac
+
+      # run: 内に ${{ }} を直接書くとCodeQLのactions/code-injectionで警告されうるため、envを経由する
+      - name: 結果をジョブサマリーに出力
+        env:
+          DRIFT: ${{ steps.check.outputs.drift }}
+        run: |
+          set -euo pipefail
+          if [ "$DRIFT" = "true" ]; then
+            echo "## :warning: settings.json のキーに drift があります" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## :white_check_mark: settings.json のキーは公式ドキュメントと一致しています" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          {
+            echo
+            cat report.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # drift が解消されたら、開いている通知issueを経緯のコメントを残してcloseする。
+      # settings.json を直すPRの "Closes #N" で先にcloseされていれば、open issueが見つからず何もしない
+      - name: drift がなければ既存issueをcloseする
+        if: steps.check.outputs.drift == 'false'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          number=$(gh issue list --state open --label "$ISSUE_LABEL" --limit 100 --json number,title \
+            | jq -r --arg t "$ISSUE_TITLE" '.[] | select(.title == $t) | .number' | head -n 1)
+
+          if [ -z "$number" ]; then
+            echo "closeすべき通知issueはありません"
+            exit 0
+          fi
+
+          comment=$(printf '%s\n\n実行ログ: %s\n' \
+            "定期チェックで \`${SETTINGS_FILE}\` のキーが公式ドキュメントと一致したことを確認したため、自動でcloseしました。" \
+            "$RUN_URL")
+          gh issue close "$number" --reason completed --comment "$comment"
+
+      # 同じタイトルのissueが開いている間は再作成せず、検査結果が前回の通知から変わったときだけコメントで追記する。
+      # タイトル検索は日本語やコロンの扱いが不安定なので、一覧を取得して完全一致で判定する。
+      # 「前回の通知」は本文・コメントに埋め込んだ検査結果ハッシュのHTMLコメントで判定する（GitHub上では表示されない）
+      - name: drift があればissueを作成、または既存issueに追記
+        if: steps.check.outputs.drift == 'true'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          # report.md の1行目には check-settings-drift.sh が実行日時と索引行数を書くため、
+          # 毎回変わるその行を除いてハッシュを取る。指摘内容が同じなら同じハッシュになる
+          digest=$(tail -n +2 report.md | sha256sum | cut -d' ' -f1)
+          marker="<!-- drift-hash: ${digest} -->"
+
+          number=$(gh issue list --state open --label "$ISSUE_LABEL" --limit 100 --json number,title \
+            | jq -r --arg t "$ISSUE_TITLE" '.[] | select(.title == $t) | .number' | head -n 1)
+
+          if [ -n "$number" ]; then
+            # 本文とコメントのうち最後に記録されたハッシュが、前回通知した検査結果
+            last=$(gh issue view "$number" --json body,comments \
+              | jq -r '[.body, .comments[].body] | map(capture("<!-- drift-hash: (?<h>[0-9a-f]{64}) -->").h) | last // empty')
+
+            if [ "$last" = "$digest" ]; then
+              printf '既存のissue #%s に同じ検査結果が記録済みのため追記をスキップ\n' "$number"
+              exit 0
+            fi
+
+            {
+              echo "検査結果が前回の通知から変わりました。"
+              echo
+              echo "実行ログ: ${RUN_URL}"
+              echo
+              cat report.md
+              echo
+              echo "$marker"
+            } > comment_body.md
+
+            gh issue comment "$number" --body-file comment_body.md
+            exit 0
+          fi
+
+          {
+            echo "## 課題"
+            echo
+            echo "定期チェック（\`settings-drift.yml\`）で、\`${SETTINGS_FILE}\` のキーが公式ドキュメントまたは公開JSONスキーマと一致しない箇所が見つかりました。"
+            echo "Claude Code 側でキーの削除・改名・スコープ変更があった可能性があります。"
+            echo
+            echo "実行ログ: ${RUN_URL}"
+            echo
+            echo "## 検査結果"
+            echo
+            echo "検査結果が変わった場合はコメントで追記されます。"
+            echo
+            cat report.md
+            echo
+            echo "## 参照"
+            echo
+            echo "- 設定リファレンス: https://code.claude.com/docs/en/settings-reference"
+            echo "- 公開スキーマ: https://json.schemastore.org/claude-code-settings.json"
+            echo
+            echo "## 完了条件"
+            echo
+            echo "- [ ] 該当キーの現在の仕様（削除・改名・スコープ）をドキュメントで確認した"
+            echo "- [ ] \`${SETTINGS_FILE}\` を修正するPRを出した、または問題なしと判断した根拠を記録した"
+            echo "- [ ] このワークフローを手動実行して成功することを確認した"
+            echo
+            echo "$marker"
+          } > issue_body.md
+
+          gh issue create --title "$ISSUE_TITLE" --body-file issue_body.md --label "$ISSUE_LABEL"
+
+      # issueを作った上でジョブも失敗させ、Actionsタブでも状態が分かるようにする
+      - name: drift があれば失敗させる
+        if: steps.check.outputs.drift == 'true'
+        run: exit 1

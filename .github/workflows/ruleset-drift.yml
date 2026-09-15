@@ -1,0 +1,179 @@
+name: Ruleset drift check
+
+on:
+  schedule:
+    # 毎日 09:00 JST。GitHubの仕様上、実行時刻は数分〜数十分遅れることがある。
+    # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#schedule
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# 同時実行すると同じ内容のissueが二重に作られうるため、直列化する
+concurrency:
+  group: ruleset-drift
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-26.04-arm
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RULESET_FILE: .github/rulesets/main.json
+      ISSUE_TITLE: "chore: ルールセット main の定義ファイルとGitHub上の設定が一致していない"
+      ISSUE_LABEL: maintenance
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # publicリポジトリのルールセットは認証なしでも取得できるため、GITHUB_TOKENで足りる。
+      # ルールセットIDはUIで再作成すると変わるので、ファイルの name で検索する。
+      - name: GitHub上のルールセットと定義ファイルを比較
+        id: compare
+        run: |
+          set -euo pipefail
+
+          name=$(jq -r '.name' "$RULESET_FILE")
+          id=$(gh api "repos/${GITHUB_REPOSITORY}/rulesets" \
+            | jq -r --arg n "$name" '.[] | select(.name == $n) | .id')
+
+          if [ -z "$id" ]; then
+            printf 'GitHub上に name=%s のルールセットが存在しません\n' "$name" > drift.txt
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # APIレスポンスには id / source / _links など定義ファイルに含めない読み取り専用の
+          # フィールドが混ざるため、ファイルと同じキーだけを取り出してから比較する
+          gh api "repos/${GITHUB_REPOSITORY}/rulesets/${id}" \
+            | jq -S '{name, target, enforcement, bypass_actors, conditions, rules}' > remote.json
+          jq -S . "$RULESET_FILE" > local.json
+
+          if diff -u --label "$RULESET_FILE" --label "github:${name}" local.json remote.json > drift.txt; then
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # run: 内に ${{ }} を直接書くとCodeQLのactions/code-injectionで警告されうるため、envを経由する
+      - name: 結果をジョブサマリーに出力
+        env:
+          DRIFT: ${{ steps.compare.outputs.drift }}
+        run: |
+          set -euo pipefail
+          if [ "$DRIFT" = "true" ]; then
+            {
+              echo "## :warning: ルールセットに差分があります"
+              echo
+              echo '```diff'
+              cat drift.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## :white_check_mark: ルールセットは定義ファイルと一致しています" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # drift が解消されたら、開いている通知issueを経緯のコメントを残してcloseする。
+      # 定義ファイル側を直すPRの "Closes #N" で先にcloseされていれば、open issueが見つからず何もしない
+      - name: 差分がなければ既存issueをcloseする
+        if: steps.compare.outputs.drift == 'false'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          number=$(gh issue list --state open --label "$ISSUE_LABEL" --limit 100 --json number,title \
+            | jq -r --arg t "$ISSUE_TITLE" '.[] | select(.title == $t) | .number' | head -n 1)
+
+          if [ -z "$number" ]; then
+            echo "closeすべき通知issueはありません"
+            exit 0
+          fi
+
+          comment=$(printf '%s\n\n実行ログ: %s\n' \
+            "定期チェックで \`${RULESET_FILE}\` とGitHub上のルールセットが一致したことを確認したため、自動でcloseしました。" \
+            "$RUN_URL")
+          gh issue close "$number" --reason completed --comment "$comment"
+
+      # 同じタイトルのissueが開いている間は再作成せず、差分が前回の通知から変わったときだけコメントで追記する。
+      # タイトル検索は日本語やコロンの扱いが不安定なので、一覧を取得して完全一致で判定する。
+      # 「前回の通知」は本文・コメントに埋め込んだ差分ハッシュのHTMLコメントで判定する（GitHub上では表示されない）
+      - name: 差分があればissueを作成、または既存issueに追記
+        if: steps.compare.outputs.drift == 'true'
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          # diff -u に --label を渡しているためヘッダに更新日時が入らず、内容が同じならハッシュも同じになる
+          digest=$(sha256sum drift.txt | cut -d' ' -f1)
+          marker="<!-- drift-hash: ${digest} -->"
+
+          number=$(gh issue list --state open --label "$ISSUE_LABEL" --limit 100 --json number,title \
+            | jq -r --arg t "$ISSUE_TITLE" '.[] | select(.title == $t) | .number' | head -n 1)
+
+          if [ -n "$number" ]; then
+            # 本文とコメントのうち最後に記録されたハッシュが、前回通知した差分
+            last=$(gh issue view "$number" --json body,comments \
+              | jq -r '[.body, .comments[].body] | map(capture("<!-- drift-hash: (?<h>[0-9a-f]{64}) -->").h) | last // empty')
+
+            if [ "$last" = "$digest" ]; then
+              printf '既存のissue #%s に同じ差分が記録済みのため追記をスキップ\n' "$number"
+              exit 0
+            fi
+
+            {
+              echo "差分が前回の通知から変わりました。左が定義ファイル、右がGitHub上の設定です。"
+              echo
+              echo "実行ログ: ${RUN_URL}"
+              echo
+              echo '```diff'
+              cat drift.txt
+              echo '```'
+              echo
+              echo "$marker"
+            } > comment_body.md
+
+            gh issue comment "$number" --body-file comment_body.md
+            exit 0
+          fi
+
+          {
+            echo "## 課題"
+            echo
+            echo "定期チェック（\`ruleset-drift.yml\`）で、\`${RULESET_FILE}\` とGitHub上のルールセットに差分が見つかりました。"
+            echo "どちらかが意図せず変更されている可能性があります。"
+            echo
+            echo "実行ログ: ${RUN_URL}"
+            echo
+            echo "## 差分"
+            echo
+            echo "左が定義ファイル、右がGitHub上の設定です。差分が変わった場合はコメントで追記されます。"
+            echo
+            echo '```diff'
+            cat drift.txt
+            echo '```'
+            echo
+            echo "## 提案"
+            echo
+            echo "- 定義ファイルが正: \`gh api -X PUT repos/${GITHUB_REPOSITORY}/rulesets/<id> --input ${RULESET_FILE}\` で反映する"
+            echo "- GitHub上の設定が正: 定義ファイルを修正するPRを出す"
+            echo
+            echo "## 完了条件"
+            echo
+            echo "- [ ] 差分の原因（どちらが意図した変更か）を特定した"
+            echo "- [ ] 定義ファイルとGitHub上の設定を一致させた"
+            echo "- [ ] このワークフローを手動実行して成功することを確認した"
+            echo
+            echo "$marker"
+          } > issue_body.md
+
+          gh issue create --title "$ISSUE_TITLE" --body-file issue_body.md --label "$ISSUE_LABEL"
+
+      # issueを作った上でジョブも失敗させ、Actionsタブでも状態が分かるようにする
+      - name: 差分があれば失敗させる
+        if: steps.compare.outputs.drift == 'true'
+        run: exit 1

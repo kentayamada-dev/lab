@@ -1,0 +1,70 @@
+name: Renovate
+
+# 依存関係の更新 PR を作る Renovate を、ホスト型サービス（Mend App）ではなくこのリポジトリの Actions で動かす。
+# リポジトリ側の設定（何をどう更新するか）は renovate.json5、ここにはそれを動かすための実行設定だけを書く。
+#
+# 認証には Personal Access Token（PAT）を使う。既定の GITHUB_TOKEN だとワークフローファイルを更新できず、
+# 作った PR の CI も手動承認待ちになるため、自動マージが成立しない。
+# https://github.com/renovatebot/github-action#readme
+#
+# PAT の発行と Secrets への登録は GitHub の UI で行う（このリポジトリのスクリプトでは管理していない）。
+# 手順は README.md の「Renovate の事前準備」を参照。
+
+on:
+  schedule:
+    # 毎日 06:00 JST。GitHubの仕様上、実行時刻は数分〜数十分遅れることがある。
+    # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#schedule
+    - cron: "0 21 * * *"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "PR やブランチを作らず、何をするかをログに出すだけにする"
+        type: boolean
+        default: false
+      log-level:
+        description: "Renovate のログレベル"
+        type: choice
+        options:
+          - info
+          - debug
+        default: info
+
+# ワークフロー自身の GITHUB_TOKEN は使わない。書き込みはすべて PAT で行う
+permissions:
+  contents: read
+
+# 同じリポジトリに対して並走すると同じ更新のブランチを二重に触りうるため、直列化する
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+jobs:
+  renovate:
+    runs-on: ubuntu-26.04-arm
+
+    steps:
+      # Renovate は自分でリポジトリを clone するので、ここで checkout は要らない。
+      # README の例に checkout があるのは、グローバル設定をファイルで渡す場合にそのファイルを読むため。
+      # このワークフローではグローバル設定を RENOVATE_* 環境変数で渡している（アクションがコンテナに引き継ぐ）。
+      #
+      # renovate-version は Renovate 本体（Docker イメージ）のタグ。既定の "44" だと実行ごとに中身が変わりうるので固定する。
+      # この入力は Renovate の github-actions manager が ghcr.io/renovatebot/renovate の docker 依存として標準で認識するため、
+      # 注記なしで Renovate 自身がバージョンを更新する。
+      # digest は付けない。理由は renovate.json5 の uses-with 向け packageRule を参照。
+      - name: Renovateを実行
+        uses: renovatebot/github-action@dcfba84a42d1b5d5e49bf131b1bf53511851a123 # v46.3.1
+        with:
+          token: ${{ secrets.RENOVATE_TOKEN }}
+          renovate-version: 44.90.3
+        env:
+          # 対象はこのリポジトリだけ。autodiscover は使わない
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          # コミット作者（gitAuthor）は指定しない。PAT の持ち主に公開メールが無く、PAT にも Email addresses 権限を
+          # 付けていないため推定に失敗し、既定の "Renovate <renovate@whitesourcesoftware.com>" になる。
+          # このアドレスは Mend 所有の @renovate-bot のもので、コミットに Unverified バッジが付き、Renovate も warn を出すが、
+          # 自分のアドレスを使うと Renovate ブランチへの手動 push を「未変更」と誤認して上書きされうるため、既定のままにしている。
+          # https://github.com/renovatebot/renovate/discussions/39309
+          # https://docs.renovatebot.com/configuration-options/#gitauthor
+          # workflow_dispatch 以外（schedule）では inputs が空なので、通常実行になる
+          RENOVATE_DRY_RUN: ${{ inputs.dry-run && 'full' || '' }}
+          LOG_LEVEL: ${{ inputs.log-level || 'info' }}

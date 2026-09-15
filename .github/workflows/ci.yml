@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# ジョブIDがステータスチェックの名前になる。
+# .github/rulesets/main.json の required_status_checks の context と一致させる
+# （static-checks / editorconfig / renovate-config / scripts-test）。
+#
+# scripts-test を static-checks の needs にぶら下げず、独立した必須チェックにしている。
+# needs の依存先が失敗してスキップされたジョブは required check としてマージを止めない場合があるため。
+# https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks
+#
+# サードパーティのアクションは使わない。リポジトリ設定で実行可能なアクションを GitHub 公式と
+# 検証済みに限っているため（scripts/apply-repo-settings.sh の selected-actions）。
+# ランナーイメージに無いツールは apt か公式 Docker イメージで導入する。
+# https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2604-Readme.md
+jobs:
+  static-checks:
+    runs-on: ubuntu-26.04-arm
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # shellcheck・jq・yamllint はいずれもランナーイメージに同梱されているものを使う
+      - name: シェルスクリプトを検査
+        run: git ls-files -z '*.sh' | xargs -0 --no-run-if-empty shellcheck
+
+      - name: JSONの構文を検査
+        run: git ls-files -z '*.json' | xargs -0 --no-run-if-empty -n1 jq empty
+
+      # relaxed は行長・インデント・空行などの書式ルールを警告に落とす。
+      # ただし trailing-spaces / key-duplicates / new-line-at-end-of-file /
+      # new-lines / anchors は error のまま残るため、これらに触れると失敗する。
+      # trailing-spaces と new-line-at-end-of-file は editorconfig-checker とも重複するが、
+      # key-duplicates と anchors の検査は yamllint にしか無いため残している。
+      - name: YAMLの構文を検査
+        run: git ls-files -z '*.yml' '*.yaml' | xargs -0 --no-run-if-empty yamllint -d relaxed
+
+  # editorconfig-checker はランナーイメージにも Ubuntu の apt リポジトリにも無いため、
+  # 公式の Docker イメージをジョブのコンテナにして動かす（アクションを使わない理由はファイル冒頭）。
+  # https://packages.ubuntu.com/search?keywords=editorconfig-checker&searchon=names&suite=all&section=all
+  editorconfig:
+    # このイメージは alpine ベース。runner は alpine コンテナ内の JavaScript Action（actions/checkout）を
+    # x64 Linux でしかサポートしないため、このジョブだけ arm ではなく x64 のランナーを使う。
+    # https://github.com/actions/runner/blob/main/src/Runner.Worker/Handlers/StepHost.cs
+    # （"JavaScript Actions in Alpine containers are only supported on x64 Linux runners"）
+    runs-on: ubuntu-26.04
+    # Renovate の github-actions manager が container の image を docker 依存として認識するため、
+    # バージョンと digest の更新を Renovate に任せられる
+    # （GitHub Releases からバイナリを取得して SHA-256 を手で転記する方式だと、チェックサムの更新が人手になる）。
+    container:
+      image: ghcr.io/editorconfig-checker/editorconfig-checker:4.0.1@sha256:c843ca21130986fb1c8c5e09bb38075bd51432ad40cc6db118a6f8cde897db0e
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # コンテナは root（uid 0）で動くが、workspace はホストの runner ユーザー（uid 1001）の所有。
+      # そのままでは git が dubious ownership で拒否し、editorconfig-checker は git ls-files の失敗を
+      # エラーにせず黙ってディレクトリ走査へフォールバックする（#3 の診断ステップで実測）。
+      # actions/checkout の set-safe-directory は一時的な HOME にしか書かれず、後続ステップには残らない。
+      # https://github.com/actions/checkout/issues/766
+      - name: workspaceをgitのsafe.directoryに登録
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      # editorconfig-checker はフォールバック時も成功扱いになるため、検査の前提（git が使えること）を明示的に確かめる。
+      # safe.directory の登録が外れると、このステップが dubious ownership で落ちる。
+      - name: gitがworkspaceを扱えることを確認
+        run: git ls-files --error-unmatch .editorconfig
+
+      # 対象はリポジトリ直下から見た git 管理下（および未追跡・非 ignore）のテキストファイル全て。
+      # YAML 以外のファイルにも文字コード・改行・インデント幅・末尾空白・最終改行の検査を広げる。
+      - name: .editorconfigへの準拠を検査
+        run: editorconfig-checker -no-color -format github-actions
+
+  # renovate.json5 はコメントを書けるよう JSON5 にしており、static-checks の jq 検査の対象外。
+  # Renovate 同梱の validator で、スキーマとプリセット参照の妥当性まで検査する。
+  # https://docs.renovatebot.com/config-validation/
+  # 引数なしで実行するとカレントディレクトリのリポジトリ設定を自動検出する。
+  # renovate 本体を実行するわけではないので、リポジトリへの書き込み権限やトークンは要らない。
+  #
+  # Renovate 本体の Docker イメージをジョブのコンテナにすることで、validator の版も Renovate 自身に更新させる。
+  # イメージは非 root（uid 12021）で動く設定だが、runner はコンテナ起動時にユーザーを指定せず、
+  # ホスト側の runner ユーザーが所有する workspace へ checkout が書き込めない恐れがあるため root で動かす。
+  # https://github.com/renovatebot/renovate/blob/main/tools/docker/Dockerfile
+  renovate-config:
+    runs-on: ubuntu-26.04-arm
+    container:
+      image: ghcr.io/renovatebot/renovate:44.90.3@sha256:aba0e1146d259bf2657c034f72ce63597a9f8335acec8084d9f396bc4ba09522
+      options: --user root
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Renovateの設定を検査
+        run: renovate-config-validator --strict
+
+  scripts-test:
+    runs-on: ubuntu-26.04-arm
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # bats はランナーイメージに同梱されていないため apt で導入する（アクションを使わない理由はファイル冒頭）。
+      # ubuntu-26.04 のパッケージ版は 1.13.0 で、テストが要求する 1.5.0 以降
+      # （scripts/test/helper.bash の bats_require_minimum_version）を満たす。
+      # https://packages.ubuntu.com/resolute/bats
+      - name: batsを導入
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats
+
+      - name: シェルスクリプトをテスト
+        run: bats scripts/test

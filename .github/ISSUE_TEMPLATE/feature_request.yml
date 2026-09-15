@@ -1,0 +1,46 @@
+name: 機能要望・タスク
+description: 追加したい機能や実施したい作業を提案する
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        解決策より先に **課題** を書いてください。課題が共有されていれば、より良い解決策が出てくる余地が残ります。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 課題
+      description: 何に困っているか。誰がどう困るのかが分かるように書いてください
+      placeholder: 月次レポートの作成に毎回2時間かかっており、担当者の負担が大きい
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 提案
+      description: 課題をどう解決したいか。案がなければ空欄で構いません
+      placeholder: CSVエクスポート機能を追加する
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 完了条件
+      description: 何ができたらこのissueを閉じてよいか。チェックボックス形式で書いてください
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 検討した代替案（任意）
+      description: 他に検討した方法と、それを選ばなかった理由
+    validations:
+      required: false
