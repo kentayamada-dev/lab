@@ -173,14 +173,14 @@ jobs:
       # lychee が見るリンクの到達性では届かないところを検査する。
       # https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
       #
-      # 検査対象もルールも .github/.markdownlint-cli2.yaml に置いている。設定ファイルの自動検出は
+      # 検査対象もルールも .github/ci.markdownlint-cli2.yaml に置いている。設定ファイルの自動検出は
       # 実行ディレクトリとその親しか見ないため、--config で明示的に渡す。渡した設定ファイルの globs も
-      # 検査対象に足される（根拠はそのファイルのコメント）。
+      # 検査対象に足される（ファイル名に ci. を付けている理由も含め、根拠はそのファイルのコメント）。
       # 終了コードは指摘があれば 1、実行時の失敗なら 2。
       # https://github.com/DavidAnson/markdownlint-cli2#exit-codes
       - name: Markdownを検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
-        run: markdownlint-cli2 --config .github/.markdownlint-cli2.yaml
+        run: markdownlint-cli2 --config .github/ci.markdownlint-cli2.yaml
 
   # .github/renovate.json5 はコメントを書けるよう JSON5 にしており、lint ジョブの jq 検査の対象外。
   # Renovate 同梱の validator で、スキーマとプリセット参照の妥当性まで検査する。
