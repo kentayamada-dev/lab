@@ -1,0 +1,82 @@
+# CI が使う検査ツールとそのバージョン。.github/workflows/ci.yml と link-check.yml が、ここに書いた版を
+# mise 経由で導入する。手元でも `mise install` と `mise exec -- <ツール>` で同じ版を再現できる。
+#
+# 導入手段を mise に一本化している理由:
+#
+# 1. 版を固定して Renovate に追わせられる。以前は shellcheck・jq・yamllint をランナーイメージ同梱のもの、
+#    bats を apt で入れていたが、この4つはランナーイメージの更新で黙って変わり、Renovate も追えなかった。
+# 2. arm ランナーに揃えられる。alpine ベースのイメージをジョブのコンテナにすると、その中で
+#    JavaScript Action（actions/checkout）を動かす都合で x64 ランナーに縛られていた（ci.yml のコメント参照）。
+# 3. 導入時にチェックサム・署名・provenance が検証される（検証の有無と種類は aqua レジストリの
+#    パッケージ定義に従う。例えば ghalint では SLSA provenance とチェックサムが検証される）。
+#
+# renovate-config-validator は mise のレジストリに無いため、ci.yml では Renovate 本体の Docker イメージを
+# ジョブのコンテナにしたまま残している。gh と jq を使う通知まわり（.github/actions/notify-drift-issue）も
+# mise には寄せていない。検査結果が版で変わるツールとは違い、こちらは結果が版に依存しない道具のため。
+#
+# Renovate はこのファイルを mise manager で読み、バックエンドごとに datasource が決まる
+# （aqua → github-tags、npm → npm、pypi → pypi）。
+# https://docs.renovatebot.com/modules/manager/mise/
+#
+# バージョンに v を付けないのは、mise が aqua のタグから先頭の v を落とした形を版として扱うため
+# （src/backend/aqua.rs の versioned_package_from_tag）。Renovate 側も v を落として比較する
+# （lib/modules/manager/mise/backends.ts の createAquaToolConfig）。
+#
+# この設定は [tools] にプレーンなバージョン文字列を書くだけなので、mise trust は要らない。
+# https://mise.jdx.dev/cli/trust.html
+#
+# mise.lock（解決済みバージョンとアーティファクトのチェックサムを記録するロックファイル）は置いていない。
+# 公式は再現性のために勧めているが、ここでは全ツールを範囲指定ではなく完全なバージョンで固定しており、
+# 導入時の検証も aqua レジストリのチェックサム・署名・provenance に乗るため、得られるものが小さいと判断した。
+# 再現性をさらに上げたくなったら `mise lock` を実行し、CI を `mise install --locked` に変える。
+# https://mise.jdx.dev/dev-tools/mise-lock.html
+[tools]
+# シェルスクリプトの検査。actionlint も run: の中身を検査する際に PATH 上の shellcheck を使う
+"aqua:koalaman/shellcheck" = "0.11.0"
+
+# JSON の構文検査（jq empty）と、bats テストが実物を使う jq（scripts/test/helper.bash は gh だけをスタブに
+# 差し替え、jq は実物を呼ぶ）。ランナー上で動く notify-drift-issue の jq はランナー同梱のものを使う
+"aqua:jqlang/jq" = "1.8.2"
+
+# YAML の構文検査。PyPI 配布のため pipx バックエンドで入れる。mise はこのバックエンドの導入に uv を使い、
+# uv が無ければ pipx にフォールバックするが、mise の公式イメージにはどちらも入っていないため uv も固定する。
+# https://mise.jdx.dev/dev-tools/backends/pipx.html
+#
+# バックエンド名は pipx を使う。現行の名前は pypi で、pipx はそれと併存する互換名（別のツール識別子として
+# 扱われる）だが、Renovate の mise manager は pipx にしか対応しておらず、pypi と書くと未対応バックエンドとして
+# 更新が追われなくなる（lib/modules/manager/mise/extract.ts の backend 分岐に pypi が無い）。
+# 加えて古い mise は pypi を解釈せずこの行を黙って無視する（2026.8.10 で実測）。
+# https://mise.jdx.dev/dev-tools/backends/pypi.html
+"aqua:astral-sh/uv" = "0.12.14"
+"pipx:yamllint" = "1.38.0"
+
+# GitHub Actions のワークフロー検査。
+# 公式 Docker イメージは shellcheck と pyflakes を同梱していたが、こちらはバイナリのみなので、
+# run: の中身の検査は PATH 上のツールに依存する。shellcheck は上で入れている。
+# pyflakes（shell: python の run: を検査する）は入れていない。このリポジトリに python の run: が無いため。
+# https://github.com/rhysd/actionlint/blob/main/docs/checks.md
+"aqua:rhysd/actionlint" = "1.7.12"
+
+# GitHub Actions のセキュリティ方針の検査
+"aqua:suzuki-shunsuke/ghalint" = "1.5.6"
+
+# Dockerfile の検査。RUN の中身の検査には shellcheck を内蔵しており、PATH 上のものには依存しない
+"aqua:hadolint/hadolint" = "2.15.1"
+
+# .editorconfig への準拠の検査
+"aqua:editorconfig-checker/editorconfig-checker" = "4.0.1"
+
+# Markdown の検査。JavaScript 実装のため npm バックエンドで入れる。
+# 実行に要る Node.js は mise の公式イメージが同梱しているものを使う（イメージのビルド時に mise use -g node@lts
+# しているため）。ここで固定するのは検査結果を決める markdownlint-cli2 の版だけ。
+# https://github.com/jdx/mise/blob/main/packaging/mise/Dockerfile
+"npm:markdownlint-cli2" = "0.23.2"
+
+# 綴りの検査
+"aqua:crate-ci/typos" = "1.50.2"
+
+# リンク切れの検査（link-check.yml。CI の必須チェックではなく定期実行）
+"aqua:lycheeverse/lychee" = "0.24.2"
+
+# シェルスクリプトのテスト。各テストの helper.bash が bats_require_minimum_version 1.5.0 を要求する
+"aqua:bats-core/bats-core" = "1.14.0"

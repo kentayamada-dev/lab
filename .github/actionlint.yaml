@@ -1,0 +1,13 @@
+# actionlint の設定。検査内容を変えるためではなく、ランナーラベルの検査を通すためだけに置いている。
+#
+# self-hosted-runner.labels は本来セルフホストランナーのラベルを登録する項目だが、
+# actionlint は GitHub ホストの ubuntu-26.04 / ubuntu-26.04-arm をまだ既知ラベルとして持っておらず、
+# ここに書かないと全ジョブが runner-label エラーになる（v1.7.12 で実測）。
+# 未知ラベルを個別に許可する手段は他に無い（-ignore はラベル検査そのものを無効化してしまう）。
+#
+# upstream に取り込まれたらこのファイルごと削除する。
+# https://github.com/rhysd/actionlint/issues/682
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
+    - ubuntu-26.04-arm

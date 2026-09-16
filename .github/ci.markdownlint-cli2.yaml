@@ -1,0 +1,51 @@
+# markdownlint（Markdownの書式検査）の設定。
+# GitHub Actions からしか使わないため .github/ に置き、.github/workflows/ci.yml で --config を明示して渡す
+# （引数なしの自動検出は実行ディレクトリとその親しか見ないため、ここに置くと見つからない）。
+# 検査対象（globs）もここに置いている。--config で渡した設定ファイルの globs も検査対象に足される
+# （v0.23.2 の markdownlint-cli2.mjs。--config の中身が getBaseOptions の options に渡り、
+# そこで globPatterns へ追記される）。手元で同じ検査をするときは
+# `markdownlint-cli2 --config .github/ci.markdownlint-cli2.yaml` を実行する。
+#
+# ファイル名に ci. を付けているのは、このファイルが「.github/ ディレクトリの設定」として自動検出されるのを
+# 避けるため。markdownlint-cli2 は各ディレクトリで .markdownlint-cli2.yaml という完全一致の名前を探し、
+# 自分の設定を持つディレクトリのファイル群を親へ併合しなくなる。その状態だと
+# .github/pull_request_template.md が .github のグループに残り、下の overrides の filter が
+# リポジトリ直下ではなく .github 基準で照合されて一致しなくなる（実際に CI が MD041 で落ちた）。
+# プレフィックス付きの名前は公式にサポートされている（"a prefix with a supported name"）。
+# https://github.com/DavidAnson/markdownlint-cli2#markdownlint-cli2yaml
+#
+# 設定ファイルの形式は jsonc・yaml・cjs・mjs から選べる。YAML にしたのは、CIの yamllint と
+# lychee の対象拡張子にそのまま乗るため（jsonc はどちらの対象にも入っていない）。
+
+# 検査対象。他ジョブのような git ls-files は使えない
+# （このツールの公式イメージに git が入っていないため。v0.23.2 のイメージで実測）。
+# 既定で隠しディレクトリも辿るため、.github/ と .claude/ の Markdown も対象に入る（同じく実測）。
+# この glob は設定ファイルの位置ではなく実行ディレクトリ（リポジトリ直下）を基準に解決される。
+globs:
+  - "**/*.md"
+
+config:
+  # MD013（行長）は既定80桁。日本語のドキュメントを80桁に収めると文の途中で改行することになり、
+  # どこで折るかは機械的に決められないため無効にする（実測では SKILL.md の1行が89桁で引っかかった）。
+  MD013: false
+
+  # MD041（先頭行はh1）は、フロントマターに title があればそれをh1とみなす。
+  # 既定の正規表現は ^\s*title\s*[:=] だが、.claude/skills/*/SKILL.md のフロントマターが持つのは
+  # name のため、そのままでは「先頭が見出しでない」と誤検知する。ルールごと切らずに実態へ合わせる。
+  # https://github.com/DavidAnson/markdownlint/blob/main/doc/md041.md
+  MD041:
+    front_matter_title: "^\\s*name\\s*[:=]"
+
+# .github/pull_request_template.md はPR本文へ丸ごと挿入されるテンプレートの断片で、
+# h1 を置くと全PRの本文の先頭に見出しが出てしまう。このファイルに限って MD041 を外す。
+# キーは globs ではなく filter で、combine も必須
+# （v0.23.2 の schema/markdownlint-cli2-config-schema.json。誤ったキーはエラーにならず黙って無視される）。
+# filter は「そのファイルが属するグループのディレクトリ」を基準に照合される。.github/ に
+# ディレクトリ設定が無ければ .github/*.md はリポジトリ直下のグループに併合されるため、ここは直下からのパスで書く
+# （上の ci. プレフィックスの説明を参照）。
+overrides:
+  - filter:
+      - ".github/pull_request_template.md"
+    config:
+      MD041: false
+    combine: merge

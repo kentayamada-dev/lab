@@ -25,7 +25,7 @@ Renovate を自前運用している。認証に使う Personal Access Token（P
 このリポジトリのスクリプトでは管理していない。
 
 1. fine-grained PAT を発行する。アクセス対象はこのリポジトリだけに限定し、Repository permissions を次のとおりにする。
-   https://docs.renovatebot.com/modules/platform/github/#authentication
+   <https://docs.renovatebot.com/modules/platform/github/#authentication>
 
    | 権限 | レベル |
    | --- | --- |

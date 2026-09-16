@@ -1,0 +1,140 @@
+name: Link check
+
+# ドキュメントやコメントに書いたURLの生存を定期的に確かめる。
+# CLAUDE.md が「外部要因への対処には根拠となるURLを添える」と定めているため、
+# リポジトリ内のURLは時間とともに参照先の移動・削除で腐っていく。
+#
+# PRの必須チェックにはしない。外部サイトの一時的な不調やレート制限で落ちると、
+# リポジトリと無関係な理由でマージが止まるため。ruleset-drift / settings-drift と同じく
+# 定期実行し、結果は issue で通知する。
+
+on:
+  schedule:
+    # 毎日 10:00 JST。drift 系（09:00 JST）と1時間ずらして実行が重ならないようにしている。
+    # GitHubの仕様上、実行時刻は数分〜数十分遅れることがある。
+    # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#schedule
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 同時実行すると同じ内容のissueが二重に作られうるため、直列化する
+concurrency:
+  group: link-check
+  cancel-in-progress: false
+
+# 検査と通知をジョブに分けているのは、両者が必要とする実行環境が違うため。
+# lychee は ci.yml の検査ツールと同じく mise で導入する（版は mise.toml）。
+# 一方 notify-drift-issue はランナー同梱の gh を使うので、コンテナではなくランナー上で動かす。
+# 結果の受け渡しには artifact を使う（ジョブ間でワークスペースは共有されない）。
+jobs:
+  check:
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    container:
+      # ci.yml の lint ジョブと同じ mise の公式イメージ（選定理由はそちらのコメント）
+      image: ghcr.io/jdx/mise:2026.9.9@sha256:a88f300ef4365494b88f8eefd271bb92ba467d4a41835739a714426207215730
+
+    outputs:
+      drift: ${{ steps.check.outputs.drift }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # このジョブで要るのは lychee だけなので、mise.toml の全ツールではなくこれだけを入れる
+      - name: lycheeを導入
+        run: |
+          mise install aqua:lycheeverse/lychee
+          mise bin-paths >> "$GITHUB_PATH"
+
+      # 検査対象と除外は .github/lychee.toml に置いている。-c を省略したときに読まれるのは
+      # カレントディレクトリの lychee.toml なので、--config で明示的に渡す。
+      # ここではそれ以外のCI固有の引数だけを渡す。
+      #
+      # GITHUB_TOKEN があると github.com へのリクエストが API 経由になり、レート制限で落ちにくくなる。
+      # lychee は環境変数 GITHUB_TOKEN を自動で読むため、引数で渡す必要はない。
+      # https://github.com/lycheeverse/lychee#github-token
+      #
+      # 終了コードは 0=全て成功 / 2=リンク切れあり / 1=入力や実行時の失敗 / 3=設定ファイルの誤り。
+      # リンク切れは drift として通知に回し、それ以外の失敗はこのジョブを落とす。
+      # https://github.com/lycheeverse/lychee#exit-codes
+      - name: リンク切れを検査
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # set -e の下でも終了コードを受け取れるよう、|| で拾う
+          status=0
+          lychee --config .github/lychee.toml --no-progress --format markdown --output report.md . || status=$?
+
+          case "$status" in
+            0) echo "drift=false" >> "$GITHUB_OUTPUT" ;;
+            2) echo "drift=true" >> "$GITHUB_OUTPUT" ;;
+            *) printf 'lychee がリンク切れ以外の理由で失敗しました（終了コード %s）\n' "$status" >&2; exit "$status" ;;
+          esac
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: link-check-report
+          path: report.md
+
+  notify:
+    needs: check
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 10
+
+    # issue の書き込みが要るのはこのジョブだけなので、ワークフロー全体ではなくここで足す
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      # ローカルアクション（./.github/actions/...）を使うためにチェックアウトが要る
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: link-check-report
+
+      # ruleset-drift.yml / settings-drift.yml と同じ通知の仕組みに乗せている。
+      # リンク切れがあれば issue を作成・追記したうえで、この action がジョブを失敗させる
+      - name: 結果をジョブサマリーに出力し、リンク切れがあれば issue で通知
+        uses: ./.github/actions/notify-drift-issue
+        with:
+          drift: ${{ needs.check.outputs.drift }}
+          report-file: report.md
+          # lychee の markdown レポートに実行日時は入らず、入力ごとの並びも結果の並びも
+          # 文字列の大小で整列される（v0.24.2 の formatters/stats/markdown.rs と sort_stats_iter で確認）。
+          # そのためリンク切れの顔ぶれが同じなら毎回同じハッシュになり、除く行は無い。
+          issue-title: "chore: リポジトリ内のリンクが切れている"
+          issue-label: maintenance
+          summary-drift: リンク切れがあります
+          summary-ok: リンク切れはありません
+          close-comment: 定期チェックでリンク切れが解消したことを確認したため、自動でcloseしました。
+          comment-intro: リンク切れの内容が前回の通知から変わりました。
+          report-heading: 検査結果
+          report-note: リンク切れの内容が変わった場合はコメントで追記されます。
+          issue-description: |-
+            定期チェック（`link-check.yml`）で、リポジトリ内のURLに到達できないものが見つかりました。
+            参照先の移動・削除か、一時的な障害の可能性があります。
+          issue-extra-sections: |-
+            ## 提案
+
+            - 参照先が移動した: リンクを新しいURLに直すPRを出す
+            - 参照先が消えた: 代わりの根拠を示すか、その記述ごと見直す
+            - 一時的な障害・ボット遮断など、URL自体は正しい: `.github/lychee.toml` の `exclude` に理由を書いて足す
+          completion-criteria: |-
+            - [ ] 検査結果の各URLについて、参照先が移動したのか消えたのか一時的な障害かを確認した
+            - [ ] リンクを修正した、または `.github/lychee.toml` に除外理由を書いて足した
+            - [ ] このワークフローを手動実行して成功することを確認した

@@ -1,4 +1,6 @@
 // Renovate のリポジトリ設定（何をどう更新するか）。
+// Renovate が設定ファイルとして探す場所のひとつ（.github/renovate.json5）に置いている。
+// https://docs.renovatebot.com/configuration-options/
 //
 // 実行基盤はホスト型サービスではなく、このリポジトリの Actions（.github/workflows/renovate.yml）で自前運用している。
 // 実行に関わる設定（対象リポジトリ・認証・ログレベル）はそちらの環境変数で渡し、ここには置かない。
@@ -8,7 +10,7 @@
 // そのため CI の jq による構文検査の対象外になるので、代わりに renovate-config-validator で検査する（ci.yml）。
 //
 // customManagers（regex）は持たない。ワークフローが使うツールは、Renovate が標準で追える形
-// （アクションの SHA 固定、ジョブの container image）に寄せている。
+// （アクションの SHA 固定、ジョブの container image、mise.toml の [tools]）に寄せている。
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
 

@@ -19,18 +19,29 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-26.04-arm
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      issues: write
 
     env:
-      GH_TOKEN: ${{ github.token }}
       RULESET_FILE: .github/rulesets/main.json
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # publicリポジトリのルールセットは認証なしでも取得できるため、GITHUB_TOKENで足りる。
       # ルールセットIDはUIで再作成すると変わるので、ファイルの name で検索する。
       - name: GitHub上のルールセットと定義ファイルを比較
         id: compare
+        # トークンはジョブ全体ではなく、gh を使うこのステップにだけ渡す
+        # （ghalint の job_secrets。ジョブの env に github.token を置くと落ちる）。
+        # https://github.com/suzuki-shunsuke/ghalint/blob/main/docs/policies/006.md
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 

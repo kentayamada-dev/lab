@@ -15,28 +15,84 @@ concurrency:
 
 # ジョブIDがステータスチェックの名前になる。
 # .github/rulesets/main.json の required_status_checks の context と一致させる
-# （static-checks / editorconfig / renovate-config / scripts-test）。
+# （lint / scripts-test / renovate-config）。
 #
-# scripts-test を static-checks の needs にぶら下げず、独立した必須チェックにしている。
+# 検査ツールは mise でまとめて導入する。版は mise.toml に固定してあり、手元でも同じ版を再現できる
+# （導入手段を mise に寄せた理由はそのファイルのコメント）。
+# 以前はツールごとに公式 Docker イメージをジョブのコンテナにしていたためジョブが分かれていたが、
+# 全ツールが同じコンテナで動くようになったので lint ジョブ1つにまとめている。
+# どの検査が落ちたかはステップ単位で分かる。
+#
+# scripts-test を lint の needs にぶら下げず、独立した必須チェックにしている。
 # needs の依存先が失敗してスキップされたジョブは required check としてマージを止めない場合があるため。
 # https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks
 #
 # サードパーティのアクションは使わない。リポジトリ設定で実行可能なアクションを GitHub 公式と
 # 検証済みに限っているため（scripts/apply-repo-settings.sh の selected-actions）。
-# ランナーイメージに無いツールは apt か公式 Docker イメージで導入する。
-# https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2604-Readme.md
+#
+# 各ジョブに permissions と timeout-minutes を置き、checkout には persist-credentials: false を渡す。
+# ワークフロー冒頭にも permissions があって冗長に見えるが、ghalint のポリシー（job_permissions /
+# job_timeout_minutes_is_required / checkout_persist_credentials_should_be_false）が全ジョブに一律で
+# 要求するため、例外を作らずに揃えている。冒頭の permissions は、新しいジョブが書き忘れたときの下限として残す。
+# この方針は他のワークフロー（link-check / renovate / *-drift）にも同じく適用している。
+#
+# timeout-minutes の値は実行時間を計測して決めたものではなく、通常の実行に対して余裕を取った上限（未計測）。
 jobs:
-  static-checks:
+  lint:
     runs-on: ubuntu-26.04-arm
+    timeout-minutes: 15
+
+    permissions:
+      contents: read
+
+    container:
+      # mise の公式イメージ。rust（debian ベース）から作られていて linux/amd64 と linux/arm64 の両方を持つため、
+      # arm ランナーで動く（ghcr.io の manifest を取得して実測）。検査に要る git・bash・find のほか、
+      # markdownlint-cli2 が要る Node.js も同梱している（イメージのビルド時に mise use -g node@lts している）。
+      # USER 指定が無く root で動くため --user root は要らない。
+      # ENTRYPOINT は mise 自身だが、runner はジョブのコンテナを --entrypoint tail で起動するため上書きは要らない。
+      # https://github.com/jdx/mise/blob/main/packaging/mise/Dockerfile
+      #
+      # mise の版は、同梱する aqua レジストリのスナップショットの新しさも決める。古い mise だと新しいツールの
+      # アセット名を解決できず導入に失敗することがある（2026.8.10 では editorconfig-checker 4.0.1 が
+      # "no asset found" で落ち、2026.9.9 では入ることを手元で実測）。
+      image: ghcr.io/jdx/mise:2026.9.9@sha256:a88f300ef4365494b88f8eefd271bb92ba467d4a41835739a714426207215730
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      # shellcheck・jq・yamllint はいずれもランナーイメージに同梱されているものを使う
+      # コンテナは root（uid 0）で動くが、workspace はホストの runner ユーザー（uid 1001）の所有。
+      # そのままでは git が dubious ownership で拒否し、検査対象の一覧（git ls-files）が作れない。
+      # editorconfig-checker は git ls-files の失敗をエラーにせず黙ってディレクトリ走査へフォールバックする
+      # （#3 の診断ステップで実測）。
+      # actions/checkout の set-safe-directory は一時的な HOME にしか書かれず、後続ステップには残らない。
+      # https://github.com/actions/checkout/issues/766
+      - name: workspaceをgitのsafe.directoryに登録
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      # 検査の前提（git が使えること）を明示的に確かめる。safe.directory の登録が外れると、
+      # 黙って対象が変わるのではなくこのステップが dubious ownership で落ちる。
+      - name: gitがworkspaceを扱えることを確認
+        run: git ls-files --error-unmatch .editorconfig
+
+      # mise.toml に書いた全ツールを導入し、それぞれの bin ディレクトリを後続ステップの PATH に通す。
+      # mise exec を毎回書かずに済み、手元で実行するコマンドとステップの内容が揃う。
+      - name: 検査ツールを導入
+        id: tools
+        run: |
+          mise install
+          mise bin-paths >> "$GITHUB_PATH"
+
+      # 以降の検査は互いに独立しているため、前の検査が落ちても残りを実行して指摘をまとめて出す。
+      # ツールの導入自体に失敗したときは、後続を動かしても command not found が並ぶだけなので動かさない。
       - name: シェルスクリプトを検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: git ls-files -z '*.sh' | xargs -0 --no-run-if-empty shellcheck
 
       - name: JSONの構文を検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: git ls-files -z '*.json' | xargs -0 --no-run-if-empty -n1 jq empty
 
       # relaxed は行長・インデント・空行などの書式ルールを警告に落とす。
@@ -45,80 +101,142 @@ jobs:
       # trailing-spaces と new-line-at-end-of-file は editorconfig-checker とも重複するが、
       # key-duplicates と anchors の検査は yamllint にしか無いため残している。
       - name: YAMLの構文を検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: git ls-files -z '*.yml' '*.yaml' | xargs -0 --no-run-if-empty yamllint -d relaxed
 
-  # editorconfig-checker はランナーイメージにも Ubuntu の apt リポジトリにも無いため、
-  # 公式の Docker イメージをジョブのコンテナにして動かす（アクションを使わない理由はファイル冒頭）。
-  # https://packages.ubuntu.com/search?keywords=editorconfig-checker&searchon=names&suite=all&section=all
-  editorconfig:
-    # このイメージは alpine ベース。runner は alpine コンテナ内の JavaScript Action（actions/checkout）を
-    # x64 Linux でしかサポートしないため、このジョブだけ arm ではなく x64 のランナーを使う。
-    # https://github.com/actions/runner/blob/main/src/Runner.Worker/Handlers/StepHost.cs
-    # （"JavaScript Actions in Alpine containers are only supported on x64 Linux runners"）
-    runs-on: ubuntu-26.04
-    # Renovate の github-actions manager が container の image を docker 依存として認識するため、
-    # バージョンと digest の更新を Renovate に任せられる
-    # （GitHub Releases からバイナリを取得して SHA-256 を手で転記する方式だと、チェックサムの更新が人手になる）。
-    container:
-      image: ghcr.io/editorconfig-checker/editorconfig-checker:4.0.1@sha256:c843ca21130986fb1c8c5e09bb38075bd51432ad40cc6db118a6f8cde897db0e
+      # actionlint は GitHub Actions のワークフロー専用の検査で、yamllint では届かない層を見る。
+      # 式の型（steps.<id> の参照ミス、関数の引数の数）、ローカルアクションに渡す with: のキー名と必須入力、
+      # permissions のスコープ名、needs の依存先、run: スクリプトの中身などが対象。
+      # run: の中身の検査には PATH 上の shellcheck を使うため、上のステップと同じ版で検査される。
+      # https://github.com/rhysd/actionlint/blob/main/docs/checks.md
+      #
+      # 引数なしで .github/workflows を自動で見つける。
+      # ランナーラベルの検査には .github/actionlint.yaml の設定が要る（理由はそのファイル）。
+      - name: ワークフローを検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: actionlint -color
 
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # ghalint はワークフローと action.yml をセキュリティ方針の観点で検査する。actionlint が構文・式・run: の
+      # 中身を見るのに対し、こちらは「全ジョブに permissions と timeout-minutes があるか」「checkout の
+      # persist-credentials が false か」「アクションの ref がフルの commit SHA か」といった方針を強制する。
+      # run が .github/workflows/*.y?ml を、run-action が3階層までの action.y?ml を引数なしで見つける。
+      # https://github.com/suzuki-shunsuke/ghalint#policies
+      - name: ワークフローのセキュリティ方針を検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: ghalint run
 
-      # コンテナは root（uid 0）で動くが、workspace はホストの runner ユーザー（uid 1001）の所有。
-      # そのままでは git が dubious ownership で拒否し、editorconfig-checker は git ls-files の失敗を
-      # エラーにせず黙ってディレクトリ走査へフォールバックする（#3 の診断ステップで実測）。
-      # actions/checkout の set-safe-directory は一時的な HOME にしか書かれず、後続ステップには残らない。
-      # https://github.com/actions/checkout/issues/766
-      - name: workspaceをgitのsafe.directoryに登録
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: action.ymlのセキュリティ方針を検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: ghalint run-action
 
-      # editorconfig-checker はフォールバック時も成功扱いになるため、検査の前提（git が使えること）を明示的に確かめる。
-      # safe.directory の登録が外れると、このステップが dubious ownership で落ちる。
-      - name: gitがworkspaceを扱えることを確認
-        run: git ls-files --error-unmatch .editorconfig
+      # hadolint は Dockerfile 専用の検査。命令の書き方（タグの固定、apt のバージョン指定、不要なレイヤなど）に加え、
+      # shellcheck を内蔵していて RUN の中身も見る（PATH 上の shellcheck には依存しない）。
+      # https://github.com/hadolint/hadolint/blob/master/README.md
+      #
+      # 他の検査と違い git ls-files ではなく find で集めている。hadolint はファイル名では対象を判別せず、
+      # 引数で渡したファイルをそのまま Dockerfile として読むため、対象の決定はこの find のパターンが全て。
+      # Dockerfile をまだ置いていない間は xargs が hadolint を起動しないため、この検査は何もせず成功する。
+      #
+      # 終了コードは既定の failure-threshold（info）に従い、info 以上の指摘があれば 1 になる（v2.15.1 で実測）。
+      # style の指摘だけでは落ちない。
+      - name: Dockerfileを検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: |
+          find . -path ./.git -prune -o -type f \
+            \( -name Dockerfile -o -name 'Dockerfile.*' -o -name '*.Dockerfile' \) -print0 |
+            xargs -0 --no-run-if-empty hadolint --no-color
 
       # 対象はリポジトリ直下から見た git 管理下（および未追跡・非 ignore）のテキストファイル全て。
       # YAML 以外のファイルにも文字コード・改行・インデント幅・末尾空白・最終改行の検査を広げる。
       - name: .editorconfigへの準拠を検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: editorconfig-checker -no-color -format github-actions
 
-  # renovate.json5 はコメントを書けるよう JSON5 にしており、static-checks の jq 検査の対象外。
+      # typos はソースコード向けの綴り検査。識別子を単語に分解して「誤り → 正しい綴り」の辞書と突き合わせる方式で、
+      # 辞書に無い語を未知語として指摘しないため、一般的なスペルチェッカと違って PR で回しても誤検知が出にくい。
+      # https://github.com/crate-ci/typos/blob/master/docs/design.md
+      #
+      # 検査対象は他の検査と同じく git 管理下のファイル。typos は既定で隠しディレクトリを飛ばすため、
+      # 引数なしだと .github/ 以下が丸ごと対象から外れる。--hidden で解禁すると今度は .git/ 内の
+      # 圧縮オブジェクトをバイナリとして読んで誤検出する（v1.50.2 で実測）。
+      #
+      # 綴り以外の理由で指摘される語が出たら、_typos.toml で除外する。
+      # https://github.com/crate-ci/typos/blob/master/docs/reference.md
+      #
+      # 終了コードは指摘があれば 2 になる（v1.50.2 で実測）。--sort は結果の出力順を固定する（--help の "Sort results"）。
+      - name: 綴りを検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: git ls-files | typos --file-list - --color never --sort
+
+      # markdownlint は Markdown 専用の書式検査。見出しレベルの飛び（MD001）、コードブロックの言語指定（MD040）、
+      # テーブルの列数の不一致（MD055/MD056）など、editorconfig-checker が見る文字コード・空白の層や
+      # lychee が見るリンクの到達性では届かないところを検査する。
+      # https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+      #
+      # 検査対象もルールも .github/ci.markdownlint-cli2.yaml に置いている。設定ファイルの自動検出は
+      # 実行ディレクトリとその親しか見ないため、--config で明示的に渡す。渡した設定ファイルの globs も
+      # 検査対象に足される（ファイル名に ci. を付けている理由も含め、根拠はそのファイルのコメント）。
+      # 終了コードは指摘があれば 1、実行時の失敗なら 2。
+      # https://github.com/DavidAnson/markdownlint-cli2#exit-codes
+      - name: Markdownを検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: markdownlint-cli2 --config .github/ci.markdownlint-cli2.yaml
+
+  # .github/renovate.json5 はコメントを書けるよう JSON5 にしており、lint ジョブの jq 検査の対象外。
   # Renovate 同梱の validator で、スキーマとプリセット参照の妥当性まで検査する。
   # https://docs.renovatebot.com/config-validation/
-  # 引数なしで実行するとカレントディレクトリのリポジトリ設定を自動検出する。
+  # 引数なしで実行すると、Renovate がリポジトリ設定として認める既定の場所（.github/renovate.json5 を含む）を
+  # 自動検出する。
+  # https://docs.renovatebot.com/configuration-options/
   # renovate 本体を実行するわけではないので、リポジトリへの書き込み権限やトークンは要らない。
   #
-  # Renovate 本体の Docker イメージをジョブのコンテナにすることで、validator の版も Renovate 自身に更新させる。
+  # このジョブだけ mise を使わない。renovate-config-validator は mise のレジストリに無いため
+  # （mise registry で確認）、Renovate 本体の Docker イメージをジョブのコンテナにして validator の版も
+  # Renovate 自身に更新させる。
   # イメージは非 root（uid 12021）で動く設定だが、runner はコンテナ起動時にユーザーを指定せず、
   # ホスト側の runner ユーザーが所有する workspace へ checkout が書き込めない恐れがあるため root で動かす。
   # https://github.com/renovatebot/renovate/blob/main/tools/docker/Dockerfile
   renovate-config:
     runs-on: ubuntu-26.04-arm
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+
     container:
       image: ghcr.io/renovatebot/renovate:44.90.3@sha256:aba0e1146d259bf2657c034f72ce63597a9f8335acec8084d9f396bc4ba09522
       options: --user root
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Renovateの設定を検査
         run: renovate-config-validator --strict
 
   scripts-test:
     runs-on: ubuntu-26.04-arm
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+
+    container:
+      image: ghcr.io/jdx/mise:2026.9.9@sha256:a88f300ef4365494b88f8eefd271bb92ba467d4a41835739a714426207215730
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      # bats はランナーイメージに同梱されていないため apt で導入する（アクションを使わない理由はファイル冒頭）。
-      # ubuntu-26.04 のパッケージ版は 1.13.0 で、テストが要求する 1.5.0 以降
-      # （各テストディレクトリの helper.bash にある bats_require_minimum_version）を満たす。
-      # https://packages.ubuntu.com/resolute/bats
-      - name: batsを導入
+      # このジョブで要るのは bats と jq だけなので、mise.toml の全ツールではなくこの2つだけを入れる。
+      # テストは外部へ出る gh を PATH の先頭に置いたスタブへ差し替える一方、jq は実物を使う
+      # （scripts/test/helper.bash）。curl・diff・sha256sum はイメージ同梱のものを使う。
+      - name: batsとjqを導入
         run: |
-          sudo apt-get update
-          sudo apt-get install -y bats
+          mise install aqua:bats-core/bats-core aqua:jqlang/jq
+          mise bin-paths >> "$GITHUB_PATH"
 
       - name: シェルスクリプトをテスト
         # composite action のテストは各 action の test/ にある

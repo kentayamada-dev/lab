@@ -35,7 +35,7 @@ when_to_use: PRを作る・出す・上げる・更新するといった明示�
 
 Conventional Commits形式。`修正` `update` `WIP` のような中身の分からないタイトルにしない。
 
-```
+```text
 feat(auth): Google OAuthログインを追加
 fix(api): ユーザー取得時のnull参照を修正
 ```
