@@ -1,0 +1,35 @@
+# zizmor（GitHub Actions のセキュリティ静的解析）の設定。
+# 既定の探索順は .github/zizmor.yml → .github/zizmor.yaml → zizmor.yml → zizmor.yaml で、
+# CI は引数なしでこのファイルを見つける。
+# https://docs.zizmor.sh/configuration/
+#
+# persona は CI 側で pedantic を指定している（理由は .github/workflows/ci.yml のコメント）。
+# ここに書いていない検査は既定のまま有効。
+
+rules:
+  # self-repository は、リポジトリ内のアクション参照を `uses: ./...` から
+  # GitHub が 2026-07-30 に追加した `uses: $/...` に変えるよう求める指摘。
+  # https://github.blog/changelog/2026-07-30-reference-same-repository-actions-with-self-repository-syntax/
+  #
+  # 無効にしているのは actionlint がこの構文をまだ知らないため。`$/` に直すと
+  # actionlint が「ref is missing」として該当箇所を全て落とす（1.7.12 で実測）。
+  # 対応 PR は未マージ（2026-09-16 時点）。
+  # https://github.com/rhysd/actionlint/pull/732
+  #
+  # actionlint が対応したら、この設定を消して `uses: $/...` へ移行する。
+  self-repository:
+    disable: true
+
+  # excessive-permissions は regular でも有効な検査だが、ここで出る「ワークフロー冒頭の
+  # issues: write は、ジョブ側にも同じものがあるなら広すぎる」という形の指摘は pedantic でしか出ない
+  # （regular では出ないことを 1.30.1 で実測）。
+  #
+  # この2つのワークフローでは、冒頭の permissions を新しいジョブが書き忘れたときの下限として
+  # 意図的に置いているため、指摘を受け入れない（方針は .github/workflows/ci.yml のコメント）。
+  #
+  # ルール全体は無効にせず対象ファイルだけ外す。今後追加するワークフローで、
+  # 本物の過剰な権限を見逃さないようにするため。
+  excessive-permissions:
+    ignore:
+      - ruleset-drift.yml
+      - settings-drift.yml
