@@ -1,0 +1,48 @@
+name: Ruleset drift check
+description: 定義ファイルと GitHub 上のルールセットが一致しているか検査する
+
+# 検査ロジックは、ローカルでも同じ結果を再現できるように check-ruleset-drift.sh に置いている。
+# この action はスクリプトの終了コードを出力 drift に写すだけで、issue の作成などは呼び出し側のワークフローが行う。
+
+inputs:
+  ruleset-file:
+    description: 検査するルールセット定義ファイルのパス
+    required: false
+    default: .github/rulesets/main.json
+  report-file:
+    description: 検査結果（unified diff）を書き出すパス（呼び出し側がジョブサマリーや issue 本文に使う）
+    required: false
+    default: drift.txt
+  github-token:
+    description: >-
+      ルールセットの取得に使うトークン。bypass_actors を読むには Administration 権限が要り、
+      GITHUB_TOKEN では与えられないため既定値は置かない（手順は README）
+    required: true
+
+outputs:
+  drift:
+    description: 差分があれば "true"、なければ "false"
+    value: ${{ steps.check.outputs.drift }}
+
+runs:
+  using: composite
+  steps:
+    # 終了コード 1 = 差分あり、2 = トークンの権限不足やAPI取得失敗など検査自体の失敗（ここで即失敗させる）。
+    # run: 内に ${{ }} を直接書くとCodeQLのactions/code-injectionで警告されうるため、envを経由する
+    - id: check
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        RULESET_FILE: ${{ inputs.ruleset-file }}
+        REPORT_FILE: ${{ inputs.report-file }}
+      run: |
+        set -euo pipefail
+
+        status=0
+        "$GITHUB_ACTION_PATH/check-ruleset-drift.sh" "$RULESET_FILE" > "$REPORT_FILE" || status=$?
+
+        case "$status" in
+          0) echo "drift=false" >> "$GITHUB_OUTPUT" ;;
+          1) echo "drift=true" >> "$GITHUB_OUTPUT" ;;
+          *) cat "$REPORT_FILE"; exit "$status" ;;
+        esac
