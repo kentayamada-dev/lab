@@ -89,5 +89,26 @@
       matchDepTypes: ['uses-with'],
       pinDigests: false,
     },
+    // shellcheck を abandoned 判定の対象から外す。
+    // config:best-practices に含まれる abandonments:recommended が「最終リリースから1年」を閾値にするが
+    // （lib/config/presets/internal/abandonments.preset.ts）、shellcheck はリリース間隔がもともとそれより長い
+    // （0.9.0 2022-12-13 → 0.10.0 2024-03-08 → 0.11.0 2025-08-04）。開発自体は続いており
+    // （master への直近コミットは 2026-06-11、リポジトリは非アーカイブ。GitHub API で確認）、
+    // 実用的な移行先も無い（actionlint は run: の検査に PATH 上の shellcheck を使う。mise.toml のコメント参照）。
+    // 判断材料にならない指摘がダッシュボードに常駐するため、このパッケージだけ無効にする。
+    // null は abandonments:recommended 自身が @types/* に使っている値と同じ（threshold 'eternal' → null）。
+    // https://docs.renovatebot.com/presets-abandonments/
+    //
+    // matchPackageNames が照合するのは depName ではなく packageName
+    // （lib/util/package-rules/package-names.ts の PackageNameMatcher）。
+    // mise manager の aqua バックエンドは packageName にバックエンド名を含めないため、
+    // mise.toml の "aqua:koalaman/shellcheck" に対してここは "koalaman/shellcheck" と書く
+    // （lib/modules/manager/mise/backends.ts の createAquaToolConfig）。
+    // dry-run（--platform=local --dry-run=extract）で packageName が "koalaman/shellcheck"、
+    // datasource が github-tags になることを実測。
+    {
+      matchPackageNames: ['koalaman/shellcheck'],
+      abandonmentThreshold: null,
+    },
   ],
 }
