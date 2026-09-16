@@ -1,5 +1,23 @@
 # lab
 
+## リポジトリ設定の適用
+
+ルールセット・マージ方式・セキュリティ機能・Actions の実行許可・ラベルは、GitHub の UI ではなく
+[scripts/apply-repo-settings.sh](scripts/apply-repo-settings.sh) と
+[.github/rulesets/](.github/rulesets/) の定義ファイルで管理している。
+Renovate の自動マージや CI の前提になる設定も含むため、下の Renovate の準備より先に実行する。
+
+```bash
+scripts/apply-repo-settings.sh
+```
+
+- 前提: `gh` が認証済み（`gh auth login`）で、対象がパブリックリポジトリ、実行者が ADMIN 権限を持つこと。
+  満たさない場合は設定を変更する前に前提チェックで止まる
+- 冪等なので、何度実行しても同じ状態になる。迷ったら実行してよい
+- 次のタイミングで再実行する
+  - `.github/rulesets/*.json` またはスクリプト自体を変更したとき
+  - ruleset-drift の通知 issue で、定義ファイル側が正だと判断したとき
+
 ## Renovate の事前準備
 
 依存関係の更新は [.github/workflows/renovate.yml](.github/workflows/renovate.yml) で

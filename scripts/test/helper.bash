@@ -2,8 +2,10 @@
 #
 # batsテスト共通のヘルパ。
 #
-# テストは実ネットワークにも実GitHubにも触れない。外部へ出るコマンド（curl / gh）は
-# PATH の先頭に置いたスタブへ差し替え、応答は環境変数で固定する。
+# テストは実GitHubに触れない。外部へ出る gh は PATH の先頭に置いたスタブへ差し替え、
+# 応答は環境変数で固定する。
+#
+# check-settings-drift.sh のテストは .github/actions/settings-drift/test/ にあり、ヘルパも別に持つ。
 #
 # テストで使う `run -N` は 1.5.0 以降の構文。下の宣言が無いと旧版との互換のため警告 BW02 が出る。
 # CI が導入する bats の版は .github/workflows/ci.yml の scripts-test ジョブに書いてある。
@@ -11,7 +13,7 @@
 bats_require_minimum_version 1.5.0
 
 # スタブを置くディレクトリを PATH の先頭に差し込む。
-# フィクスチャ（取得したことにするドキュメント・スキーマ）の置き場もここに作る。
+# フィクスチャの置き場もここに作る。
 setup_stubs() {
   STUB_BIN="$BATS_TEST_TMPDIR/bin"
   STUB_FIXTURES="$BATS_TEST_TMPDIR/fixtures"
@@ -41,102 +43,6 @@ only_commands() {
   done
 
   printf '%s' "$dir"
-}
-
-# ---- check-settings-drift.sh 用 -------------------------------------------------------------
-
-# curl のスタブ。URL に応じてフィクスチャを -o の出力先へコピーする。
-# STUB_CURL_FAIL_DOCS / STUB_CURL_FAIL_SCHEMA を立てると取得失敗を再現する。
-install_curl_stub() {
-  cat > "$STUB_BIN/curl" <<'STUB'
-#!/usr/bin/env bash
-set -uo pipefail
-
-url=""
-out=""
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    -o) out="$2"; shift 2 ;;
-    http://*|https://*) url="$1"; shift ;;
-    *) shift ;;
-  esac
-done
-
-case "$url" in
-  *settings-reference*) src="$STUB_FIXTURES/docs.md"; fail="${STUB_CURL_FAIL_DOCS:-}" ;;
-  *claude-code-settings*) src="$STUB_FIXTURES/schema.json"; fail="${STUB_CURL_FAIL_SCHEMA:-}" ;;
-  *) printf 'curl stub: 想定外のURL: %s\n' "$url" >&2; exit 6 ;;
-esac
-
-[ -z "$fail" ] || exit 22
-cp "$src" "$out"
-STUB
-  chmod +x "$STUB_BIN/curl"
-}
-
-# 設定索引のドキュメントを作る。引数は "キー<TAB>スコープ" の並び。
-#
-# スクリプトは索引が MIN_INDEX_ROWS(100) 行未満だと「表形式が変わった」と見なして
-# 終了コード2で落ちるため、既定では埋め草の行で水増しする。
-# 行数を意図的に減らす検証では DOCS_FILLER_ROWS=0 を指定する。
-write_docs() {
-  local out="$STUB_FIXTURES/docs.md"
-  local filler="${DOCS_FILLER_ROWS-120}"
-  local entry key scope i
-
-  {
-    printf '# Settings reference\n\n## Settings index\n\n'
-    printf '| Setting | Description | Topic | Scope |\n'
-    printf '|---|---|---|---|\n'
-    for entry in "$@"; do
-      IFS=$'\t' read -r key scope <<<"$entry"
-      printf '| [`%s`](#%s) | 説明 | topic | %s |\n' "$key" "$key" "$scope"
-    done
-    i=0
-    while [ "$i" -lt "$filler" ]; do
-      printf '| [`filler%s`](#filler%s) | 説明 | topic | Any file |\n' "$i" "$i"
-      i=$((i + 1))
-    done
-  } > "$out"
-}
-
-# 公開JSONスキーマを作る。
-#   $1: properties に足すJSONオブジェクト（省略時は空）
-#   $2: $defs に足すJSONオブジェクト（省略時は空）
-#
-# トップレベル定義が MIN_SCHEMA_PROPS(50) 件未満だと取得内容が壊れていると見なされるため、
-# こちらも既定で水増しする。件数を減らす検証では SCHEMA_FILLER_PROPS=0 を指定する。
-write_schema() {
-  local props="${1:-}"
-  local defs="${2:-}"
-  local filler="${SCHEMA_FILLER_PROPS-60}"
-
-  [ -n "$props" ] || props='{}'
-  [ -n "$defs" ] || defs='{}'
-
-  jq -n \
-    --argjson props "$props" \
-    --argjson defs "$defs" \
-    --argjson n "$filler" '
-    {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "$defs": $defs,
-      type: "object",
-      properties: (
-        { "$schema": { type: "string" } }
-        + ([range($n) | { key: "filler\(.)", value: { type: "string" } }] | from_entries)
-        + $props
-      ),
-      additionalProperties: false
-    }
-  ' > "$STUB_FIXTURES/schema.json"
-}
-
-# 検査対象の settings.json を書き、そのパスを出力する
-write_settings() {
-  local path="$BATS_TEST_TMPDIR/settings.json"
-  cat > "$path"
-  printf '%s' "$path"
 }
 
 # ---- apply-repo-settings.sh 用 --------------------------------------------------------------

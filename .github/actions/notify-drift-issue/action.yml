@@ -1,0 +1,105 @@
+name: Notify drift issue
+description: drift 検査の結果をジョブサマリーに書き、GitHub issue で通知する
+
+# settings-drift.yml と ruleset-drift.yml が同じ通知処理を持っていたため、ここに集約した。
+# 処理本体は notify-drift-issue.sh にあり、bats でテストしている（test/）。
+# 各ワークフローは検査結果（drift とレポート）と、issue に載せる文言だけを渡す。
+
+inputs:
+  drift:
+    description: 検査結果。"true" なら drift あり、"false" なら drift なし
+    required: true
+  report-file:
+    description: 検査結果の Markdown（または unified diff）が書かれたファイル
+    required: true
+  report-format:
+    description: report-file の形式。"markdown" はそのまま貼り、"diff" はコードフェンスで囲む
+    required: false
+    default: markdown
+  digest-skip-lines:
+    description: 検査結果ハッシュを取るときに先頭から除く行数（実行日時など毎回変わる行の分）
+    required: false
+    default: "0"
+  issue-title:
+    description: 通知 issue のタイトル。open issue の検索はこの完全一致で行う
+    required: true
+  issue-label:
+    description: 通知 issue に付けるラベル。open issue の検索もこのラベルで絞る
+    required: true
+  summary-drift:
+    description: drift があるときのジョブサマリーの見出し
+    required: false
+    default: ""
+  summary-ok:
+    description: drift がないときのジョブサマリーの見出し
+    required: false
+    default: ""
+  close-comment:
+    description: drift が解消したときに issue を close する際のコメント
+    required: false
+    default: ""
+  comment-intro:
+    description: 検査結果が前回から変わったときに追記するコメントの冒頭文
+    required: false
+    default: ""
+  report-heading:
+    description: issue 本文で検査結果を載せる節の見出し（"## " は付けない）
+    required: false
+    default: ""
+  report-note:
+    description: 検査結果の直前に置く注記
+    required: false
+    default: ""
+  issue-description:
+    description: issue 本文の「課題」節の文章
+    required: false
+    default: ""
+  issue-extra-sections:
+    description: 検査結果と完了条件の間に差し込む Markdown（「参照」「提案」などの節）
+    required: false
+    default: ""
+  completion-criteria:
+    description: issue 本文の「完了条件」節に載せるチェックリスト
+    required: false
+    default: ""
+  github-token:
+    description: issue の読み書きに使うトークン。呼び出し側で issues:write を許可しておく
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    # run: 内に ${{ }} を直接書くとCodeQLのactions/code-injectionで警告されうるため、envを経由する
+    - id: notify
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        DRIFT: ${{ inputs.drift }}
+        REPORT_FILE: ${{ inputs.report-file }}
+        REPORT_FORMAT: ${{ inputs.report-format }}
+        DIGEST_SKIP_LINES: ${{ inputs.digest-skip-lines }}
+        ISSUE_TITLE: ${{ inputs.issue-title }}
+        ISSUE_LABEL: ${{ inputs.issue-label }}
+        SUMMARY_DRIFT: ${{ inputs.summary-drift }}
+        SUMMARY_OK: ${{ inputs.summary-ok }}
+        CLOSE_COMMENT: ${{ inputs.close-comment }}
+        COMMENT_INTRO: ${{ inputs.comment-intro }}
+        REPORT_HEADING: ${{ inputs.report-heading }}
+        REPORT_NOTE: ${{ inputs.report-note }}
+        ISSUE_DESCRIPTION: ${{ inputs.issue-description }}
+        ISSUE_EXTRA_SECTIONS: ${{ inputs.issue-extra-sections }}
+        COMPLETION_CRITERIA: ${{ inputs.completion-criteria }}
+      run: '"$GITHUB_ACTION_PATH/notify-drift-issue.sh"'
+
+    # issue を作った上でジョブも失敗させ、Actionsタブでも状態が分かるようにする。
+    # ステップの if: で inputs を参照できるかは公式ドキュメントで確認できなかったため、run: 内で判定する
+    - shell: bash
+      env:
+        DRIFT: ${{ inputs.drift }}
+      run: |
+        if [ "$DRIFT" = "true" ]; then
+          echo "drift があるためジョブを失敗させます"
+          exit 1
+        fi
