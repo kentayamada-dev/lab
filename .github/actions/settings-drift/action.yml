@@ -1,0 +1,42 @@
+name: Claude Code settings drift check
+description: settings.json のキーが公式ドキュメントと公開JSONスキーマから乖離していないか検査する
+
+# 検査ロジックは、ローカルでも同じ結果を再現できるように check-settings-drift.sh に置いている。
+# この action はスクリプトの終了コードを出力 drift に写すだけで、issue の作成などは呼び出し側のワークフローが行う。
+
+inputs:
+  settings-file:
+    description: 検査する settings.json のパス
+    required: false
+    default: .claude/settings.json
+  report-file:
+    description: Markdown の検査結果を書き出すパス（呼び出し側がジョブサマリーや issue 本文に使う）
+    required: false
+    default: report.md
+
+outputs:
+  drift:
+    description: drift があれば "true"、なければ "false"
+    value: ${{ steps.check.outputs.drift }}
+
+runs:
+  using: composite
+  steps:
+    # 終了コード 1 = drift あり、2 = ドキュメント取得失敗など検査自体の失敗（ここで即失敗させる）。
+    # run: 内に ${{ }} を直接書くとCodeQLのactions/code-injectionで警告されうるため、envを経由する
+    - id: check
+      shell: bash
+      env:
+        SETTINGS_FILE: ${{ inputs.settings-file }}
+        REPORT_FILE: ${{ inputs.report-file }}
+      run: |
+        set -euo pipefail
+
+        status=0
+        "$GITHUB_ACTION_PATH/check-settings-drift.sh" "$SETTINGS_FILE" > "$REPORT_FILE" || status=$?
+
+        case "$status" in
+          0) echo "drift=false" >> "$GITHUB_OUTPUT" ;;
+          1) echo "drift=true" >> "$GITHUB_OUTPUT" ;;
+          *) cat "$REPORT_FILE"; exit "$status" ;;
+        esac

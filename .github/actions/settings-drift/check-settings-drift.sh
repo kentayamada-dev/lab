@@ -2,7 +2,7 @@
 #
 # .claude/settings.json のキーが公式ドキュメントから乖離（drift）していないか検査する。
 #
-#   usage: scripts/check-settings-drift.sh [settings.json]
+#   usage: .github/actions/settings-drift/check-settings-drift.sh [settings.json]
 #
 # 検査内容:
 #   1. 使っている各キーが settings-reference の設定索引に載っているか

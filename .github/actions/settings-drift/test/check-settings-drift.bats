@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 #
-# scripts/check-settings-drift.sh のテスト。
+# check-settings-drift.sh のテスト。
 #
 # ドキュメントとスキーマの取得は curl のスタブで置き換え、
 # 「どんな入力のときに何を問題として報告し、どの終了コードで終わるか」を検証する。
