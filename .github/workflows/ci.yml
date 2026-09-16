@@ -13,9 +13,15 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# ジョブIDがステータスチェックの名前になる。
-# .github/rulesets/main.json の required_status_checks の context と一致させる
-# （lint / scripts-test / renovate-config）。
+# 全ジョブに name を置く。zizmor の pedantic な検査（anonymous-definition）が、名前の無い定義を
+# 「読み手に何のジョブか伝わらない」として指摘するため。
+#
+# name を置くとステータスチェックの名前はジョブIDではなくその name になる
+# （zizmorcore/zizmor の CI で、job_id lint / name Lint のジョブが API 上 "Lint" として
+# 返ることを実測）。.github/rulesets/main.json の required_status_checks の context は
+# こちらに合わせる（Lint / Scripts test / Renovate config）。
+# name を変えるときは ruleset も同時に直して scripts/apply-repo-settings.sh を再実行しないと、
+# 要求された名前のチェックが永久に現れずマージできなくなる。
 #
 # 検査ツールは mise でまとめて導入する。版は mise.toml に固定してあり、手元でも同じ版を再現できる
 # （導入手段を mise に寄せた理由はそのファイルのコメント）。
@@ -39,6 +45,7 @@ concurrency:
 # timeout-minutes の値は実行時間を計測して決めたものではなく、通常の実行に対して余裕を取った上限（未計測）。
 jobs:
   lint:
+    name: Lint
     runs-on: ubuntu-26.04-arm
     timeout-minutes: 15
 
@@ -129,6 +136,42 @@ jobs:
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: ghalint run-action
 
+      # zizmor は GitHub Actions をセキュリティの観点で静的解析する。actionlint が構文・式・run: の中身を、
+      # ghalint が permissions や timeout の方針を見るのに対し、こちらは攻撃の筋道そのものを見る
+      # （式インジェクション、$GITHUB_ENV 経由の任意コード実行、キャッシュ汚染、なりすましコミットなど）。
+      # 3ツールの守備範囲の違いは mise.toml のコメント。
+      # https://docs.zizmor.sh/audits/
+      #
+      # GH_TOKEN を渡すと online audits（known-vulnerable-actions や impostor-commit など、GitHub API に
+      # 問い合わせる検査）も動く。渡さない場合 zizmor は警告を1行出すだけでオフラインモードで続行し、
+      # 終了コードは変わらないためこれらが素通りする（1.30.1 で実測）。
+      # トークンの用途は API のレート制限の解除で、参照先は公開リポジトリのため、
+      # ジョブの contents: read のまま追加の権限は要らない。
+      # https://docs.zizmor.sh/usage/#operating-modes
+      #
+      # 対象は INPUTS が必須引数のため明示的に渡す。リポジトリ全体を渡すと、ワークフローと
+      # composite action の両方が .gitignore を尊重しつつ集められる。
+      # 検査内容の調整は .github/zizmor.yml に置いている（self-repository を無効にしている理由もそこ）。
+      #
+      # persona は pedantic を使う。既定の regular より一段厳しく、permissions に説明コメントが無い
+      # （undocumented-permissions）、ジョブに name が無い（anonymous-definition）といった、
+      # 脆弱性そのものではないが読み手に前提が伝わらない書き方まで指摘させる。
+      # excessive-permissions 自体は regular でも有効な検査だが、「ワークフロー冒頭の write 権限を
+      # 全ジョブが上書きしている」という形の指摘だけは pedantic でしか出ず、これがこのリポジトリの方針と
+      # 衝突するため .github/zizmor.yml で対象を絞っている（regular では出ないことを 1.30.1 で実測）。
+      # 終了コードは、指摘が無ければ 0、指摘があれば最も重い severity に応じて 11〜14 になる
+      # （informational=11 / low=12 / medium=13 / high=14）。
+      # https://docs.zizmor.sh/usage/
+      #
+      # --strict-collection は、収集した入力に構文・スキーマの誤りがあったとき、警告して読み飛ばすのではなく
+      # 失敗にする。既定だと壊れたファイルは検査対象から黙って外れ、そのファイルの問題が素通りする。
+      # 同じジョブの yamllint / actionlint が先に落とすため実害は小さいが、zizmor 単体でも検査漏れを起こさないようにする。
+      - name: ワークフローのセキュリティを静的解析
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: zizmor --persona pedantic --strict-collection --color never --no-progress .
+
       # hadolint は Dockerfile 専用の検査。命令の書き方（タグの固定、apt のバージョン指定、不要なレイヤなど）に加え、
       # shellcheck を内蔵していて RUN の中身も見る（PATH 上の shellcheck には依存しない）。
       # https://github.com/hadolint/hadolint/blob/master/README.md
@@ -197,6 +240,7 @@ jobs:
   # ホスト側の runner ユーザーが所有する workspace へ checkout が書き込めない恐れがあるため root で動かす。
   # https://github.com/renovatebot/renovate/blob/main/tools/docker/Dockerfile
   renovate-config:
+    name: Renovate config
     runs-on: ubuntu-26.04-arm
     timeout-minutes: 10
 
@@ -216,6 +260,7 @@ jobs:
         run: renovate-config-validator --strict
 
   scripts-test:
+    name: Scripts test
     runs-on: ubuntu-26.04-arm
     timeout-minutes: 10
 

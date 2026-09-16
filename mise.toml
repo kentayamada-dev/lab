@@ -60,6 +60,21 @@
 # GitHub Actions のセキュリティ方針の検査
 "aqua:suzuki-shunsuke/ghalint" = "1.5.6"
 
+# GitHub Actions のセキュリティ静的解析。actionlint（構文・式・run: の中身）や
+# ghalint（permissions・timeout・SHA 固定といった方針）とは主な守備範囲が異なり、
+# $GITHUB_ENV 経由の任意コード実行（github-env）、キャッシュ汚染（cache-poisoning）、
+# なりすましコミット（impostor-commit）など、攻撃の筋道そのものを検査する。
+# 一部は重なる。式インジェクション（template-injection）は actionlint の untrusted inputs 検査と、
+# unpinned-uses / artipacked / excessive-permissions / secrets-inherit は ghalint の
+# action_ref_should_be_full_length_commit_sha / checkout_persist_credentials_should_be_false /
+# job_permissions / deny_inherit_secrets と対応する。それでも互いに相手が持たない検査があるため併用している。
+# https://docs.zizmor.sh/audits/
+# https://github.com/rhysd/actionlint/blob/main/docs/checks.md
+# https://github.com/suzuki-shunsuke/ghalint#policies
+#
+# 検査内容の調整は .github/zizmor.yml に置いている。
+"aqua:zizmorcore/zizmor" = "1.30.1"
+
 # Dockerfile の検査。RUN の中身の検査には shellcheck を内蔵しており、PATH 上のものには依存しない
 "aqua:hadolint/hadolint" = "2.15.1"
 
