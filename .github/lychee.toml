@@ -1,0 +1,30 @@
+# lychee（リンク切れ検査）の設定。
+# GitHub Actions からしか使わないため .github/ に置き、.github/workflows/link-check.yml で
+# --config を明示して渡す（-c を省略したときの既定値はカレントディレクトリの lychee.toml のため、
+# ここに置くと読まれない）。
+# キー名の一覧: https://github.com/lycheeverse/lychee/blob/master/lychee.example.toml
+#
+# 検査対象と除外という実行環境によらない設定だけをここに置き、出力形式やトークンなどCI固有のものは
+# ワークフロー側の引数で渡す。手元で同じ検査をするときは `lychee --config .github/lychee.toml .`。
+# パスの解釈は設定ファイルの位置ではなく実行ディレクトリ基準なので、リポジトリ直下から実行する。
+
+# 既定の extensions は md,markdown,mdx,qmd,rmd,mkd,mkdn,mdwn,mdown,mkdown,html,htm,css,txt,xml で、
+# .yml と .sh を含まない。このリポジトリのURLは大半がワークフローのコメントとシェルスクリプトの中にあり、
+# 既定のままだと Markdown 以外がまるごと対象から外れる。
+# lychee は Markdown・HTML 以外を「プレーンテキスト」として扱い、linkify でURLを拾う。
+# https://github.com/lycheeverse/lychee#supported-file-formats
+extensions = ["md", "yml", "yaml", "sh", "bash", "bats", "json", "json5", "txt"]
+
+# 既定では隠しディレクトリを読み飛ばすため、.github/ と .claude/ が丸ごと対象から外れる（typos と同じ事情。ci.yml 参照）。
+hidden = true
+
+# hidden = true にすると .git/ 以下も走査対象に入る。上の extensions に一致するファイルは
+# .git/ の中には無いはずだが、その前提に頼らず走査自体を避ける。値は正規表現。
+exclude_path = ['(^|/)\.git/']
+
+exclude = [
+  # example.test は RFC 6761 がテスト用に予約している TLD で、名前解決できないのが正しい挙動。
+  # .github/actions/*/test の bats フィクスチャで使っている。
+  # https://www.rfc-editor.org/rfc/rfc6761#section-6.2
+  '^https?://([^/]*\.)?example\.test(/|$)',
+]
