@@ -9,7 +9,7 @@ on:
 
 permissions:
   contents: read
-  issues: write
+  issues: write # 定義ファイルとの差分を検知したら issue で通知するため
 
 # 同時実行すると同じ内容のissueが二重に作られうるため、直列化する
 concurrency:
@@ -18,12 +18,13 @@ concurrency:
 
 jobs:
   check:
+    name: Ruleset drift check
     runs-on: ubuntu-26.04-arm
     timeout-minutes: 10
 
     permissions:
       contents: read
-      issues: write
+      issues: write # 定義ファイルとの差分を検知したら issue で通知するため
 
     env:
       RULESET_FILE: .github/rulesets/main.json

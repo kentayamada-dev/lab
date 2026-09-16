@@ -30,6 +30,7 @@ concurrency:
 # 結果の受け渡しには artifact を使う（ジョブ間でワークスペースは共有されない）。
 jobs:
   check:
+    name: Link check
     runs-on: ubuntu-26.04-arm
     timeout-minutes: 20
 
@@ -88,6 +89,7 @@ jobs:
           path: report.md
 
   notify:
+    name: Notify
     needs: check
     runs-on: ubuntu-26.04-arm
     timeout-minutes: 10
@@ -95,7 +97,7 @@ jobs:
     # issue の書き込みが要るのはこのジョブだけなので、ワークフロー全体ではなくここで足す
     permissions:
       contents: read
-      issues: write
+      issues: write # リンク切れを検知したら issue で通知するため
 
     steps:
       # ローカルアクション（./.github/actions/...）を使うためにチェックアウトが要る

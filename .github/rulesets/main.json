@@ -43,15 +43,15 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "lint",
+            "context": "Lint",
             "integration_id": 15368
           },
           {
-            "context": "renovate-config",
+            "context": "Renovate config",
             "integration_id": 15368
           },
           {
-            "context": "scripts-test",
+            "context": "Scripts test",
             "integration_id": 15368
           }
         ]
