@@ -34,39 +34,24 @@ jobs:
         with:
           persist-credentials: false
 
-      # publicリポジトリのルールセットは認証なしでも取得できるため、GITHUB_TOKENで足りる。
-      # ルールセットIDはUIで再作成すると変わるので、ファイルの name で検索する。
+      # 検査ロジックは、ローカルでも同じ結果を再現できるように .github/actions/ruleset-drift の
+      # スクリプトに置き、その action が終了コードを出力 drift（true / false）に写す。
+      # 検査自体の失敗（トークンの権限不足・API取得失敗など、終了コード2）は action 側で即失敗させる。
+      #
+      # GITHUB_TOKEN ではなく専用のトークンを渡す。bypass_actors は「ルールセットへの write 権限が
+      # ある要求元にだけ返す」仕様で、権限が無いとキーごとレスポンスから消えるが、GITHUB_TOKEN には
+      # その権限を与えられない（permissions に administration スコープが無い）。
+      # 未設定のまま動かすと、実際は一致していても差分として通知され続ける（#11）。
+      # 発行と登録の手順は README の「ruleset-drift の事前準備」。
+      # https://docs.github.com/en/rest/repos/rules
+      # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions
       - name: GitHub上のルールセットと定義ファイルを比較
         id: compare
-        # トークンはジョブ全体ではなく、gh を使うこのステップにだけ渡す
-        # （ghalint の job_secrets。ジョブの env に github.token を置くと落ちる）。
-        # https://github.com/suzuki-shunsuke/ghalint/blob/main/docs/policies/006.md
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          name=$(jq -r '.name' "$RULESET_FILE")
-          id=$(gh api "repos/${GITHUB_REPOSITORY}/rulesets" \
-            | jq -r --arg n "$name" '.[] | select(.name == $n) | .id')
-
-          if [ -z "$id" ]; then
-            printf 'GitHub上に name=%s のルールセットが存在しません\n' "$name" > drift.txt
-            echo "drift=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # APIレスポンスには id / source / _links など定義ファイルに含めない読み取り専用の
-          # フィールドが混ざるため、ファイルと同じキーだけを取り出してから比較する
-          gh api "repos/${GITHUB_REPOSITORY}/rulesets/${id}" \
-            | jq -S '{name, target, enforcement, bypass_actors, conditions, rules}' > remote.json
-          jq -S . "$RULESET_FILE" > local.json
-
-          if diff -u --label "$RULESET_FILE" --label "github:${name}" local.json remote.json > drift.txt; then
-            echo "drift=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "drift=true" >> "$GITHUB_OUTPUT"
-          fi
+        uses: ./.github/actions/ruleset-drift
+        with:
+          ruleset-file: ${{ env.RULESET_FILE }}
+          report-file: drift.txt
+          github-token: ${{ secrets.RULESET_READ_TOKEN }}
 
       # 結果のサマリー出力と issue での通知は settings-drift.yml と共通なので、1つの action に置いている。
       # 差分があれば issue を作成・追記したうえで、この action がジョブを失敗させる
