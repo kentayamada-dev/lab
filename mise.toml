@@ -90,6 +90,34 @@
 # 綴りの検査
 "aqua:crate-ci/typos" = "1.50.2"
 
+# 秘密情報の検査。gitleaks の作者らが作っている別実装で、既定のルールだけでリポジトリ内の資格情報を検出する。
+# GitHub のシークレットスキャンとプッシュ保護（scripts/apply-repo-settings.sh で有効化）が提携プロバイダの
+# トークンを push の時点で止めるのに対し、こちらは提携パターン以外の文字列も対象にする。
+# 無料のシークレットスキャンが提携パターンに限られるかは公式ドキュメントで明言を確認できていない（未確認）。
+#
+# aqua レジストリの定義は、チェックサムに加えて cosign の sigstore bundle も検証する
+# （手元の mise 2026.8.10 で "Cosign verified" と表示されることを実測）。
+# https://github.com/aquaproj/aqua-registry/blob/main/pkgs/betterleaks/betterleaks/registry.yaml
+"aqua:betterleaks/betterleaks" = "1.8.1"
+
+# 依存関係の既知の脆弱性の検査。ロックファイル・マニフェストから依存を取り出し、OSV データベースと突き合わせる。
+# 対応するのは package-lock.json・go.mod・requirements.txt・Cargo.lock といった各言語のロックファイルで、
+# このリポジトリには現時点でどれも無い（手元の v2.6.0 で走らせて "No package sources found" を実測）。
+# それでも入れているのは、依存を持つコードを置いた時点から追加の設定なしに効かせるため。
+# 対象が無い間の扱いは ci.yml のステップのコメント。
+# https://google.github.io/osv-scanner/supported-languages-and-lockfiles/
+#
+# mise.toml 自体（この設定で固定している検査ツール群）は対象外。aqua や mise を読む extractor は
+# osv-scalibr に無い。GitHub Actions の uses: も同じく対象外で、そちらは zizmor の
+# known-vulnerable-actions が見ている。
+# https://github.com/google/osv-scalibr/tree/main/extractor/filesystem/language
+#
+# aqua レジストリの定義は、v1.7.0 以降のバージョンに対してチェックサムと SLSA provenance を検証する。
+# 古い版に付いている supported_envs の制限はこのブロックには無いため、
+# CI の arm ランナー（linux/arm64）でも入る。
+# https://github.com/aquaproj/aqua-registry/blob/main/pkgs/google/osv-scanner/registry.yaml
+"aqua:google/osv-scanner" = "2.6.0"
+
 # リンク切れの検査（link-check.yml。CI の必須チェックではなく定期実行）
 "aqua:lycheeverse/lychee" = "0.24.2"
 
