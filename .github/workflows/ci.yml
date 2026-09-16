@@ -230,6 +230,31 @@ jobs:
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: markdownlint-cli2 --config .github/ci.markdownlint-cli2.yaml
 
+      # betterleaks は秘密情報の検査。GitHub のシークレットスキャンとプッシュ保護
+      # （scripts/apply-repo-settings.sh で有効化）が提携プロバイダのトークンを push の時点で弾くのに対し、
+      # こちらは提携パターン以外の資格情報も既定ルールで検出し、必須チェックとしてマージを止める。
+      # 版を固定している理由と GitHub 側の検査との使い分けは mise.toml のコメント。
+      # https://github.com/betterleaks/betterleaks#configuration
+      #
+      # --verbose を付けないと「leaks found: N」としか出ず、どのファイルの何行目かが分からない（v1.8.1 で実測）。
+      # --redact は検出した文字列を REDACTED に置き換える。パブリックリポジトリでは実行ログも公開されるため、
+      # 本物の秘密が漏れたときにログへ二重に書き写さないよう必ず付ける。
+      # バナー（--no-banner で消せる3行）は実行した版がログに残るので消さない。
+      # 終了コードは検出が無ければ 0、あれば 1（--exit-code の既定値。v1.8.1 で実測）。
+      #
+      # 対象はリポジトリ直下。.git の中身は走査しないが、他の検査と違って git 管理下かどうかは見ず、
+      # .gitignore の対象や隠しディレクトリの中まで検査する（v1.8.1 で実測）。
+      # checkout 直後の CI では追跡対象しか無いため差は出ないが、手元で実行すると対象が増える。
+      # 履歴を遡る検査は別コマンド（betterleaks git .）で、checkout が既定の fetch-depth: 1 のためここでは使わない。
+      # 必要になったら手元で実行する。
+      #
+      # 誤検知が出たら .betterleaks.toml を置いて除外する（--config を渡さない場合、対象パス直下の
+      # .betterleaks.toml が読まれる。betterleaks --help の order of precedence）。
+      # 導入時点ではこのリポジトリに検出は無い（dir . と git . のどちらも "no leaks found" を手元で実測）。
+      - name: 秘密情報を検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: betterleaks dir . --no-color --redact --verbose
+
   # .github/renovate.json5 はコメントを書けるよう JSON5 にしており、lint ジョブの jq 検査の対象外。
   # Renovate 同梱の validator で、スキーマとプリセット参照の妥当性まで検査する。
   # https://docs.renovatebot.com/config-validation/

@@ -90,6 +90,16 @@
 # 綴りの検査
 "aqua:crate-ci/typos" = "1.50.2"
 
+# 秘密情報の検査。gitleaks の作者らが作っている別実装で、既定のルールだけでリポジトリ内の資格情報を検出する。
+# GitHub のシークレットスキャンとプッシュ保護（scripts/apply-repo-settings.sh で有効化）が提携プロバイダの
+# トークンを push の時点で止めるのに対し、こちらは提携パターン以外の文字列も対象にする。
+# 無料のシークレットスキャンが提携パターンに限られるかは公式ドキュメントで明言を確認できていない（未確認）。
+#
+# aqua レジストリの定義は、チェックサムに加えて cosign の sigstore bundle も検証する
+# （手元の mise 2026.8.10 で "Cosign verified" と表示されることを実測）。
+# https://github.com/aquaproj/aqua-registry/blob/main/pkgs/betterleaks/betterleaks/registry.yaml
+"aqua:betterleaks/betterleaks" = "1.8.1"
+
 # リンク切れの検査（link-check.yml。CI の必須チェックではなく定期実行）
 "aqua:lycheeverse/lychee" = "0.24.2"
 
