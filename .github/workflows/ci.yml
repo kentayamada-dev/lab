@@ -181,7 +181,7 @@ jobs:
       # （anonymous-definition）といった「脆弱性そのものではないが読み手に前提が伝わらない書き方」を、
       # auditor はさらに「偽陽性になりそうなものも含め zizmor が検出できる全て」を出す。
       # 偽陽性が出たら .github/zizmor.yml の ignore で個別に外す。
-      # https://docs.zizmor.sh/usage/#personas
+      # https://docs.zizmor.sh/usage/#using-personas
       # excessive-permissions 自体は regular でも有効な検査だが、「ワークフロー冒頭の write 権限を
       # 全ジョブが上書きしている」という形の指摘だけは pedantic でしか出ず、これがこのリポジトリの方針と
       # 衝突するため .github/zizmor.yml で対象を絞っている（regular では出ないことを 1.30.1 で実測）。
