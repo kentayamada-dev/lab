@@ -62,7 +62,7 @@ jobs:
 
       # 検査ロジックは ruleset-drift / settings-drift と同じく、ローカルでも同じ結果を再現できるよう
       # ./.github/actions/link-check のスクリプトに置いている。lychee に渡す引数と終了コードの扱いはそちら。
-      # 検査対象と除外は action に同梱の .github/actions/link-check/lychee.toml（既定値）。
+      # 検査対象と除外は .github/ci.lychee.toml（既定値）。
       #
       # github.token を渡すと github.com へのリクエストが API 経由になり、レート制限で落ちにくくなる。
       - name: リンク切れを検査
@@ -123,8 +123,8 @@ jobs:
 
             - 参照先が移動した: リンクを新しいURLに直すPRを出す
             - 参照先が消えた: 代わりの根拠を示すか、その記述ごと見直す
-            - 一時的な障害・ボット遮断など、URL自体は正しい: `.github/actions/link-check/lychee.toml` の `exclude` に理由を書いて足す
+            - 一時的な障害・ボット遮断など、URL自体は正しい: `.github/ci.lychee.toml` の `exclude` に理由を書いて足す
           completion-criteria: |-
             - [ ] 検査結果の各URLについて、参照先が移動したのか消えたのか一時的な障害かを確認した
-            - [ ] リンクを修正した、または `.github/actions/link-check/lychee.toml` に除外理由を書いて足した
+            - [ ] リンクを修正した、または `.github/ci.lychee.toml` に除外理由を書いて足した
             - [ ] このワークフローを手動実行して成功することを確認した

@@ -11,7 +11,7 @@ inputs:
   config-file:
     description: >-
       lychee の設定ファイル（検査対象と除外）のパス。
-      未指定ならこの action に同梱の lychee.toml を使う
+      未指定なら .github/ci.lychee.toml を使う
     required: false
   report-file:
     description: Markdown の検査結果を書き出すパス（呼び出し側がジョブサマリーや issue 本文に使う）

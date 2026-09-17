@@ -1,9 +1,15 @@
 # lychee（リンク切れ検査）の設定。
-# 使うのは隣の check-links.sh だけなので同じディレクトリに置き、スクリプトが --config で明示的に
-# 渡している（-c を省略したときの既定値はカレントディレクトリの lychee.toml のため、ここに置くと読まれない）。
+# 読み手は2つある。link-check.yml（定期実行。.github/actions/link-check/check-links.sh 経由）と、
+# ci.yml の --offline の検査（PRごと。ローカルのファイル参照だけを見る）。
+# どちらも -c / --config で明示的に渡す。
 # キー名の一覧: https://github.com/lycheeverse/lychee/blob/master/lychee.example.toml
 #
-# 検査対象と除外という実行環境によらない設定だけをここに置き、出力形式などの実行時の指定はスクリプト側で渡す。
+# 他のCI用の設定（ci.yamllint.yml / ci.markdownlint-cli2.yaml）と同じく .github/ 直下に置いている。
+# ファイル名に ci. を付けているのは、lychee が -c を省略したときに読む名前（カレントディレクトリの
+# lychee.toml。--help の default で確認）とわざと一致させないため。
+# .github/lychee.toml にすると .github/ で実行したときだけ黙って拾われ、設定が効く経路が2つになる。
+#
+# 検査対象と除外という実行環境によらない設定だけをここに置き、出力形式などの実行時の指定は呼び出し側で渡す。
 # 手元で同じ検査をするときは `.github/actions/link-check/check-links.sh`。
 # パスの解釈は設定ファイルの位置ではなく実行ディレクトリ基準なので、リポジトリ直下から実行する。
 

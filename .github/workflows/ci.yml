@@ -139,7 +139,7 @@ jobs:
         run: git ls-files -z '*.json' | xargs -0 --no-run-if-empty -n1 jq empty
 
       # TOML の構文と整形を検査する。mise.toml の構文エラーは上の「検査ツールを導入」で落ちて気づけるが、
-      # lychee.toml は link-check.yml の定期実行まで気づけず、整形の揺れはどちらも誰も見ていなかった。
+      # ci.lychee.toml は link-check.yml の定期実行まで気づけず、整形の揺れはどちらも誰も見ていなかった。
       # fmt --check は書き換えずに判定だけする（--diff を付けるとどこが違うかも出る）。
       # 構文が壊れていれば整形できないため、この1つで構文の検査も兼ねる。
       # https://taplo.tamasfe.dev/cli/usage/formatting.html
@@ -301,11 +301,11 @@ jobs:
       # --offline はネットワークへのリクエストを遮断してローカルのファイル参照だけを見るため、
       # その懸念に当たらない。README からスクリプトへのリンクのように、ファイルを移動・改名したときに
       # 壊れるリンクを翌日の issue ではなく PR で止められる。
-      # 設定は link-check.yml と同じものを使う（対象と除外は .github/actions/link-check/lychee.toml）。
+      # 設定は link-check.yml と同じものを使う（対象と除外は .github/ci.lychee.toml）。
       # 終了コードはリンク切れがあれば2、無ければ0（0.24.2 で実測）。
       - name: ローカルファイルへのリンク切れを検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
-        run: lychee --offline --config .github/actions/link-check/lychee.toml --no-progress .
+        run: lychee --offline --config .github/ci.lychee.toml --no-progress .
 
       # betterleaks は秘密情報の検査。GitHub のシークレットスキャンとプッシュ保護
       # （scripts/apply-repo-settings.sh で有効化）が提携プロバイダのトークンを push の時点で弾くのに対し、
