@@ -2,7 +2,7 @@
 
 ## リポジトリ設定の適用
 
-ルールセット・マージ方式・セキュリティ機能・Actions の実行許可・ラベルは、GitHub の UI ではなく
+リポジトリの説明文・ルールセット・マージ方式・セキュリティ機能・Actions の実行許可・ラベルは、GitHub の UI ではなく
 [scripts/apply-repo-settings.sh](scripts/apply-repo-settings.sh) と
 [.github/rulesets/](.github/rulesets/) の定義ファイルで管理している。
 Renovate の自動マージや CI の前提になる設定も含むため、下の Renovate の準備より先に実行する。
