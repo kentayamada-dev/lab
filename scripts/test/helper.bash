@@ -24,11 +24,11 @@ load ../lib/bats-helpers
 install_gh_stub() {
   GH_LOG="${BATS_TEST_TMPDIR}/gh.log"
   GH_BODY_LOG="${BATS_TEST_TMPDIR}/gh-body.log"
-  : > "${GH_LOG}"
-  : > "${GH_BODY_LOG}"
+  : >"${GH_LOG}"
+  : >"${GH_BODY_LOG}"
   export GH_LOG GH_BODY_LOG
 
-  cat > "${STUB_BIN}/gh" <<'STUB'
+  cat >"${STUB_BIN}/gh" <<'STUB'
 #!/usr/bin/env bash
 set -uo pipefail
 
@@ -112,10 +112,13 @@ gh_calls_matching() {
     for pattern in "$@"; do
       case "${line}" in
         *"${pattern}"*) ;;
-        *) ok=0; break ;;
+        *)
+          ok=0
+          break
+          ;;
       esac
     done
     [[ "${ok}" -eq 0 ]] || count=$((count + 1))
-  done < "${GH_LOG}"
+  done <"${GH_LOG}"
   printf '%s' "${count}"
 }

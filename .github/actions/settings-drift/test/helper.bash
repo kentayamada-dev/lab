@@ -19,7 +19,7 @@ load ../../../../scripts/lib/bats-helpers
 # curl のスタブ。URL に応じてフィクスチャを -o の出力先へコピーする。
 # STUB_CURL_FAIL_DOCS / STUB_CURL_FAIL_SCHEMA を立てると取得失敗を再現する。
 install_curl_stub() {
-  cat > "${STUB_BIN}/curl" <<'STUB'
+  cat >"${STUB_BIN}/curl" <<'STUB'
 #!/usr/bin/env bash
 set -uo pipefail
 
@@ -68,7 +68,7 @@ write_docs() {
       printf '| [`filler%s`](#filler%s) | 説明 | topic | Any file |\n' "${i}" "${i}"
       i=$((i + 1))
     done
-  } > "${out}"
+  } >"${out}"
 }
 
 # 公開JSONスキーマを作る。
@@ -100,12 +100,12 @@ write_schema() {
       ),
       additionalProperties: false
     }
-  ' > "${STUB_FIXTURES}/schema.json"
+  ' >"${STUB_FIXTURES}/schema.json"
 }
 
 # 検査対象の settings.json を書き、そのパスを出力する
 write_settings() {
   local path="${BATS_TEST_TMPDIR}/settings.json"
-  cat > "${path}"
+  cat >"${path}"
   printf '%s' "${path}"
 }

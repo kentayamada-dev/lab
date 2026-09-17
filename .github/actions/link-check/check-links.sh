@@ -2,9 +2,9 @@
 #
 # リポジトリ内のURLに到達できるか lychee で検査する。
 #
-#   usage: .github/actions/link-check/check-links.sh [lychee.toml]
+#   usage: .github/actions/link-check/check-links.sh [ci.lychee.toml]
 #
-# 検査対象と除外は設定ファイル（既定はこのスクリプトと同じディレクトリの lychee.toml）に置き、
+# 検査対象と除外は設定ファイル（既定は .github/ci.lychee.toml）に置き、
 # ここではCI・手元のどちらでも変わらない引数だけを渡す。
 # 検査対象は設定ファイルの位置ではなく実行ディレクトリ基準で決まるため、リポジトリ直下から実行する。
 #
@@ -17,13 +17,17 @@
 #
 set -euo pipefail
 
-# 既定値は実行ディレクトリからの相対パスにしない。設定はこのアクションからしか使わないため
-# スクリプトと同じディレクトリに置いており、どこから起動しても対になる設定を読ませる。
+# 既定値は実行ディレクトリからの相対パスにせず、スクリプトの位置から辿る。
+# 設定は ci.yml の --offline の検査とも共有するため .github/ 直下に移したが（そのファイルのコメント）、
+# どこから起動しても対になる設定を読める性質は変えていない。
 # ${1:-...} は引数が空文字のときも既定値を使う。action.yml は入力が未指定のとき空文字を渡すため、
-# この挙動でアクション同梱の設定にフォールバックしている。
-CONFIG_FILE="${1:-"$(dirname "$0")/lychee.toml"}"
+# この挙動で既定の設定にフォールバックしている。
+CONFIG_FILE="${1:-"$(dirname "$0")/../../ci.lychee.toml"}"
 
-die() { printf 'エラー: %s\n' "$*" >&2; exit 2; }
+die() {
+  printf 'エラー: %s\n' "$*" >&2
+  exit 2
+}
 
 command -v lychee >/dev/null 2>&1 || die "lychee が見つからない"
 
@@ -46,6 +50,9 @@ lychee --config "${CONFIG_FILE}" --no-progress --format markdown --output "${wor
 # リンク切れ以外で失敗したときの中身は信用できないため流さない。
 case "${status}" in
   0) cat "${work}/report.md" ;;
-  2) cat "${work}/report.md"; exit 1 ;;
+  2)
+    cat "${work}/report.md"
+    exit 1
+    ;;
   *) die "lychee がリンク切れ以外の理由で失敗した（終了コード ${status}）" ;;
 esac

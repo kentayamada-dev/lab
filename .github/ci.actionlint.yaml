@@ -1,6 +1,13 @@
 ---
 # actionlint の設定。検査内容を変えるためではなく、ランナーラベルの検査を通すためだけに置いている。
 #
+# .github/ 直下のCI用の設定と同じく ci. を付け、ci.yml から -config-file で明示的に渡している。
+# actionlint は引数なしなら .github/actionlint.yaml を自動検出するが、その名前は使っていない。
+# 自動検出に頼ると、このファイルを改名・移動したときに「設定が読めない」ではなく
+# 全ジョブの runner-label エラーとして現れ、原因が分からない（v1.7.12 で実測）。
+# 明示的に渡してあれば exit 3 で "could not read config file" と出る（同上）。
+# 手元で同じ検査をするときは `actionlint -config-file .github/ci.actionlint.yaml`。
+#
 # self-hosted-runner.labels は本来セルフホストランナーのラベルを登録する項目だが、
 # actionlint は GitHub ホストの ubuntu-26.04 / ubuntu-26.04-arm をまだ既知ラベルとして持っておらず、
 # ここに書かないと全ジョブが runner-label エラーになる（v1.7.12 で実測）。

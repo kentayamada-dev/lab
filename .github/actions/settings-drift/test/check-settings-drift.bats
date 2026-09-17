@@ -113,7 +113,7 @@ JSON
   default_docs
   default_schema
   mkdir -p "${BATS_TEST_TMPDIR}/proj/.claude"
-  default_settings > /dev/null
+  default_settings >/dev/null
   cp "${BATS_TEST_TMPDIR}/settings.json" "${BATS_TEST_TMPDIR}/proj/.claude/settings.json"
   cd "${BATS_TEST_TMPDIR}/proj"
 
@@ -298,7 +298,7 @@ JSON
   default_docs
   default_schema
   path="${BATS_TEST_TMPDIR}/broken.json"
-  printf '{ "a": }' > "${path}"
+  printf '{ "a": }' >"${path}"
 
   run -2 "${SCRIPT}" "${path}"
 
@@ -372,7 +372,7 @@ JSON
 @test "スキーマの取得先がJSONを返さなければ検査失敗にする" {
   # 取得先がHTMLのエラーページを返したときに空振りしないことを確かめる
   default_docs
-  printf '<!doctype html><title>404</title>' > "${STUB_FIXTURES}/schema.json"
+  printf '<!doctype html><title>404</title>' >"${STUB_FIXTURES}/schema.json"
   settings="$(default_settings)"
 
   run -2 "${SCRIPT}" "${settings}"

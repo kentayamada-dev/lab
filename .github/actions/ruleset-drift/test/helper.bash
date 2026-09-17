@@ -19,7 +19,7 @@ load ../../../../scripts/lib/bats-helpers
 # gh のスタブ。エンドポイントに応じてフィクスチャを標準出力へ流す。
 # STUB_GH_FAIL_LIST / STUB_GH_FAIL_GET を立てると取得失敗を再現する。
 install_gh_stub() {
-  cat > "${STUB_BIN}/gh" <<'STUB'
+  cat >"${STUB_BIN}/gh" <<'STUB'
 #!/usr/bin/env bash
 set -uo pipefail
 
@@ -65,7 +65,7 @@ write_ruleset_list() {
       jq -nc --argjson id "${id}" --arg name "${name}" '{id: $id, name: $name}'
     done
     printf ']'
-  } > "${STUB_FIXTURES}/list.json"
+  } >"${STUB_FIXTURES}/list.json"
 }
 
 # ルールセット詳細の応答を作る。標準入力のJSONに、APIが必ず付ける読み取り専用の
@@ -80,12 +80,12 @@ write_ruleset_detail() {
     updated_at: "2026-01-02T00:00:00Z",
     current_user_can_bypass: "always",
     _links: { self: { href: "https://api.github.com/x" } }
-  }' > "${STUB_FIXTURES}/detail.json"
+  }' >"${STUB_FIXTURES}/detail.json"
 }
 
 # 定義ファイルを書き、そのパスを出力する
 write_ruleset_file() {
   local path="${BATS_TEST_TMPDIR}/main.json"
-  cat > "${path}"
+  cat >"${path}"
   printf '%s' "${path}"
 }

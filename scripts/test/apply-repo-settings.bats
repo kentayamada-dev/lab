@@ -32,7 +32,7 @@ setup() {
 }
 
 write_ruleset() {
-  printf '%s\n' "$2" > "${REPO_DIR}/.github/rulesets/$1"
+  printf '%s\n' "$2" >"${REPO_DIR}/.github/rulesets/$1"
 }
 
 # gh api 呼び出しの総数
@@ -269,15 +269,15 @@ body_containing() {
   # https://docs.github.com/en/rest/issues/labels
   run -0 "${SCRIPT}"
 
-  grep -o 'description=[^ ]*' "${GH_LOG}" | sed 's/^description=//' > "${BATS_TEST_TMPDIR}/descriptions"
+  grep -o 'description=[^ ]*' "${GH_LOG}" | sed 's/^description=//' >"${BATS_TEST_TMPDIR}/descriptions"
 
   # 取り出せていないのに通ってしまわないよう、管理ラベル4件ぶん揃っていることを先に確かめる
-  [[ "$(wc -l < "${BATS_TEST_TMPDIR}/descriptions" | tr -d " ")" -eq 4 ]]
+  [[ "$(wc -l <"${BATS_TEST_TMPDIR}/descriptions" | tr -d " ")" -eq 4 ]]
 
   while IFS= read -r description; do
     [[ -n "${description}" ]]
     [[ "${#description}" -le 100 ]]
-  done < "${BATS_TEST_TMPDIR}/descriptions"
+  done <"${BATS_TEST_TMPDIR}/descriptions"
 }
 
 # ---- 冪等性 -----------------------------------------------------------------------------------
@@ -291,7 +291,7 @@ body_containing() {
   run -0 "${SCRIPT}"
   cp "${GH_LOG}" "${BATS_TEST_TMPDIR}/first.log"
 
-  : > "${GH_LOG}"
+  : >"${GH_LOG}"
   run -0 "${SCRIPT}"
 
   diff "${BATS_TEST_TMPDIR}/first.log" "${GH_LOG}"

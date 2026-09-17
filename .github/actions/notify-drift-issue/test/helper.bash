@@ -30,12 +30,12 @@ load ../../../../scripts/lib/bats-helpers
 install_gh_stub() {
   GH_LOG="${BATS_TEST_TMPDIR}/gh.log"
   GH_BODY_DIR="${BATS_TEST_TMPDIR}/gh-bodies"
-  : > "${GH_LOG}"
+  : >"${GH_LOG}"
   rm -rf "${GH_BODY_DIR}"
   mkdir -p "${GH_BODY_DIR}"
   export GH_LOG GH_BODY_DIR
 
-  cat > "${STUB_BIN}/gh" <<'STUB'
+  cat >"${STUB_BIN}/gh" <<'STUB'
 #!/usr/bin/env bash
 set -uo pipefail
 
@@ -88,11 +88,14 @@ gh_calls_matching() {
     for pattern in "$@"; do
       case "${line}" in
         *"${pattern}"*) ;;
-        *) ok=0; break ;;
+        *)
+          ok=0
+          break
+          ;;
       esac
     done
     [[ "${ok}" -eq 0 ]] || count=$((count + 1))
-  done < "${GH_LOG}"
+  done <"${GH_LOG}"
   printf '%s' "${count}"
 }
 
@@ -122,7 +125,7 @@ issue_view_json() {
 
 # 検査対象のレポートを書く。引数を1行ずつ書き、パスは REPORT_FILE に従う
 write_report() {
-  printf '%s\n' "$@" > "${REPORT_FILE}"
+  printf '%s\n' "$@" >"${REPORT_FILE}"
 }
 
 # ---- 判定 -----------------------------------------------------------------------------------

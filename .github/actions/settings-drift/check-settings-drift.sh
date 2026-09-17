@@ -25,7 +25,10 @@ MIN_INDEX_ROWS=100
 # スキーマのトップレベル定義がこの件数を下回ったら、取得内容が壊れていると判断して同様に失敗にする
 MIN_SCHEMA_PROPS=50
 
-die() { printf 'エラー: %s\n' "$*" >&2; exit 2; }
+die() {
+  printf 'エラー: %s\n' "$*" >&2
+  exit 2
+}
 
 for cmd in curl jq; do
   command -v "${cmd}" >/dev/null 2>&1 || die "${cmd} が見つからない"
@@ -48,11 +51,11 @@ awk -F'|' '
     scope = $5; gsub(/^ +| +$/, "", scope)
     print key "\t" scope
   }
-' "${work}/docs.md" > "${work}/index.tsv"
+' "${work}/docs.md" >"${work}/index.tsv"
 
-rows=$(wc -l < "${work}/index.tsv" | tr -d " ")
-[[ "${rows}" -ge "${MIN_INDEX_ROWS}" ]] \
-  || die "設定索引を ${rows} 行しか読み取れなかった（${MIN_INDEX_ROWS} 行未満）。ドキュメントの表形式が変わった可能性がある"
+rows=$(wc -l <"${work}/index.tsv" | tr -d " ")
+[[ "${rows}" -ge "${MIN_INDEX_ROWS}" ]] ||
+  die "設定索引を ${rows} 行しか読み取れなかった（${MIN_INDEX_ROWS} 行未満）。ドキュメントの表形式が変わった可能性がある"
 
 index_scope() { awk -F'\t' -v k="$1" '$1 == k { print $2; exit }' "${work}/index.tsv"; }
 # 索引がその親の直下のキーを列挙しているか（1件でもあれば、その階層は索引が網羅していると見なす）
@@ -66,7 +69,7 @@ jq -r '
   [ paths | select(all(.[]; type == "string")) | join(".") ]
   | map(select(. != "$schema"))
   | unique[]
-' "${SETTINGS_FILE}" > "${work}/keys.txt"
+' "${SETTINGS_FILE}" >"${work}/keys.txt"
 
 problems=()
 notes=()
@@ -91,10 +94,10 @@ while IFS= read -r key; do
   else
     # 索引がその階層を列挙していない（例: credentials.files の中身）ので、親が載っていれば良しとする
     parent_scope="$(index_scope "${parent}")"
-    [[ -n "${parent_scope}" ]] \
-      || problems+=("\`${key}\`: 親キー \`${parent}\` が設定索引に載っていない")
+    [[ -n "${parent_scope}" ]] ||
+      problems+=("\`${key}\`: 親キー \`${parent}\` が設定索引に載っていない")
   fi
-done < "${work}/keys.txt"
+done <"${work}/keys.txt"
 
 # ---- 3. JSONスキーマで型・enum・書式を検証する --------------------------------------------
 # 以前は ajv-cli を npx で取得して使っていたが、npx の失敗（レジストリ障害・キャッシュ権限など）と
@@ -103,7 +106,7 @@ done < "${work}/keys.txt"
 #
 # 検証できるのは type / enum / pattern / additionalProperties に限られる。
 # anyOf・oneOf・allOf はどの枝を適用すべきか決められないため、誤検知を避けて検査しない。
-cat > "${work}/validate.jq" <<'JQ'
+cat >"${work}/validate.jq" <<'JQ'
 # パイプや条件式の縦位置を揃えるため、インデント幅が .editorconfig の indent_size(2) の倍数にならない。
 # jq では # がコメントなので、この行は editorconfig-checker への指示としてだけ働き、実行には影響しない。
 # https://github.com/editorconfig-checker/editorconfig-checker#excluding-blocks
@@ -173,12 +176,12 @@ case "${schema_props}" in
   '' | *[!0-9]*) schema_props=0 ;;
   *) ;;
 esac
-[[ "${schema_props}" -ge "${MIN_SCHEMA_PROPS}" ]] \
-  || die "スキーマのトップレベル定義を ${schema_props} 件しか読み取れなかった（${MIN_SCHEMA_PROPS} 件未満）。取得先の内容が変わった可能性がある"
+[[ "${schema_props}" -ge "${MIN_SCHEMA_PROPS}" ]] ||
+  die "スキーマのトップレベル定義を ${schema_props} 件しか読み取れなかった（${MIN_SCHEMA_PROPS} 件未満）。取得先の内容が変わった可能性がある"
 
 # 失敗を握りつぶさない。jq が落ちたら drift なしではなく検査自体の失敗として扱う
 jq -r --slurpfile schema "${work}/schema.json" -f "${work}/validate.jq" "${SETTINGS_FILE}" \
-  > "${work}/schema-errors.tsv" || die "スキーマ検証を実行できなかった"
+  >"${work}/schema-errors.tsv" || die "スキーマ検証を実行できなかった"
 
 while IFS=$'\t' read -r keyword path message; do
   [[ -n "${keyword}" ]] || continue
@@ -190,10 +193,10 @@ while IFS=$'\t' read -r keyword path message; do
   else
     problems+=("\`${path}\`: スキーマ検証エラー（${keyword}）: ${message}")
   fi
-done < "${work}/schema-errors.tsv"
+done <"${work}/schema-errors.tsv"
 
 # ---- 結果 ---------------------------------------------------------------------------------
-key_count="$(wc -l < "${work}/keys.txt" | tr -d " ")"
+key_count="$(wc -l <"${work}/keys.txt" | tr -d " ")"
 checked_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 printf '確認したキー: %s 件（設定索引 %s 行、%s）\n\n' "${key_count}" "${rows}" "${checked_at}"
 

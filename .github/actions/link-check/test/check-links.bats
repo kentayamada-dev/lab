@@ -72,18 +72,18 @@ MD
   assert_contains "${output}" "https://example.test/gone"
 }
 
-@test "設定ファイルを省略すると action 同梱の lychee.toml を使う" {
+@test "設定ファイルを省略すると .github/ci.lychee.toml を使う" {
   # 実行ディレクトリに依存しないことも併せて確かめるため、無関係な場所から起動する。
-  # 同梱の設定が実在しないと存在チェックで落ちるので、置き場所を変えたらこのテストが気づく
+  # 既定の設定が実在しないと存在チェックで落ちるので、置き場所を変えたらこのテストが気づく
   default_report
   cd "${BATS_TEST_TMPDIR}"
 
   run -0 "${SCRIPT}"
 
-  assert_arg "${BATS_TEST_DIRNAME}/../lychee.toml"
+  assert_arg "${BATS_TEST_DIRNAME}/../../../ci.lychee.toml"
 }
 
-@test "設定ファイルに空文字を渡しても action 同梱の lychee.toml を使う" {
+@test "設定ファイルに空文字を渡しても .github/ci.lychee.toml を使う" {
   # action.yml は入力 config-file が未指定のとき空文字を渡す。
   # 空文字をそのまま設定ファイルのパスとして扱うと、存在チェックで落ちて検査ができない
   default_report
@@ -91,7 +91,7 @@ MD
 
   run -0 "${SCRIPT}" ""
 
-  assert_arg "${BATS_TEST_DIRNAME}/../lychee.toml"
+  assert_arg "${BATS_TEST_DIRNAME}/../../../ci.lychee.toml"
 }
 
 @test "引数で渡した設定ファイルを lychee に渡す" {

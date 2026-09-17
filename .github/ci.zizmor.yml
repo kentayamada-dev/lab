@@ -1,8 +1,14 @@
 ---
 # zizmor（GitHub Actions のセキュリティ静的解析）の設定。
-# 既定の探索順は .github/zizmor.yml → .github/zizmor.yaml → zizmor.yml → zizmor.yaml で、
-# CI は引数なしでこのファイルを見つける。
 # https://docs.zizmor.sh/configuration/
+#
+# .github/ 直下のCI用の設定と同じく ci. を付け、ci.yml から --config で明示的に渡している。
+# zizmor は引数なしなら .github/zizmor.yml → .github/zizmor.yaml → zizmor.yml → zizmor.yaml の順に
+# 探すが、その名前は使っていない。自動検出に頼ると、このファイルを改名・移動したときに
+# 「設定が読めない」ではなく、下で無効化しているはずのルールの指摘として現れ、原因が分からない
+# （設定を外して exit 14 になることを 1.30.1 で実測）。
+# 明示的に渡してあれば exit 1 で I/O エラーになる（同上）。
+# 手元で同じ検査をするときは ci.yml の「ワークフローのセキュリティを静的解析」のコマンド。
 #
 # persona は CI 側で pedantic を指定している（理由は .github/workflows/ci.yml のコメント）。
 # ここに書いていない検査は既定のまま有効。

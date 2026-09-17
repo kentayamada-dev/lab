@@ -20,9 +20,10 @@ concurrency:
 # name を置くとステータスチェックの名前はジョブIDではなくその name になる
 # （zizmorcore/zizmor の CI で、job_id lint / name Lint のジョブが API 上 "Lint" として
 # 返ることを実測）。.github/rulesets/main.json の required_status_checks の context は
-# こちらに合わせる（Lint / Scripts test / Renovate config）。
+# こちらに合わせる（Lint / PR title / Scripts test / Renovate config）。
 # name を変えるときは ruleset も同時に直して scripts/apply-repo-settings.sh を再実行しないと、
 # 要求された名前のチェックが永久に現れずマージできなくなる。
+# 両者の食い違いは .github/scripts/check-required-checks.sh が lint ジョブの中で検出する。
 #
 # 検査ツールは mise でまとめて導入する。版は mise.toml に固定してあり、手元でも同じ版を再現できる
 # （導入手段を mise に寄せた理由はそのファイルのコメント）。
@@ -37,6 +38,11 @@ concurrency:
 #
 # サードパーティのアクションは使わない。リポジトリ設定で実行可能なアクションを GitHub 公式と
 # 検証済みに限っているため（scripts/apply-repo-settings.sh の selected-actions）。
+#
+# 検査ツールの設定は .github/ci.<ツール名>.* に置き、必ず引数で明示的に渡す。ツール側の自動検出には頼らない。
+# 自動検出だと、設定を改名・移動したときに「設定が読めない」ではなく大量の誤検知として現れて原因が分からず、
+# 実行ディレクトリ次第で設定が効いたり効かなかったりする経路も残るため。
+# 各ファイルの先頭に、そのツールでの実測（自動検出させた場合に何が起きるか）を書いてある。
 #
 # 各ジョブに permissions と timeout-minutes を置き、checkout には persist-credentials: false を渡す。
 # ワークフロー冒頭にも permissions があって冗長に見えるが、ghalint のポリシー（job_permissions /
@@ -103,7 +109,8 @@ jobs:
       #
       # -x は source した先のファイルも読む。既定ではコマンドラインで渡したファイルしか追わないため、
       # scripts/lib/bats-helpers.bash のような共通ヘルパで定義された変数・関数を把握できない。
-      # このリポジトリには source / load で他のファイルを読むスクリプトが7つある。
+      # このリポジトリでは bats のテストが軒並み load で共通ヘルパを読むため、-x が無いとその分だけ検査が緩くなる
+      # （対象の件数はテストが増えるたびに古くなるので書かない）。
       #
       # 対象は *.sh だけでなく *.bash（bats の共通ヘルパ）と *.bats（テスト本体）も含める。
       # -x で source 先を読めても、読み込み先のファイル自体が検査対象になるわけではないため。
@@ -115,9 +122,38 @@ jobs:
           git ls-files -z '*.sh' '*.bash' '*.bats' |
             xargs -0 --no-run-if-empty shellcheck -o all -x
 
+      # shfmt は整形だけを見る。shellcheck（書き方の誤り）とも editorconfig-checker（文字コード・改行・
+      # インデント幅・末尾空白）とも守備範囲が重ならず、1行にまとめた関数定義・case の各節のインデント・
+      # 継続行の位置といった層をここで埋める。
+      # -d は差分を出して終了コード1で落ちる（-l はファイル名だけ、-w は書き換え）。
+      # 整形の指定はフラグではなく .editorconfig に置いている（理由はそのファイルのコメント）ため、
+      # ここで整形フラグを渡してはいけない。1つでも渡すと .editorconfig を読まなくなる。
+      - name: シェルスクリプトの整形を検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: git ls-files -z '*.sh' '*.bash' '*.bats' | xargs -0 --no-run-if-empty shfmt -d
+
+      # 上の2つの検査は git 管理下の *.sh / *.bash / *.bats が対象で、action.yml の run: に直接書いた
+      # シェルは含まれない。actionlint も対象は .github/workflows だけ。
+      # 抽出して shellcheck に渡す手順はスクリプト側にある（.github/scripts/check-action-shell.sh）。
+      - name: composite actionのrunを検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: .github/scripts/check-action-shell.sh
+
       - name: JSONの構文を検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: git ls-files -z '*.json' | xargs -0 --no-run-if-empty -n1 jq empty
+
+      # TOML の構文と整形を検査する。mise.toml の構文エラーは上の「検査ツールを導入」で落ちて気づけるが、
+      # ci.lychee.toml は link-check.yml の定期実行まで気づけず、整形の揺れはどちらも誰も見ていなかった。
+      # fmt --check は書き換えずに判定だけする（--diff を付けるとどこが違うかも出る）。
+      # 構文が壊れていれば整形できないため、この1つで構文の検査も兼ねる。
+      # https://taplo.tamasfe.dev/cli/usage/formatting.html
+      #
+      # 手元の macOS では動かせないことがある（原因の見当は mise.toml のコメント）。
+      # ランナーの linux では動く。
+      - name: TOMLを検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: git ls-files -z '*.toml' | xargs -0 --no-run-if-empty taplo fmt --check --diff
 
       # 検査内容は .github/ci.yamllint.yml に置いている（default プリセット＋ line-length の上限と
       # truthy の調整。それぞれの理由と、リポジトリ直下ではなく .github/ に置いている理由は
@@ -140,11 +176,11 @@ jobs:
       # run: の中身の検査には PATH 上の shellcheck を使うため、上のステップと同じ版で検査される。
       # https://github.com/rhysd/actionlint/blob/main/docs/checks.md
       #
-      # 引数なしで .github/workflows を自動で見つける。
-      # ランナーラベルの検査には .github/actionlint.yaml の設定が要る（理由はそのファイル）。
+      # 検査対象（.github/workflows）は引数なしで自動的に見つかる。設定ファイルだけ -config-file で渡す
+      # （ランナーラベルの検査に要る。設定の中身の理由と、自動検出させない理由はそのファイル）。
       - name: ワークフローを検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
-        run: actionlint -color
+        run: actionlint -color -config-file .github/ci.actionlint.yaml
 
       # ghalint はワークフローと action.yml をセキュリティ方針の観点で検査する。actionlint が構文・式・run: の
       # 中身を見るのに対し、こちらは「全ジョブに permissions と timeout-minutes があるか」「checkout の
@@ -174,17 +210,18 @@ jobs:
       #
       # 対象は INPUTS が必須引数のため明示的に渡す。リポジトリ全体を渡すと、ワークフローと
       # composite action の両方が .gitignore を尊重しつつ集められる。
-      # 検査内容の調整は .github/zizmor.yml に置いている（self-repository を無効にしている理由もそこ）。
+      # 検査内容の調整は .github/ci.zizmor.yml に置き、--config で渡している
+      # （self-repository を無効にしている理由と、自動検出させない理由はそのファイル）。
       #
       # persona は auditor を使う。regular（既定）→ pedantic → auditor の順に厳しく、pedantic は
       # permissions に説明コメントが無い（undocumented-permissions）、ジョブに name が無い
       # （anonymous-definition）といった「脆弱性そのものではないが読み手に前提が伝わらない書き方」を、
       # auditor はさらに「偽陽性になりそうなものも含め zizmor が検出できる全て」を出す。
-      # 偽陽性が出たら .github/zizmor.yml の ignore で個別に外す。
+      # 偽陽性が出たら .github/ci.zizmor.yml の ignore で個別に外す。
       # https://docs.zizmor.sh/usage/#using-personas
       # excessive-permissions 自体は regular でも有効な検査だが、「ワークフロー冒頭の write 権限を
       # 全ジョブが上書きしている」という形の指摘だけは pedantic でしか出ず、これがこのリポジトリの方針と
-      # 衝突するため .github/zizmor.yml で対象を絞っている（regular では出ないことを 1.30.1 で実測）。
+      # 衝突するため .github/ci.zizmor.yml で対象を絞っている（regular では出ないことを 1.30.1 で実測）。
       # 終了コードは、指摘が無ければ 0、指摘があれば最も重い severity に応じて 11〜14 になる
       # （informational=11 / low=12 / medium=13 / high=14）。
       # https://docs.zizmor.sh/usage/
@@ -201,7 +238,15 @@ jobs:
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: zizmor --persona auditor --strict-collection --color never --no-progress .
+        run: zizmor --config .github/ci.zizmor.yml --persona auditor --strict-collection --color never --no-progress .
+
+      # ステータスチェックの名前はジョブの name になるため、name とルールセットの required_status_checks は
+      # 常に一致していなければならない（このファイル冒頭のコメント）。ずれても両方のファイルは単体では正しく、
+      # CI も緑のまま進むので、突き合わせる検査をここに置く。
+      # ruleset-drift.yml が見ているのは定義ファイルと GitHub 上のルールセットで、こことは別方向。
+      - name: 必須チェックの名前とジョブ名の一致を検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: .github/scripts/check-required-checks.sh
 
       # hadolint は Dockerfile 専用の検査。命令の書き方（タグの固定、apt のバージョン指定、不要なレイヤなど）に加え、
       # shellcheck を内蔵していて RUN の中身も見る（PATH 上の shellcheck には依存しない）。
@@ -256,6 +301,18 @@ jobs:
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: markdownlint-cli2 --config .github/ci.markdownlint-cli2.yaml
 
+      # リンク切れのうち、リポジトリ内のファイルを指すものだけを PR の時点で検査する。
+      # 外部URLの検査は link-check.yml が毎日まとめて行い、必須チェックにはしていない
+      # （外部サイトの不調やレート制限でマージが止まるため。理由はそのファイルのコメント）。
+      # --offline はネットワークへのリクエストを遮断してローカルのファイル参照だけを見るため、
+      # その懸念に当たらない。README からスクリプトへのリンクのように、ファイルを移動・改名したときに
+      # 壊れるリンクを翌日の issue ではなく PR で止められる。
+      # 設定は link-check.yml と同じものを使う（対象と除外は .github/ci.lychee.toml）。
+      # 終了コードはリンク切れがあれば2、無ければ0（0.24.2 で実測）。
+      - name: ローカルファイルへのリンク切れを検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: lychee --offline --config .github/ci.lychee.toml --no-progress .
+
       # betterleaks は秘密情報の検査。GitHub のシークレットスキャンとプッシュ保護
       # （scripts/apply-repo-settings.sh で有効化）が提携プロバイダのトークンを push の時点で弾くのに対し、
       # こちらは提携パターン以外の資格情報も既定ルールで検出し、必須チェックとしてマージを止める。
@@ -305,6 +362,46 @@ jobs:
       - name: 依存関係の脆弱性を検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: osv-scanner scan source -r --allow-no-lockfiles .
+
+  # PRのタイトルが CLAUDE.md の規約（Conventional Commits 形式・内容は日本語）に沿っているか検査する。
+  # ルールセットがマージ方式を squash だけに限っているため、main に残るコミットの件名になるのは
+  # PRのタイトル。ブランチ上の個々のコミットは squash されて消えるので、検査する層はここになる。
+  #
+  # このジョブだけ lint に入れず独立させている。他の検査と違ってファイルではなくPRのメタデータが対象で、
+  # mise のツールを1つも使わない（bash と grep だけ）ため、lint のコンテナも mise install も要らない。
+  # 実測で lint は45秒のうち32秒がコンテナ起動とツール導入なので、そこに相乗りするより速く、
+  # タイトルだけ直したときに検査全体を回し直さずに済む。
+  #
+  # push（main）では PR が無くタイトルも取れないため、pull_request のときだけ動かす。
+  # 必須チェックが評価されるのは PR に対してなので、これで足りる。
+  #
+  # ジョブ名を変えるときはルールセットの required_status_checks も直す
+  # （このファイル冒頭のコメント。食い違いは .github/scripts/check-required-checks.sh が検出する）。
+  pr-title:
+    name: PR title
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      # タイトルは env 経由でスクリプトに渡す。run: に ${{ }} を直接書くと、タイトルに仕込んだ文字列が
+      # そのままシェルとして解釈されうる（zizmor の template-injection / CodeQL の actions/code-injection）。
+      #
+      # Renovate が作るPRのタイトルは .github/renovate.json5 で日本語に揃えているが、
+      # 設定の自動マイグレーション（config:best-practices に含まれる :configMigration）が作るPRの
+      # タイトルまで日本語になるかは未確認。英語のまま作られた場合はこの検査が落ちるので、
+      # そのときは手でタイトルを直す（自動マージが止まるだけで、他への影響は無い）。
+      - name: PRのタイトルを検査
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: .github/scripts/check-pr-title.sh "$PR_TITLE"
 
   # .github/renovate.json5 はコメントを書けるよう JSON5 にしており、lint ジョブの jq 検査の対象外。
   # Renovate 同梱の validator で、スキーマとプリセット参照の妥当性まで検査する。
@@ -357,15 +454,19 @@ jobs:
         with:
           persist-credentials: false
 
-      # このジョブで要るのは bats と jq だけなので、mise.toml の全ツールではなくこの2つだけを入れる。
-      # テストは外部へ出る gh を PATH の先頭に置いたスタブへ差し替える一方、jq は実物を使う
-      # （scripts/test/helper.bash）。curl・diff・sha256sum はイメージ同梱のものを使う。
-      - name: batsとjqを導入
+      # このジョブで要るのは bats と、テストが実物を使うツールだけなので、mise.toml の全ツールは入れない。
+      # テストは外部へ出る gh を PATH の先頭に置いたスタブへ差し替える一方、
+      # jq・yq・shellcheck は実物を使う（scripts/test/helper.bash と scripts/test/check-*.bats）。
+      # yq は check-required-checks / check-action-shell が、shellcheck は check-action-shell が呼ぶ。
+      # curl・diff・sha256sum はイメージ同梱のものを使う。
+      - name: batsと検査に使うツールを導入
         run: |
-          mise install aqua:bats-core/bats-core aqua:jqlang/jq
+          mise install aqua:bats-core/bats-core aqua:jqlang/jq aqua:mikefarah/yq aqua:koalaman/shellcheck
           mise bin-paths >> "$GITHUB_PATH"
 
       - name: シェルスクリプトをテスト
-        # composite action のテストは各 action の test/ にある。
-        # 共通ヘルパ（scripts/lib/bats-helpers.bash）は各 test/helper.bash が load で読むため、ここには並べない
-        run: bats scripts/test .github/actions/*/test
+        # テストは検査対象と同じ場所の test/ に置いている。
+        # scripts/test は手元で実行する運用スクリプト、.github/scripts/test と .github/actions/*/test は
+        # CI が実行する検査のテスト。
+        # 共通ヘルパ（scripts/lib/bats-helpers.bash）は各テストが load で読むため、ここには並べない
+        run: bats scripts/test .github/scripts/test .github/actions/*/test

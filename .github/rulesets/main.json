@@ -47,6 +47,10 @@
             "integration_id": 15368
           },
           {
+            "context": "PR title",
+            "integration_id": 15368
+          },
+          {
             "context": "Renovate config",
             "integration_id": 15368
           },
