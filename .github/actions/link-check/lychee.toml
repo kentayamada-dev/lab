@@ -26,6 +26,17 @@ exclude = [
   # .github/actions/*/test の bats フィクスチャで使っている。
   # https://www.rfc-editor.org/rfc/rfc6761#section-6.2
   '^https?://([^/]*\.)?example\.test(/|$)',
+
+  # JSON Schema の識別子。Draft-07 の $schema の値は仕様が
+  # http://json-schema.org/draft-07/schema# と定めており、https に置き換えると別の識別子になる。
+  # リンクとして参照しているわけではないので require_https の対象から外す。
+  # .github/actions/settings-drift/test/helper.bash が、検証するスキーマの $schema として使っている。
+  '^http://json-schema\.org/',
+
+  # ルールセット API の応答を模したテストフィクスチャのダミーURL。
+  # .github/actions/ruleset-drift/test/helper.bash で _links.self.href に入れているだけで、
+  # 到達しないのが正しい。
+  '^https://api\.github\.com/x$',
 ]
 
 # URL のフラグメントの存在も確かめる。既定は無効で、#section のようなアンカーが参照先に
