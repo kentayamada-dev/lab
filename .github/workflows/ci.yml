@@ -39,6 +39,11 @@ concurrency:
 # サードパーティのアクションは使わない。リポジトリ設定で実行可能なアクションを GitHub 公式と
 # 検証済みに限っているため（scripts/apply-repo-settings.sh の selected-actions）。
 #
+# 検査ツールの設定は .github/ci.<ツール名>.* に置き、必ず引数で明示的に渡す。ツール側の自動検出には頼らない。
+# 自動検出だと、設定を改名・移動したときに「設定が読めない」ではなく大量の誤検知として現れて原因が分からず、
+# 実行ディレクトリ次第で設定が効いたり効かなかったりする経路も残るため。
+# 各ファイルの先頭に、そのツールでの実測（自動検出させた場合に何が起きるか）を書いてある。
+#
 # 各ジョブに permissions と timeout-minutes を置き、checkout には persist-credentials: false を渡す。
 # ワークフロー冒頭にも permissions があって冗長に見えるが、ghalint のポリシー（job_permissions /
 # job_timeout_minutes_is_required / checkout_persist_credentials_should_be_false）が全ジョブに一律で
@@ -171,11 +176,11 @@ jobs:
       # run: の中身の検査には PATH 上の shellcheck を使うため、上のステップと同じ版で検査される。
       # https://github.com/rhysd/actionlint/blob/main/docs/checks.md
       #
-      # 引数なしで .github/workflows を自動で見つける。
-      # ランナーラベルの検査には .github/actionlint.yaml の設定が要る（理由はそのファイル）。
+      # 検査対象（.github/workflows）は引数なしで自動的に見つかる。設定ファイルだけ -config-file で渡す
+      # （ランナーラベルの検査に要る。設定の中身の理由と、自動検出させない理由はそのファイル）。
       - name: ワークフローを検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
-        run: actionlint -color
+        run: actionlint -color -config-file .github/ci.actionlint.yaml
 
       # ghalint はワークフローと action.yml をセキュリティ方針の観点で検査する。actionlint が構文・式・run: の
       # 中身を見るのに対し、こちらは「全ジョブに permissions と timeout-minutes があるか」「checkout の
@@ -205,17 +210,18 @@ jobs:
       #
       # 対象は INPUTS が必須引数のため明示的に渡す。リポジトリ全体を渡すと、ワークフローと
       # composite action の両方が .gitignore を尊重しつつ集められる。
-      # 検査内容の調整は .github/zizmor.yml に置いている（self-repository を無効にしている理由もそこ）。
+      # 検査内容の調整は .github/ci.zizmor.yml に置き、--config で渡している
+      # （self-repository を無効にしている理由と、自動検出させない理由はそのファイル）。
       #
       # persona は auditor を使う。regular（既定）→ pedantic → auditor の順に厳しく、pedantic は
       # permissions に説明コメントが無い（undocumented-permissions）、ジョブに name が無い
       # （anonymous-definition）といった「脆弱性そのものではないが読み手に前提が伝わらない書き方」を、
       # auditor はさらに「偽陽性になりそうなものも含め zizmor が検出できる全て」を出す。
-      # 偽陽性が出たら .github/zizmor.yml の ignore で個別に外す。
+      # 偽陽性が出たら .github/ci.zizmor.yml の ignore で個別に外す。
       # https://docs.zizmor.sh/usage/#using-personas
       # excessive-permissions 自体は regular でも有効な検査だが、「ワークフロー冒頭の write 権限を
       # 全ジョブが上書きしている」という形の指摘だけは pedantic でしか出ず、これがこのリポジトリの方針と
-      # 衝突するため .github/zizmor.yml で対象を絞っている（regular では出ないことを 1.30.1 で実測）。
+      # 衝突するため .github/ci.zizmor.yml で対象を絞っている（regular では出ないことを 1.30.1 で実測）。
       # 終了コードは、指摘が無ければ 0、指摘があれば最も重い severity に応じて 11〜14 になる
       # （informational=11 / low=12 / medium=13 / high=14）。
       # https://docs.zizmor.sh/usage/
@@ -232,7 +238,7 @@ jobs:
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: zizmor --persona auditor --strict-collection --color never --no-progress .
+        run: zizmor --config .github/ci.zizmor.yml --persona auditor --strict-collection --color never --no-progress .
 
       # ステータスチェックの名前はジョブの name になるため、name とルールセットの required_status_checks は
       # 常に一致していなければならない（このファイル冒頭のコメント）。ずれても両方のファイルは単体では正しく、
