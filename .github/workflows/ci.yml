@@ -339,5 +339,6 @@ jobs:
           mise bin-paths >> "$GITHUB_PATH"
 
       - name: シェルスクリプトをテスト
-        # composite action のテストは各 action の test/ にある
+        # composite action のテストは各 action の test/ にある。
+        # 共通ヘルパ（scripts/lib/bats-helpers.bash）は各 test/helper.bash が load で読むため、ここには並べない
         run: bats scripts/test .github/actions/*/test
