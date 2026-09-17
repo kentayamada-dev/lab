@@ -1,49 +1,13 @@
 #!/usr/bin/env bash
 #
-# batsテスト共通のヘルパ。
+# apply-repo-settings.sh の bats テスト用ヘルパ。
 #
 # テストは実GitHubに触れない。外部へ出る gh は PATH の先頭に置いたスタブへ差し替え、
 # 応答は環境変数で固定する。
 #
-# check-settings-drift.sh のテストは .github/actions/settings-drift/test/ にあり、ヘルパも別に持つ。
-#
-# テストで使う `run -N` は 1.5.0 以降の構文。下の宣言が無いと旧版との互換のため警告 BW02 が出る。
-# CI が導入する bats の版は .github/workflows/ci.yml の scripts-test ジョブに書いてある。
-# https://bats-core.readthedocs.io/en/stable/warnings/BW02.html
-bats_require_minimum_version 1.5.0
-
-# スタブを置くディレクトリを PATH の先頭に差し込む。
-# フィクスチャの置き場もここに作る。
-setup_stubs() {
-  STUB_BIN="$BATS_TEST_TMPDIR/bin"
-  STUB_FIXTURES="$BATS_TEST_TMPDIR/fixtures"
-  mkdir -p "$STUB_BIN" "$STUB_FIXTURES"
-  PATH="$STUB_BIN:$PATH"
-  export PATH STUB_BIN STUB_FIXTURES
-}
-
-# 指定したコマンドだけが見つかる PATH 用ディレクトリを作り、そのパスを出力する。
-# 「jq が無いときに前提チェックで落ちるか」の検証に使う。
-#
-# env と bash は常に含める。検査対象のスクリプトは #!/usr/bin/env bash で起動するため、
-# これを外すとスクリプトが実行されず、前提チェックの結果ではなく 127 を見ることになる。
-only_commands() {
-  local dir="$BATS_TEST_TMPDIR/only-bin"
-  rm -rf "$dir"
-  mkdir -p "$dir"
-
-  local cmd src
-  for cmd in env bash "$@"; do
-    if [ -x "$STUB_BIN/$cmd" ]; then
-      cp "$STUB_BIN/$cmd" "$dir/$cmd"
-    else
-      src="$(command -v "$cmd")" || return 1
-      ln -s "$src" "$dir/$cmd"
-    fi
-  done
-
-  printf '%s' "$dir"
-}
+# スタブの置き場（setup_stubs / only_commands）と判定（assert_*）は他のテストと同じものを使うため、
+# scripts/lib/bats-helpers.bash に置いている。ここに残すのは apply-repo-settings.sh 固有のスタブと判定だけ。
+load ../lib/bats-helpers
 
 # ---- apply-repo-settings.sh 用 --------------------------------------------------------------
 
@@ -149,37 +113,4 @@ gh_calls_matching() {
     [ "$ok" -eq 0 ] || count=$((count + 1))
   done < "$GH_LOG"
   printf '%s' "$count"
-}
-
-# ---- 判定 -----------------------------------------------------------------------------------
-
-# 出力の照合には [[ ]] を使わない。
-# bash 3.2 の set -e は [[ ]] の偽を検知せず、bats もテスト失敗として扱わないため、
-# 偽の判定が黙って通り過ぎてしまう（テストが何も検証しない状態になる）。
-# 関数の return 1 なら bats が失敗として拾う。
-
-assert_contains() {
-  case "$1" in
-    *"$2"*) return 0 ;;
-  esac
-  printf '含まれているべき文字列がない: %s\n--- 実際の出力 ---\n%s\n' "$2" "$1" >&2
-  return 1
-}
-
-assert_not_contains() {
-  case "$1" in
-    *"$2"*)
-      printf '含まれていてはいけない文字列がある: %s\n--- 実際の出力 ---\n%s\n' "$2" "$1" >&2
-      return 1
-      ;;
-  esac
-  return 0
-}
-
-assert_prefix() {
-  case "$1" in
-    "$2"*) return 0 ;;
-  esac
-  printf 'この文字列で始まっていない: %s\n--- 実際 ---\n%s\n' "$2" "$1" >&2
-  return 1
 }
