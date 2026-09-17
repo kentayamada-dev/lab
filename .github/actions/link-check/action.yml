@@ -1,3 +1,4 @@
+---
 name: Link check
 description: リポジトリ内のURLに到達できるか lychee で検査する
 

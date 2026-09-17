@@ -1,3 +1,4 @@
+---
 name: Ruleset drift check
 description: 定義ファイルと GitHub 上のルールセットが一致しているか検査する
 

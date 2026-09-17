@@ -1,3 +1,4 @@
+---
 name: Claude Code settings drift check
 
 on:
@@ -9,7 +10,7 @@ on:
 
 permissions:
   contents: read
-  issues: write # 定義ファイルとの差分を検知したら issue で通知するため
+  issues: write  # 定義ファイルとの差分を検知したら issue で通知するため
 
 # 同時実行すると同じ内容のissueが二重に作られうるため、直列化する
 concurrency:
@@ -24,13 +25,13 @@ jobs:
 
     permissions:
       contents: read
-      issues: write # 定義ファイルとの差分を検知したら issue で通知するため
+      issues: write  # 定義ファイルとの差分を検知したら issue で通知するため
 
     env:
       SETTINGS_FILE: .claude/settings.json
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
 
@@ -67,7 +68,7 @@ jobs:
           report-heading: 検査結果
           report-note: 検査結果が変わった場合はコメントで追記されます。
           issue-description: |-
-            定期チェック（`settings-drift.yml`）で、`${{ env.SETTINGS_FILE }}` のキーが公式ドキュメントまたは公開JSONスキーマと一致しない箇所が見つかりました。
+            定期チェック（`settings-drift.yml`）で、`${{ env.SETTINGS_FILE }}` のキーが公式ドキュメント・公開スキーマと一致しませんでした。
             Claude Code 側でキーの削除・改名・スコープ変更があった可能性があります。
           issue-extra-sections: |-
             ## 参照

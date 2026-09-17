@@ -1,3 +1,4 @@
+---
 name: Link check
 
 # ドキュメントやコメントに書いたURLの生存を定期的に確かめる。
@@ -45,7 +46,7 @@ jobs:
       drift: ${{ steps.check.outputs.drift }}
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
 
@@ -69,7 +70,7 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: link-check-report
           path: report.md
@@ -83,15 +84,15 @@ jobs:
     # issue の書き込みが要るのはこのジョブだけなので、ワークフロー全体ではなくここで足す
     permissions:
       contents: read
-      issues: write # リンク切れを検知したら issue で通知するため
+      issues: write  # リンク切れを検知したら issue で通知するため
 
     steps:
       # ローカルアクション（./.github/actions/...）を使うためにチェックアウトが要る
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           name: link-check-report
 
@@ -121,7 +122,7 @@ jobs:
 
             - 参照先が移動した: リンクを新しいURLに直すPRを出す
             - 参照先が消えた: 代わりの根拠を示すか、その記述ごと見直す
-            - 一時的な障害・ボット遮断など、URL自体は正しい: `.github/actions/link-check/lychee.toml` の `exclude` に理由を書いて足す
+            - 一時的な障害・ボット遮断など、URLは正しい: `.github/actions/link-check/lychee.toml` の `exclude` に理由を書いて足す
           completion-criteria: |-
             - [ ] 検査結果の各URLについて、参照先が移動したのか消えたのか一時的な障害かを確認した
             - [ ] リンクを修正した、または `.github/actions/link-check/lychee.toml` に除外理由を書いて足した

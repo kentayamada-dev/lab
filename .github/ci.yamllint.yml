@@ -1,0 +1,38 @@
+---
+# yamllint（YAMLの書式検査）の設定。
+# GitHub Actions からしか使わないため .github/ に置き、.github/workflows/ci.yml で -c を明示して渡す
+# （yamllint の自動検出は .yamllint / .yamllint.yaml / .yamllint.yml という完全一致の名前を実行
+# ディレクトリから親へ辿って探すだけなので、ここに置くとリポジトリ直下からは見つからない。
+# cli.py の find_project_config_filepath）。手元で同じ検査をするときは
+# `yamllint -c .github/ci.yamllint.yml --strict` を実行する。
+#
+# ファイル名に ci. を付けているのは、その自動検出の名前とわざと一致させないため。
+# .github/.yamllint.yml にすると .github/ で実行したときだけ黙って拾われ、設定が効く経路が2つになる。
+# 命名は .github/ci.markdownlint-cli2.yaml に揃えている（そちらに ci. を付けている理由はそのファイル）。
+#
+# 以前は -d relaxed だった。relaxed は line-length や indentation を warning に落とすだけで
+# 無効化はせず、--strict も付けていなかったため、80文字超が37件出たまま CI は成功していた
+# （v1.38.0 を手元で実行して実測）。PR のアノテーションには10件しか出ておらず残りは見えていなかった
+# （表示が絞られる条件は GitHub のドキュメントに記載を見つけられず、理由は未確認）。
+#
+# 現在は default プリセット＋ CI 側の --strict で、warning レベルのルール
+# （comments / comments-indentation / document-start / truthy）も CI の失敗として扱う。
+extends: default
+
+rules:
+  # 日本語のコメントは1行あたりの情報量が英語より少なく、80文字だと説明が細切れになるため100に広げる。
+  #
+  # allow-non-breakable-inline-mappings は、値に空白が無いインラインマッピングを長さ検査から外す。
+  # relaxed には入っていたが default には無い。container の
+  # image: ghcr.io/jdx/mise:<版>@sha256:<ダイジェスト> は Renovate が自動更新する行で折り返せず、
+  # これが無いと更新のたびに固定的に失敗する。
+  line-length:
+    max: 100
+    allow-non-breakable-inline-mappings: true
+
+  # GitHub Actions のワークフローの on: は、YAML 1.1 では真偽値として解釈される綴り。
+  # truthy は既定でキーも検査するため（check-keys: true）、このままでは全ワークフローが指摘される。
+  # 値側の検査（yes/no/on/off を true/false に統一させる）は残したいので、キーの検査だけ外す。
+  # https://yamllint.readthedocs.io/en/stable/rules.html#module-yamllint.rules.truthy
+  truthy:
+    check-keys: false

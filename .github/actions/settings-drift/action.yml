@@ -1,3 +1,4 @@
+---
 name: Claude Code settings drift check
 description: settings.json のキーが公式ドキュメントと公開JSONスキーマから乖離していないか検査する
 
