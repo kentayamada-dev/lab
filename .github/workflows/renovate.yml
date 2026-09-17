@@ -1,3 +1,4 @@
+---
 name: Renovate
 
 # 依存関係の更新 PR を作る Renovate を、ホスト型サービス（Mend App）ではなくこのリポジトリの Actions で動かす。
@@ -77,7 +78,7 @@ jobs:
       # 注記なしで Renovate 自身がバージョンを更新する。
       # digest は付けない。理由は .github/renovate.json5 の uses-with 向け packageRule を参照。
       - name: Renovateを実行
-        uses: renovatebot/github-action@dcfba84a42d1b5d5e49bf131b1bf53511851a123 # v46.3.1
+        uses: renovatebot/github-action@dcfba84a42d1b5d5e49bf131b1bf53511851a123  # v46.3.1
         with:
           token: ${{ secrets.RENOVATE_TOKEN }}
           renovate-version: 44.95.0

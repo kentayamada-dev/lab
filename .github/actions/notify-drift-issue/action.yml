@@ -1,3 +1,4 @@
+---
 name: Notify drift issue
 description: drift 検査の結果をジョブサマリーに書き、GitHub issue で通知する
 

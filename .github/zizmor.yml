@@ -1,3 +1,4 @@
+---
 # zizmor（GitHub Actions のセキュリティ静的解析）の設定。
 # 既定の探索順は .github/zizmor.yml → .github/zizmor.yaml → zizmor.yml → zizmor.yaml で、
 # CI は引数なしでこのファイルを見つける。

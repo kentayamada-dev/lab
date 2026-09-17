@@ -1,3 +1,4 @@
+---
 # markdownlint（Markdownの書式検査）の設定。
 # GitHub Actions からしか使わないため .github/ に置き、.github/workflows/ci.yml で --config を明示して渡す
 # （引数なしの自動検出は実行ディレクトリとその親しか見ないため、ここに置くと見つからない）。

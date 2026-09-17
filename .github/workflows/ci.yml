@@ -1,3 +1,4 @@
+---
 name: CI
 
 on:
@@ -66,7 +67,7 @@ jobs:
       image: ghcr.io/jdx/mise:2026.9.10@sha256:e6263d300a50e3a28f1a3cef3969ab171d4dfa5f3bccdf868ae53c8dbf41685f
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
 
@@ -102,14 +103,20 @@ jobs:
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: git ls-files -z '*.json' | xargs -0 --no-run-if-empty -n1 jq empty
 
-      # relaxed は行長・インデント・空行などの書式ルールを警告に落とす。
-      # ただし trailing-spaces / key-duplicates / new-line-at-end-of-file /
-      # new-lines / anchors は error のまま残るため、これらに触れると失敗する。
+      # 検査内容は .github/ci.yamllint.yml に置いている（default プリセット＋ line-length の上限と
+      # truthy の調整。それぞれの理由と、リポジトリ直下ではなく .github/ に置いている理由は
+      # そのファイルのコメント）。自動検出は実行ディレクトリとその親しか見ずこの場所には届かないため、
+      # markdownlint の --config と同じく -c で明示的に渡す。
+      #
+      # --strict は warning レベルの指摘も終了コード2にする。これが無いと、yamllint は error が
+      # 無ければ warning がいくつ出ても終了コード0で成功する（cli.py の return_code。v1.38.0 で実測）。
+      # 以前の -d relaxed には --strict も付いておらず、80文字超の警告が37件出たまま CI は通っていた。
+      #
       # trailing-spaces と new-line-at-end-of-file は editorconfig-checker とも重複するが、
       # key-duplicates と anchors の検査は yamllint にしか無いため残している。
       - name: YAMLの構文を検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
-        run: git ls-files -z '*.yml' '*.yaml' | xargs -0 --no-run-if-empty yamllint -d relaxed
+        run: git ls-files -z '*.yml' '*.yaml' | xargs -0 --no-run-if-empty yamllint -c .github/ci.yamllint.yml --strict
 
       # actionlint は GitHub Actions のワークフロー専用の検査で、yamllint では届かない層を見る。
       # 式の型（steps.<id> の参照ミス、関数の引数の数）、ローカルアクションに渡す with: のキー名と必須入力、
@@ -307,7 +314,7 @@ jobs:
       options: --user root
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
 
@@ -326,7 +333,7 @@ jobs:
       image: ghcr.io/jdx/mise:2026.9.10@sha256:e6263d300a50e3a28f1a3cef3969ab171d4dfa5f3bccdf868ae53c8dbf41685f
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
 
