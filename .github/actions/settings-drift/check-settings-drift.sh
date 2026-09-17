@@ -56,7 +56,9 @@ rows=$(wc -l < "$work/index.tsv" | tr -d " ")
 
 index_scope() { awk -F'\t' -v k="$1" '$1 == k { print $2; exit }' "$work/index.tsv"; }
 # 索引がその親の直下のキーを列挙しているか（1件でもあれば、その階層は索引が網羅していると見なす）
-index_has_children() { awk -F'\t' -v p="$1." 'index($1, p) == 1 { found = 1; exit } END { exit !found }' "$work/index.tsv"; }
+index_has_children() {
+  awk -F'\t' -v p="$1." 'index($1, p) == 1 { found = 1; exit } END { exit !found }' "$work/index.tsv"
+}
 
 # ---- 2. settings.json のキーをドット区切りで列挙し、索引と照合する --------------------------
 # 配列の中（permissions.deny の要素など）はキーではないので、パス要素がすべて文字列のものだけ拾う
@@ -185,7 +187,8 @@ while IFS=$'\t' read -r keyword path message; do
 done < "$work/schema-errors.tsv"
 
 # ---- 結果 ---------------------------------------------------------------------------------
-printf '確認したキー: %s 件（設定索引 %s 行、%s）\n\n' "$(wc -l < "$work/keys.txt" | tr -d " ")" "$rows" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf '確認したキー: %s 件（設定索引 %s 行、%s）\n\n' \
+  "$(wc -l < "$work/keys.txt" | tr -d " ")" "$rows" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 if [ "${#notes[@]}" -gt 0 ]; then
   echo "### 情報（対応不要）"

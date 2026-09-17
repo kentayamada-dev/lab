@@ -4,6 +4,7 @@ name: Claude Code settings drift check
 on:
   schedule:
     # 毎日 09:00 JST。GitHubの仕様上、実行時刻は数分〜数十分遅れることがある。
+    # editorconfig-checker-disable-next-line
     # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#schedule
     - cron: "0 0 * * *"
   workflow_dispatch:
@@ -41,6 +42,7 @@ jobs:
       #
       # リポジトリ設定で実行可能なアクションを GitHub 公式と検証済みに限っているが（ci.yml 冒頭）、
       # 同じリポジトリ内のローカルアクション（./）はその設定でも常に許可される。
+      # editorconfig-checker-disable-next-line
       # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#allowing-select-actions-and-reusable-workflows-to-run
       - name: 公式ドキュメントとスキーマに対して settings.json を検査
         id: check

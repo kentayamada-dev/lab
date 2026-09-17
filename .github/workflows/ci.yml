@@ -32,6 +32,7 @@ concurrency:
 #
 # scripts-test を lint の needs にぶら下げず、独立した必須チェックにしている。
 # needs の依存先が失敗してスキップされたジョブは required check としてマージを止めない場合があるため。
+# editorconfig-checker-disable-next-line
 # https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks
 #
 # サードパーティのアクションは使わない。リポジトリ設定で実行可能なアクションを GitHub 公式と
@@ -328,6 +329,7 @@ jobs:
       contents: read
 
     container:
+      # editorconfig-checker-disable-next-line
       image: ghcr.io/renovatebot/renovate:44.95.0@sha256:33fd5ccb592fd10226c057c656e2a9aaa3d5c4fb84a616d2cbc2b426ba347ec1
       options: --user root
 

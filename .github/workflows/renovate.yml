@@ -14,6 +14,7 @@ name: Renovate
 on:
   schedule:
     # 毎日 06:00 JST。GitHubの仕様上、実行時刻は数分〜数十分遅れることがある。
+    # editorconfig-checker-disable-next-line
     # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#schedule
     - cron: "0 21 * * *"
   # Renovate が作った PR がマージされたら再実行する。
