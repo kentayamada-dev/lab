@@ -303,7 +303,7 @@ jobs:
       contents: read
 
     container:
-      image: ghcr.io/renovatebot/renovate:44.94.3@sha256:33a979fa6a9ab2730ab806c239ecbe2ff41ea03617a77042412616557100f1ed
+      image: ghcr.io/renovatebot/renovate:44.95.0@sha256:33fd5ccb592fd10226c057c656e2a9aaa3d5c4fb84a616d2cbc2b426ba347ec1
       options: --user root
 
     steps:
