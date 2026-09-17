@@ -1,0 +1,51 @@
+name: Link check
+description: リポジトリ内のURLに到達できるか lychee で検査する
+
+# 検査ロジックは、ローカルでも同じ結果を再現できるように check-links.sh に置いている。
+# この action はスクリプトの終了コードを出力 drift に写すだけで、issue の作成などは呼び出し側のワークフローが行う。
+#
+# lychee 自体はこの action では導入しない。版を mise.toml で固定して呼び出し側のジョブが入れる。
+
+inputs:
+  config-file:
+    description: >-
+      lychee の設定ファイル（検査対象と除外）のパス。
+      未指定ならこの action に同梱の lychee.toml を使う
+    required: false
+  report-file:
+    description: Markdown の検査結果を書き出すパス（呼び出し側がジョブサマリーや issue 本文に使う）
+    required: false
+    default: report.md
+  github-token:
+    description: >-
+      github.com へのリクエストをAPI経由にしてレート制限で落ちにくくするためのトークン。
+      lychee が環境変数 GITHUB_TOKEN として自動で読む
+    required: true
+
+outputs:
+  drift:
+    description: リンク切れがあれば "true"、なければ "false"
+    value: ${{ steps.check.outputs.drift }}
+
+runs:
+  using: composite
+  steps:
+    # 終了コード 1 = リンク切れあり、2 = lychee の実行失敗など検査自体の失敗（ここで即失敗させる）。
+    # run: 内に ${{ }} を直接書くとCodeQLのactions/code-injectionで警告されうるため、envを経由する
+    - id: check
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        REPORT_FILE: ${{ inputs.report-file }}
+      run: |
+        set -euo pipefail
+
+        status=0
+        "$GITHUB_ACTION_PATH/check-links.sh" "$CONFIG_FILE" > "$REPORT_FILE" || status=$?
+
+        case "$status" in
+          0) echo "drift=false" >> "$GITHUB_OUTPUT" ;;
+          1) echo "drift=true" >> "$GITHUB_OUTPUT" ;;
+          *) cat "$REPORT_FILE"; exit "$status" ;;
+        esac
