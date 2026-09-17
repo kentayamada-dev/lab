@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
+# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
+# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
+# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
 # bats テスト共通のヘルパ。
 #
@@ -22,10 +27,10 @@ bats_require_minimum_version 1.5.0
 # スタブを置くディレクトリを PATH の先頭に差し込む。
 # フィクスチャ（外部が返したことにするデータ）の置き場もここに作る。
 setup_stubs() {
-  STUB_BIN="$BATS_TEST_TMPDIR/bin"
-  STUB_FIXTURES="$BATS_TEST_TMPDIR/fixtures"
-  mkdir -p "$STUB_BIN" "$STUB_FIXTURES"
-  PATH="$STUB_BIN:$PATH"
+  STUB_BIN="${BATS_TEST_TMPDIR}/bin"
+  STUB_FIXTURES="${BATS_TEST_TMPDIR}/fixtures"
+  mkdir -p "${STUB_BIN}" "${STUB_FIXTURES}"
+  PATH="${STUB_BIN}:${PATH}"
   export PATH STUB_BIN STUB_FIXTURES
 }
 
@@ -35,21 +40,21 @@ setup_stubs() {
 # env と bash は常に含める。検査対象のスクリプトは #!/usr/bin/env bash で起動するため、
 # これを外すとスクリプトが実行されず、前提チェックの結果ではなく 127 を見ることになる。
 only_commands() {
-  local dir="$BATS_TEST_TMPDIR/only-bin"
-  rm -rf "$dir"
-  mkdir -p "$dir"
+  local dir="${BATS_TEST_TMPDIR}/only-bin"
+  rm -rf "${dir}"
+  mkdir -p "${dir}"
 
   local cmd src
   for cmd in env bash "$@"; do
-    if [ -x "$STUB_BIN/$cmd" ]; then
-      cp "$STUB_BIN/$cmd" "$dir/$cmd"
+    if [[ -x "${STUB_BIN}/${cmd}" ]]; then
+      cp "${STUB_BIN}/${cmd}" "${dir}/${cmd}"
     else
-      src="$(command -v "$cmd")" || return 1
-      ln -s "$src" "$dir/$cmd"
+      src="$(command -v "${cmd}")" || return 1
+      ln -s "${src}" "${dir}/${cmd}"
     fi
   done
 
-  printf '%s' "$dir"
+  printf '%s' "${dir}"
 }
 
 # ---- 判定 -----------------------------------------------------------------------------------
@@ -62,6 +67,7 @@ only_commands() {
 assert_contains() {
   case "$1" in
     *"$2"*) return 0 ;;
+    *) ;;
   esac
   printf '含まれているべき文字列がない: %s\n--- 実際の出力 ---\n%s\n' "$2" "$1" >&2
   return 1
@@ -73,6 +79,7 @@ assert_not_contains() {
       printf '含まれていてはいけない文字列がある: %s\n--- 実際の出力 ---\n%s\n' "$2" "$1" >&2
       return 1
       ;;
+    *) ;;
   esac
   return 0
 }
@@ -80,6 +87,7 @@ assert_not_contains() {
 assert_prefix() {
   case "$1" in
     "$2"*) return 0 ;;
+    *) ;;
   esac
   printf 'この文字列で始まっていない: %s\n--- 実際 ---\n%s\n' "$2" "$1" >&2
   return 1

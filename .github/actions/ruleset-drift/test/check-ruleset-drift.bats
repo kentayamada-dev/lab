@@ -1,6 +1,11 @@
 #!/usr/bin/env bats
 # bats の shebang は shellcheck が方言を判別できないため明示する
 # shellcheck shell=bash
+# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
+# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
+# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
+# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
 # check-ruleset-drift.sh のテスト。
 #
@@ -10,7 +15,7 @@
 load helper
 
 setup() {
-  SCRIPT="$BATS_TEST_DIRNAME/../check-ruleset-drift.sh"
+  SCRIPT="${BATS_TEST_DIRNAME}/../check-ruleset-drift.sh"
   setup_stubs
   install_gh_stub
   export GITHUB_REPOSITORY="kentayamada-dev/lab"
@@ -51,9 +56,9 @@ JSON
   default_remote
   file="$(default_file)"
 
-  run -0 "$SCRIPT" "$file"
+  run -0 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "一致しています"
+  assert_contains "${output}" "一致しています"
 }
 
 @test "APIが付ける読み取り専用フィールドは差分にしない" {
@@ -62,10 +67,10 @@ JSON
   default_remote
   file="$(default_file)"
 
-  run -0 "$SCRIPT" "$file"
+  run -0 "${SCRIPT}" "${file}"
 
-  assert_not_contains "$output" "_links"
-  assert_not_contains "$output" "source"
+  assert_not_contains "${output}" "_links"
+  assert_not_contains "${output}" "source"
 }
 
 @test "キーの並び順が違うだけなら差分にしない" {
@@ -82,7 +87,7 @@ JSON
 JSON
   file="$(default_file)"
 
-  run -0 "$SCRIPT" "$file"
+  run -0 "${SCRIPT}" "${file}"
 }
 
 # ---- 差分の検知 -----------------------------------------------------------------------------
@@ -101,10 +106,10 @@ JSON
 JSON
   file="$(default_file)"
 
-  run -1 "$SCRIPT" "$file"
+  run -1 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" '-  "enforcement": "active"'
-  assert_contains "$output" '+  "enforcement": "disabled"'
+  assert_contains "${output}" '-  "enforcement": "active"'
+  assert_contains "${output}" '+  "enforcement": "disabled"'
 }
 
 @test "bypass_actors に要素が増えていれば差分として検知する" {
@@ -121,9 +126,9 @@ JSON
 JSON
   file="$(default_file)"
 
-  run -1 "$SCRIPT" "$file"
+  run -1 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "bypass_mode"
+  assert_contains "${output}" "bypass_mode"
 }
 
 @test "GitHub上に同名のルールセットが無ければ終了コード1でその旨を出す" {
@@ -131,9 +136,9 @@ JSON
   write_ruleset_detail <<<'{}'
   file="$(default_file)"
 
-  run -1 "$SCRIPT" "$file"
+  run -1 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "GitHub上に name=main のルールセットが存在しません"
+  assert_contains "${output}" "GitHub上に name=main のルールセットが存在しません"
 }
 
 @test "差分の出力は実行ごとに変わらない" {
@@ -152,11 +157,11 @@ JSON
 JSON
   file="$(default_file)"
 
-  run -1 "$SCRIPT" "$file"
-  first="$output"
-  run -1 "$SCRIPT" "$file"
+  run -1 "${SCRIPT}" "${file}"
+  first="${output}"
+  run -1 "${SCRIPT}" "${file}"
 
-  [ "$first" = "$output" ]
+  [[ "${first}" = "${output}" ]]
 }
 
 # ---- 権限不足の切り分け（#11 の回帰テスト）--------------------------------------------------
@@ -176,10 +181,10 @@ JSON
 JSON
   file="$(default_file)"
 
-  run -2 "$SCRIPT" "$file"
+  run -2 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "bypass_actors がない"
-  assert_not_contains "$output" "null"
+  assert_contains "${output}" "bypass_actors がない"
+  assert_not_contains "${output}" "null"
 }
 
 @test "応答の bypass_actors が null なら差分として検知する" {
@@ -198,9 +203,9 @@ JSON
 JSON
   file="$(default_file)"
 
-  run -1 "$SCRIPT" "$file"
+  run -1 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "bypass_actors"
+  assert_contains "${output}" "bypass_actors"
 }
 
 # ---- 前提チェック ---------------------------------------------------------------------------
@@ -210,10 +215,10 @@ JSON
   file="$(default_file)"
   unset GH_TOKEN
 
-  run -2 "$SCRIPT" "$file"
+  run -2 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "GH_TOKEN が未設定"
-  assert_contains "$output" "RULESET_READ_TOKEN"
+  assert_contains "${output}" "GH_TOKEN が未設定"
+  assert_contains "${output}" "RULESET_READ_TOKEN"
 }
 
 @test "GH_TOKEN が空文字でも終了コード2で止まる" {
@@ -221,9 +226,9 @@ JSON
   file="$(default_file)"
   export GH_TOKEN=""
 
-  run -2 "$SCRIPT" "$file"
+  run -2 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "GH_TOKEN が未設定"
+  assert_contains "${output}" "GH_TOKEN が未設定"
 }
 
 @test "GITHUB_REPOSITORY が未設定なら終了コード2" {
@@ -231,35 +236,35 @@ JSON
   file="$(default_file)"
   unset GITHUB_REPOSITORY
 
-  run -2 "$SCRIPT" "$file"
+  run -2 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "GITHUB_REPOSITORY が未設定"
+  assert_contains "${output}" "GITHUB_REPOSITORY が未設定"
 }
 
 @test "定義ファイルが存在しなければ終了コード2" {
   default_remote
 
-  run -2 "$SCRIPT" "$BATS_TEST_TMPDIR/missing.json"
+  run -2 "${SCRIPT}" "${BATS_TEST_TMPDIR}/missing.json"
 
-  assert_contains "$output" "が存在しない"
+  assert_contains "${output}" "が存在しない"
 }
 
 @test "定義ファイルがJSONとして不正なら終了コード2" {
   default_remote
   file="$(write_ruleset_file <<<'{ "name": ')"
 
-  run -2 "$SCRIPT" "$file"
+  run -2 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "JSON として不正"
+  assert_contains "${output}" "JSON として不正"
 }
 
 @test "定義ファイルに name が無ければ終了コード2" {
   default_remote
   file="$(write_ruleset_file <<<'{ "target": "branch" }')"
 
-  run -2 "$SCRIPT" "$file"
+  run -2 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "name がない"
+  assert_contains "${output}" "name がない"
 }
 
 @test "jq が無ければ終了コード2" {
@@ -267,9 +272,9 @@ JSON
   file="$(default_file)"
   only_bin="$(only_commands gh diff)"
 
-  PATH="$only_bin" run -2 "$SCRIPT" "$file"
+  PATH="${only_bin}" run -2 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "jq が見つからない"
+  assert_contains "${output}" "jq が見つからない"
 }
 
 @test "ルールセット一覧の取得に失敗したら終了コード2" {
@@ -277,9 +282,9 @@ JSON
   file="$(default_file)"
   export STUB_GH_FAIL_LIST=1
 
-  run -2 "$SCRIPT" "$file"
+  run -2 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "ルールセット一覧を取得できない"
+  assert_contains "${output}" "ルールセット一覧を取得できない"
 }
 
 @test "ルールセット詳細の取得に失敗したら終了コード2" {
@@ -287,7 +292,7 @@ JSON
   file="$(default_file)"
   export STUB_GH_FAIL_GET=1
 
-  run -2 "$SCRIPT" "$file"
+  run -2 "${SCRIPT}" "${file}"
 
-  assert_contains "$output" "を取得できない"
+  assert_contains "${output}" "を取得できない"
 }

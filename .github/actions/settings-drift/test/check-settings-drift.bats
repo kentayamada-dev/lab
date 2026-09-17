@@ -1,6 +1,11 @@
 #!/usr/bin/env bats
 # bats の shebang は shellcheck が方言を判別できないため明示する
 # shellcheck shell=bash
+# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
+# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
+# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
+# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
 # check-settings-drift.sh のテスト。
 #
@@ -10,7 +15,7 @@
 load helper
 
 setup() {
-  SCRIPT="$BATS_TEST_DIRNAME/../check-settings-drift.sh"
+  SCRIPT="${BATS_TEST_DIRNAME}/../check-settings-drift.sh"
   setup_stubs
   install_curl_stub
 }
@@ -58,12 +63,12 @@ JSON
   default_schema
   settings="$(default_settings)"
 
-  run -0 "$SCRIPT" "$settings"
+  run -0 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" "問題なし"
+  assert_contains "${output}" "問題なし"
   # $schema はキーとして数えない。残る4キーだけを見ている
   assert_prefix "${lines[0]}" "確認したキー: 4 件（設定索引 "
-  assert_not_contains "$output" "### 問題"
+  assert_not_contains "${output}" "### 問題"
 }
 
 @test "設定が空でも0件を確認したものとして問題なしで終わる" {
@@ -71,10 +76,10 @@ JSON
   default_schema
   settings="$(write_settings <<<'{}')"
 
-  run -0 "$SCRIPT" "$settings"
+  run -0 "${SCRIPT}" "${settings}"
 
   assert_prefix "${lines[0]}" "確認したキー: 0 件（設定索引 "
-  assert_contains "$output" "問題なし"
+  assert_contains "${output}" "問題なし"
 }
 
 @test "配列の要素はキーとして検査しない" {
@@ -88,7 +93,7 @@ JSON
   }'
   settings="$(write_settings <<<'{"permissions":{"allow":["Bash(ls:*)","Bash(cat:*)"]}}')"
 
-  run -0 "$SCRIPT" "$settings"
+  run -0 "${SCRIPT}" "${settings}"
 
   assert_prefix "${lines[0]}" "確認したキー: 2 件（設定索引 "
 }
@@ -99,22 +104,22 @@ JSON
   write_schema '{ "outer": { "type": "object" } }'
   settings="$(write_settings <<<'{"outer":{"mid":"x"}}')"
 
-  run -0 "$SCRIPT" "$settings"
+  run -0 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" "問題なし"
+  assert_contains "${output}" "問題なし"
 }
 
 @test "引数を省略すると .claude/settings.json を見る" {
   default_docs
   default_schema
-  mkdir -p "$BATS_TEST_TMPDIR/proj/.claude"
+  mkdir -p "${BATS_TEST_TMPDIR}/proj/.claude"
   default_settings > /dev/null
-  cp "$BATS_TEST_TMPDIR/settings.json" "$BATS_TEST_TMPDIR/proj/.claude/settings.json"
-  cd "$BATS_TEST_TMPDIR/proj"
+  cp "${BATS_TEST_TMPDIR}/settings.json" "${BATS_TEST_TMPDIR}/proj/.claude/settings.json"
+  cd "${BATS_TEST_TMPDIR}/proj"
 
-  run -0 "$SCRIPT"
+  run -0 "${SCRIPT}"
 
-  assert_contains "$output" "問題なし"
+  assert_contains "${output}" "問題なし"
 }
 
 # ---- 索引との照合 ---------------------------------------------------------------------------
@@ -124,10 +129,10 @@ JSON
   write_schema '{ "managedOnlyKey": { "type": "string" } }'
   settings="$(write_settings <<<'{"managedOnlyKey":"x"}')"
 
-  run -1 "$SCRIPT" "$settings"
+  run -1 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" "### 問題"
-  assert_contains "$output" '`managedOnlyKey`: スコープが「Managed settings only」になっている'
+  assert_contains "${output}" "### 問題"
+  assert_contains "${output}" '`managedOnlyKey`: スコープが「Managed settings only」になっている'
 }
 
 @test "索引に無いトップレベルキーは削除・改名の可能性として報告する" {
@@ -135,10 +140,10 @@ JSON
   write_schema '{ "knownKey": { "type": "string" }, "goneKey": { "type": "string" } }'
   settings="$(write_settings <<<'{"knownKey":"x","goneKey":"y"}')"
 
-  run -1 "$SCRIPT" "$settings"
+  run -1 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" '`goneKey`: 設定索引に載っていない'
-  assert_not_contains "$output" '`knownKey`: 設定索引に載っていない'
+  assert_contains "${output}" '`goneKey`: 設定索引に載っていない'
+  assert_not_contains "${output}" '`knownKey`: 設定索引に載っていない'
 }
 
 @test "索引が兄弟キーを列挙している階層で自分だけ載っていなければ報告する" {
@@ -154,9 +159,9 @@ JSON
   }'
   settings="$(write_settings <<<'{"permissions":{"allow":[],"deny":[]}}')"
 
-  run -1 "$SCRIPT" "$settings"
+  run -1 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" '`permissions.deny`: 設定索引に載っていない'
+  assert_contains "${output}" '`permissions.deny`: 設定索引に載っていない'
 }
 
 @test "索引が列挙していない階層でも、親自体が索引に無ければ報告する" {
@@ -165,9 +170,9 @@ JSON
   write_schema '{ "outer": { "type": "object" } }'
   settings="$(write_settings <<<'{"outer":{"mid":{"leaf":"x"}}}')"
 
-  run -1 "$SCRIPT" "$settings"
+  run -1 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" '`outer.mid.leaf`: 親キー `outer.mid` が設定索引に載っていない'
+  assert_contains "${output}" '`outer.mid.leaf`: 親キー `outer.mid` が設定索引に載っていない'
 }
 
 # ---- スキーマ検証 ---------------------------------------------------------------------------
@@ -177,9 +182,9 @@ JSON
   default_schema
   settings="$(write_settings <<<'{"cleanupPeriodDays":"14"}')"
 
-  run -1 "$SCRIPT" "$settings"
+  run -1 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" '`cleanupPeriodDays`: スキーマ検証エラー（type）: integer のはずが string'
+  assert_contains "${output}" '`cleanupPeriodDays`: スキーマ検証エラー（type）: integer のはずが string'
 }
 
 @test "整数を期待する箇所に小数を書くと型エラーになる" {
@@ -187,9 +192,9 @@ JSON
   default_schema
   settings="$(write_settings <<<'{"cleanupPeriodDays":14.5}')"
 
-  run -1 "$SCRIPT" "$settings"
+  run -1 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" '`cleanupPeriodDays`: スキーマ検証エラー（type）'
+  assert_contains "${output}" '`cleanupPeriodDays`: スキーマ検証エラー（type）'
 }
 
 @test "null も型エラーとして報告する" {
@@ -197,9 +202,9 @@ JSON
   default_schema
   settings="$(write_settings <<<'{"cleanupPeriodDays":null}')"
 
-  run -1 "$SCRIPT" "$settings"
+  run -1 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" 'integer のはずが null'
+  assert_contains "${output}" 'integer のはずが null'
 }
 
 @test "enum にない値は候補付きで報告する" {
@@ -207,10 +212,10 @@ JSON
   default_schema
   settings="$(write_settings <<<'{"permissions":{"defaultMode":"bogus"}}')"
 
-  run -1 "$SCRIPT" "$settings"
+  run -1 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" '`permissions.defaultMode`: スキーマ検証エラー（enum）'
-  assert_contains "$output" "default, acceptEdits, plan"
+  assert_contains "${output}" '`permissions.defaultMode`: スキーマ検証エラー（enum）'
+  assert_contains "${output}" "default, acceptEdits, plan"
 }
 
 @test "pattern に合わない文字列は書式不正として報告する" {
@@ -218,9 +223,9 @@ JSON
   write_schema '{ "model": { "type": "string", "pattern": "^claude-" } }'
   settings="$(write_settings <<<'{"model":"gpt"}')"
 
-  run -1 "$SCRIPT" "$settings"
+  run -1 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" '`model`: スキーマ検証エラー（pattern）: 書式が不正: gpt'
+  assert_contains "${output}" '`model`: スキーマ検証エラー（pattern）: 書式が不正: gpt'
 }
 
 @test "配列の要素も添字付きで検証する" {
@@ -228,9 +233,9 @@ JSON
   default_schema
   settings="$(write_settings <<<'{"permissions":{"allow":[123]}}')"
 
-  run -1 "$SCRIPT" "$settings"
+  run -1 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" '`permissions.allow[0]`: スキーマ検証エラー（type）: string のはずが number'
+  assert_contains "${output}" '`permissions.allow[0]`: スキーマ検証エラー（type）: string のはずが number'
 }
 
 @test "\$ref は \$defs を1段たどって検証する" {
@@ -240,9 +245,9 @@ JSON
     '{ "mode": { "enum": ["a", "b"] } }'
   settings="$(write_settings <<<'{"mode":"c"}')"
 
-  run -1 "$SCRIPT" "$settings"
+  run -1 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" '`mode`: スキーマ検証エラー（enum）'
+  assert_contains "${output}" '`mode`: スキーマ検証エラー（enum）'
 }
 
 @test "anyOf を含む定義は誤検知を避けて検査しない" {
@@ -250,9 +255,9 @@ JSON
   write_schema '{ "flexible": { "anyOf": [{ "type": "string" }, { "type": "boolean" }] } }'
   settings="$(write_settings <<<'{"flexible":123}')"
 
-  run -0 "$SCRIPT" "$settings"
+  run -0 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" "問題なし"
+  assert_contains "${output}" "問題なし"
 }
 
 @test "スキーマに無いが索引にはあるキーは、対応不要の情報として扱う" {
@@ -260,11 +265,11 @@ JSON
   write_schema '{}'
   settings="$(write_settings <<<'{"newKey":"x"}')"
 
-  run -0 "$SCRIPT" "$settings"
+  run -0 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" "### 情報（対応不要）"
-  assert_contains "$output" '`newKey`: 公開スキーマにはまだ無いが、設定索引には載っている'
-  assert_not_contains "$output" "### 問題"
+  assert_contains "${output}" "### 情報（対応不要）"
+  assert_contains "${output}" '`newKey`: 公開スキーマにはまだ無いが、設定索引には載っている'
+  assert_not_contains "${output}" "### 問題"
 }
 
 @test "スキーマにも索引にも無いキーは問題として扱う" {
@@ -272,10 +277,10 @@ JSON
   write_schema '{ "knownKey": { "type": "string" } }'
   settings="$(write_settings <<<'{"knownKey":"x","unknownKey":"y"}')"
 
-  run -1 "$SCRIPT" "$settings"
+  run -1 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" '`unknownKey`: スキーマ検証エラー（additionalProperties）'
-  assert_not_contains "$output" "### 情報（対応不要）"
+  assert_contains "${output}" '`unknownKey`: スキーマ検証エラー（additionalProperties）'
+  assert_not_contains "${output}" "### 情報（対応不要）"
 }
 
 # ---- 検査自体が成立しないとき（終了コード2） -------------------------------------------------
@@ -284,20 +289,20 @@ JSON
   default_docs
   default_schema
 
-  run -2 "$SCRIPT" "$BATS_TEST_TMPDIR/missing.json"
+  run -2 "${SCRIPT}" "${BATS_TEST_TMPDIR}/missing.json"
 
-  assert_contains "$output" "が存在しない"
+  assert_contains "${output}" "が存在しない"
 }
 
 @test "設定ファイルがJSONとして不正なら終了コード2" {
   default_docs
   default_schema
-  path="$BATS_TEST_TMPDIR/broken.json"
-  printf '{ "a": }' > "$path"
+  path="${BATS_TEST_TMPDIR}/broken.json"
+  printf '{ "a": }' > "${path}"
 
-  run -2 "$SCRIPT" "$path"
+  run -2 "${SCRIPT}" "${path}"
 
-  assert_contains "$output" "JSON として不正"
+  assert_contains "${output}" "JSON として不正"
 }
 
 @test "jq が無ければ検査せず終了コード2" {
@@ -306,9 +311,9 @@ JSON
   settings="$(default_settings)"
 
   # PATH をテスト側で壊すと bats 自身の後処理も道具を失うため、実行時だけ差し替える
-  run -2 env PATH="$(only_commands curl)" "$SCRIPT" "$settings"
+  run -2 env PATH="$(only_commands curl)" "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" "jq が見つからない"
+  assert_contains "${output}" "jq が見つからない"
 }
 
 @test "curl が無ければ検査せず終了コード2" {
@@ -316,9 +321,9 @@ JSON
   default_schema
   settings="$(default_settings)"
 
-  run -2 env PATH="$(only_commands jq)" "$SCRIPT" "$settings"
+  run -2 env PATH="$(only_commands jq)" "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" "curl が見つからない"
+  assert_contains "${output}" "curl が見つからない"
 }
 
 @test "ドキュメントを取得できなければ終了コード2" {
@@ -327,9 +332,9 @@ JSON
   settings="$(default_settings)"
   export STUB_CURL_FAIL_DOCS=1
 
-  run -2 "$SCRIPT" "$settings"
+  run -2 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" "ドキュメントを取得できない"
+  assert_contains "${output}" "ドキュメントを取得できない"
 }
 
 @test "スキーマを取得できなければ終了コード2" {
@@ -338,9 +343,9 @@ JSON
   settings="$(default_settings)"
   export STUB_CURL_FAIL_SCHEMA=1
 
-  run -2 "$SCRIPT" "$settings"
+  run -2 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" "スキーマを取得できない"
+  assert_contains "${output}" "スキーマを取得できない"
 }
 
 @test "索引の行数が閾値を下回ったら drift ではなく検査失敗にする" {
@@ -349,9 +354,9 @@ JSON
   default_schema
   settings="$(default_settings)"
 
-  run -2 "$SCRIPT" "$settings"
+  run -2 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" "設定索引を 1 行しか読み取れなかった"
+  assert_contains "${output}" "設定索引を 1 行しか読み取れなかった"
 }
 
 @test "スキーマの定義件数が閾値を下回ったら検査失敗にする" {
@@ -359,18 +364,18 @@ JSON
   SCHEMA_FILLER_PROPS=0 write_schema '{ "cleanupPeriodDays": { "type": "integer" } }'
   settings="$(default_settings)"
 
-  run -2 "$SCRIPT" "$settings"
+  run -2 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" "スキーマのトップレベル定義を 2 件しか読み取れなかった"
+  assert_contains "${output}" "スキーマのトップレベル定義を 2 件しか読み取れなかった"
 }
 
 @test "スキーマの取得先がJSONを返さなければ検査失敗にする" {
   # 取得先がHTMLのエラーページを返したときに空振りしないことを確かめる
   default_docs
-  printf '<!doctype html><title>404</title>' > "$STUB_FIXTURES/schema.json"
+  printf '<!doctype html><title>404</title>' > "${STUB_FIXTURES}/schema.json"
   settings="$(default_settings)"
 
-  run -2 "$SCRIPT" "$settings"
+  run -2 "${SCRIPT}" "${settings}"
 
-  assert_contains "$output" "スキーマのトップレベル定義を 0 件しか読み取れなかった"
+  assert_contains "${output}" "スキーマのトップレベル定義を 0 件しか読み取れなかった"
 }

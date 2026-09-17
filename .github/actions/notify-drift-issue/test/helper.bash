@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
+# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
+# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
+# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
 # notify-drift-issue.sh の bats テスト用ヘルパ。
 #
@@ -23,14 +28,14 @@ load ../../../../scripts/lib/bats-helpers
 #   GH_ISSUE_VIEW_JSON  : gh issue view の応答（既定は本文もコメントも空）
 #   GH_FAIL_SUBCOMMAND  : このサブコマンド（create など）を終了コード1で失敗させる
 install_gh_stub() {
-  GH_LOG="$BATS_TEST_TMPDIR/gh.log"
-  GH_BODY_DIR="$BATS_TEST_TMPDIR/gh-bodies"
-  : > "$GH_LOG"
-  rm -rf "$GH_BODY_DIR"
-  mkdir -p "$GH_BODY_DIR"
+  GH_LOG="${BATS_TEST_TMPDIR}/gh.log"
+  GH_BODY_DIR="${BATS_TEST_TMPDIR}/gh-bodies"
+  : > "${GH_LOG}"
+  rm -rf "${GH_BODY_DIR}"
+  mkdir -p "${GH_BODY_DIR}"
   export GH_LOG GH_BODY_DIR
 
-  cat > "$STUB_BIN/gh" <<'STUB'
+  cat > "${STUB_BIN}/gh" <<'STUB'
 #!/usr/bin/env bash
 set -uo pipefail
 
@@ -70,7 +75,7 @@ esac
 
 exit 0
 STUB
-  chmod +x "$STUB_BIN/gh"
+  chmod +x "${STUB_BIN}/gh"
 }
 
 # GH_LOG に記録された呼び出しのうち、引数に指定文字列をすべて含む行数を出力する
@@ -81,26 +86,26 @@ gh_calls_matching() {
   while IFS= read -r line; do
     local ok=1
     for pattern in "$@"; do
-      case "$line" in
-        *"$pattern"*) ;;
+      case "${line}" in
+        *"${pattern}"*) ;;
         *) ok=0; break ;;
       esac
     done
-    [ "$ok" -eq 0 ] || count=$((count + 1))
-  done < "$GH_LOG"
-  printf '%s' "$count"
+    [[ "${ok}" -eq 0 ]] || count=$((count + 1))
+  done < "${GH_LOG}"
+  printf '%s' "${count}"
 }
 
 # --body-file で送られた本文を出力する（$1: create / comment）
-gh_body() { cat "$GH_BODY_DIR/$1.md"; }
+gh_body() { cat "${GH_BODY_DIR}/$1.md"; }
 
 # gh issue list の応答を作る。引数は "番号<TAB>タイトル" の並び
 issue_list_json() {
   local entry number title
   {
     for entry in "$@"; do
-      IFS=$'\t' read -r number title <<<"$entry"
-      jq -cn --argjson n "$number" --arg t "$title" '{number: $n, title: $t}'
+      IFS=$'\t' read -r number title <<<"${entry}"
+      jq -cn --argjson n "${number}" --arg t "${title}" '{number: $n, title: $t}'
     done
   } | jq -cs .
 }
@@ -109,7 +114,7 @@ issue_list_json() {
 issue_view_json() {
   local body="$1"
   shift
-  jq -cn --arg body "$body" '
+  jq -cn --arg body "${body}" '
     { body: (if $body == "<null>" then null else $body end),
       comments: [$ARGS.positional[] | { body: . }] }
   ' --args "$@"
@@ -117,7 +122,7 @@ issue_view_json() {
 
 # 検査対象のレポートを書く。引数を1行ずつ書き、パスは REPORT_FILE に従う
 write_report() {
-  printf '%s\n' "$@" > "$REPORT_FILE"
+  printf '%s\n' "$@" > "${REPORT_FILE}"
 }
 
 # ---- 判定 -----------------------------------------------------------------------------------
@@ -126,7 +131,7 @@ write_report() {
 # [[ ]] を避けている理由は共有ヘルパのコメント。
 
 assert_equal() {
-  [ "$1" = "$2" ] && return 0
+  [[ "$1" = "$2" ]] && return 0
   printf '一致しない\n--- 期待 ---\n%s\n--- 実際 ---\n%s\n' "$2" "$1" >&2
   return 1
 }
