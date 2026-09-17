@@ -39,7 +39,7 @@ jobs:
 
     container:
       # ci.yml の lint ジョブと同じ mise の公式イメージ（選定理由はそちらのコメント）
-      image: ghcr.io/jdx/mise:2026.9.9@sha256:a88f300ef4365494b88f8eefd271bb92ba467d4a41835739a714426207215730
+      image: ghcr.io/jdx/mise:2026.9.10@sha256:e6263d300a50e3a28f1a3cef3969ab171d4dfa5f3bccdf868ae53c8dbf41685f
 
     outputs:
       drift: ${{ steps.check.outputs.drift }}
@@ -49,39 +49,25 @@ jobs:
         with:
           persist-credentials: false
 
-      # このジョブで要るのは lychee だけなので、mise.toml の全ツールではなくこれだけを入れる
+      # このジョブで要るのは lychee だけなので、mise.toml の全ツールではなくこれだけを入れる。
+      # $GITHUB_PATH に書いた PATH は同じジョブの後続のアクションにも効くため、
+      # 次のローカルアクションの中からも lychee を呼べる。
+      # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-system-path
       - name: lycheeを導入
         run: |
           mise install aqua:lycheeverse/lychee
           mise bin-paths >> "$GITHUB_PATH"
 
-      # 検査対象と除外は .github/lychee.toml に置いている。-c を省略したときに読まれるのは
-      # カレントディレクトリの lychee.toml なので、--config で明示的に渡す。
-      # ここではそれ以外のCI固有の引数だけを渡す。
+      # 検査ロジックは ruleset-drift / settings-drift と同じく、ローカルでも同じ結果を再現できるよう
+      # ./.github/actions/link-check のスクリプトに置いている。lychee に渡す引数と終了コードの扱いはそちら。
+      # 検査対象と除外は action に同梱の .github/actions/link-check/lychee.toml（既定値）。
       #
-      # GITHUB_TOKEN があると github.com へのリクエストが API 経由になり、レート制限で落ちにくくなる。
-      # lychee は環境変数 GITHUB_TOKEN を自動で読むため、引数で渡す必要はない。
-      # https://github.com/lycheeverse/lychee#github-token
-      #
-      # 終了コードは 0=全て成功 / 2=リンク切れあり / 1=入力や実行時の失敗 / 3=設定ファイルの誤り。
-      # リンク切れは drift として通知に回し、それ以外の失敗はこのジョブを落とす。
-      # https://github.com/lycheeverse/lychee#exit-codes
+      # github.token を渡すと github.com へのリクエストが API 経由になり、レート制限で落ちにくくなる。
       - name: リンク切れを検査
         id: check
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          # set -e の下でも終了コードを受け取れるよう、|| で拾う
-          status=0
-          lychee --config .github/lychee.toml --no-progress --format markdown --output report.md . || status=$?
-
-          case "$status" in
-            0) echo "drift=false" >> "$GITHUB_OUTPUT" ;;
-            2) echo "drift=true" >> "$GITHUB_OUTPUT" ;;
-            *) printf 'lychee がリンク切れ以外の理由で失敗しました（終了コード %s）\n' "$status" >&2; exit "$status" ;;
-          esac
+        uses: ./.github/actions/link-check
+        with:
+          github-token: ${{ github.token }}
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -135,8 +121,8 @@ jobs:
 
             - 参照先が移動した: リンクを新しいURLに直すPRを出す
             - 参照先が消えた: 代わりの根拠を示すか、その記述ごと見直す
-            - 一時的な障害・ボット遮断など、URL自体は正しい: `.github/lychee.toml` の `exclude` に理由を書いて足す
+            - 一時的な障害・ボット遮断など、URL自体は正しい: `.github/actions/link-check/lychee.toml` の `exclude` に理由を書いて足す
           completion-criteria: |-
             - [ ] 検査結果の各URLについて、参照先が移動したのか消えたのか一時的な障害かを確認した
-            - [ ] リンクを修正した、または `.github/lychee.toml` に除外理由を書いて足した
+            - [ ] リンクを修正した、または `.github/actions/link-check/lychee.toml` に除外理由を書いて足した
             - [ ] このワークフローを手動実行して成功することを確認した
