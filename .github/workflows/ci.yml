@@ -103,7 +103,8 @@ jobs:
       #
       # -x は source した先のファイルも読む。既定ではコマンドラインで渡したファイルしか追わないため、
       # scripts/lib/bats-helpers.bash のような共通ヘルパで定義された変数・関数を把握できない。
-      # このリポジトリには source / load で他のファイルを読むスクリプトが7つある。
+      # このリポジトリでは bats のテストが軒並み load で共通ヘルパを読むため、-x が無いとその分だけ検査が緩くなる
+      # （対象の件数はテストが増えるたびに古くなるので書かない）。
       #
       # 対象は *.sh だけでなく *.bash（bats の共通ヘルパ）と *.bats（テスト本体）も含める。
       # -x で source 先を読めても、読み込み先のファイル自体が検査対象になるわけではないため。
@@ -127,10 +128,10 @@ jobs:
 
       # 上の2つの検査は git 管理下の *.sh / *.bash / *.bats が対象で、action.yml の run: に直接書いた
       # シェルは含まれない。actionlint も対象は .github/workflows だけ。
-      # 抽出して shellcheck に渡す手順はスクリプト側にある（scripts/check-action-shell.sh）。
+      # 抽出して shellcheck に渡す手順はスクリプト側にある（.github/scripts/check-action-shell.sh）。
       - name: composite actionのrunを検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
-        run: scripts/check-action-shell.sh
+        run: .github/scripts/check-action-shell.sh
 
       - name: JSONの構文を検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
@@ -142,8 +143,8 @@ jobs:
       # 構文が壊れていれば整形できないため、この1つで構文の検査も兼ねる。
       # https://taplo.tamasfe.dev/cli/usage/formatting.html
       #
-      # 未検証: taplo 0.10.0 の macOS 向けビルドは手元で panic して動かせなかった（mise.toml のコメント）。
-      # linux で動くこと、このリポジトリの TOML が既に taplo の整形どおりであることは、この実行が初回の確認になる。
+      # 手元の macOS では動かせないことがある（原因の見当は mise.toml のコメント）。
+      # ランナーの linux では動く。
       - name: TOMLを検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: git ls-files -z '*.toml' | xargs -0 --no-run-if-empty taplo fmt --check --diff
@@ -238,7 +239,7 @@ jobs:
       # ruleset-drift.yml が見ているのは定義ファイルと GitHub 上のルールセットで、こことは別方向。
       - name: 必須チェックの名前とジョブ名の一致を検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
-        run: scripts/check-required-checks.sh
+        run: .github/scripts/check-required-checks.sh
 
       # hadolint は Dockerfile 専用の検査。命令の書き方（タグの固定、apt のバージョン指定、不要なレイヤなど）に加え、
       # shellcheck を内蔵していて RUN の中身も見る（PATH 上の shellcheck には依存しない）。
@@ -374,7 +375,7 @@ jobs:
         if: ${{ !cancelled() && steps.tools.outcome == 'success' && github.event_name == 'pull_request' }}
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: scripts/check-pr-title.sh "$PR_TITLE"
+        run: .github/scripts/check-pr-title.sh "$PR_TITLE"
 
   # .github/renovate.json5 はコメントを書けるよう JSON5 にしており、lint ジョブの jq 検査の対象外。
   # Renovate 同梱の validator で、スキーマとプリセット参照の妥当性まで検査する。
@@ -438,6 +439,8 @@ jobs:
           mise bin-paths >> "$GITHUB_PATH"
 
       - name: シェルスクリプトをテスト
-        # composite action のテストは各 action の test/ にある。
-        # 共通ヘルパ（scripts/lib/bats-helpers.bash）は各 test/helper.bash が load で読むため、ここには並べない
-        run: bats scripts/test .github/actions/*/test
+        # テストは検査対象と同じ場所の test/ に置いている。
+        # scripts/test は手元で実行する運用スクリプト、.github/scripts/test と .github/actions/*/test は
+        # CI が実行する検査のテスト。
+        # 共通ヘルパ（scripts/lib/bats-helpers.bash）は各テストが load で読むため、ここには並べない
+        run: bats scripts/test .github/scripts/test .github/actions/*/test

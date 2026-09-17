@@ -7,12 +7,12 @@
 # SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
-# scripts/check-pr-title.sh のテスト。
+# .github/scripts/check-pr-title.sh のテスト。
 #
 # 外部には触れず、引数として渡したタイトルに対する判定だけを観測する。
 # 見ているのは「どのタイトルを通し、どのタイトルをどんな理由で落とすか」。
 
-load ../lib/bats-helpers
+load ../../../scripts/lib/bats-helpers
 
 setup() {
   SCRIPT="${BATS_TEST_DIRNAME}/../check-pr-title.sh"

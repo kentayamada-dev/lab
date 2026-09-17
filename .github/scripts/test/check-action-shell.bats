@@ -7,14 +7,14 @@
 # SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
-# scripts/check-action-shell.sh のテスト。
+# .github/scripts/check-action-shell.sh のテスト。
 #
 # 外部には触れない。action.yml を一時ディレクトリに作り、
 # 「run: の中身を shellcheck に届けているか」「届けられないときに黙って成功しないか」を観測する。
 # 検査そのものには実物の shellcheck を使う
 # （何を指摘するかはツールの仕事で、ここで固定したいのは渡し方のほう）。
 
-load ../lib/bats-helpers
+load ../../../scripts/lib/bats-helpers
 
 setup() {
   SCRIPT="${BATS_TEST_DIRNAME}/../check-action-shell.sh"
@@ -160,7 +160,7 @@ YAML
 }
 
 @test "引数を省略するとこのリポジトリの composite action を検査して通る" {
-  cd "${BATS_TEST_DIRNAME}/../.." || exit
+  cd "${BATS_TEST_DIRNAME}/../../.." || exit
 
   run -0 "${SCRIPT}"
 }

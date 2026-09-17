@@ -49,7 +49,7 @@
 "aqua:jqlang/jq" = "1.8.2"
 
 # YAML から値を取り出す道具。検査そのものではなく、検査スクリプトが使う。
-# scripts/check-action-shell.sh が action.yml の run: を、scripts/check-required-checks.sh が
+# .github/scripts/check-action-shell.sh が action.yml の run: を、.github/scripts/check-required-checks.sh が
 # ci.yml のジョブ名を取り出すのに使っている。
 # jq と違って「結果が版で変わる検査ツール」ではないが、mise の公式イメージに同梱されておらず、
 # ランナーにも無い（ジョブがコンテナの中で動くため）ので、ここで固定して入れる
@@ -72,11 +72,12 @@
 # mise.toml の構文エラーは CI の mise install が落ちて気づけるが、lychee.toml は
 # link-check.yml の定期実行まで気づけず、整形の揺れはどちらも検査されない。
 #
-# 注意: この版の挙動を手元（macOS）で確認できていない（未検証）。
-# taplo 0.10.0 の darwin-aarch64 ビルドは、起動時に macOS のシステム設定を読みにいく箇所で
-# panic して何もせず終わる（"Attempted to create a NULL object." / dynamic_store.rs:154。
-# サンドボックス環境で実測）。CI は linux なのでこの経路には入らないと考えているが、
-# 実際に動くことと mise.toml が既に taplo の整形どおりかは、最初の CI 実行で確かめる。
+# CI（linux/arm64）で動くことは確認済み（#24 の Lint ジョブの「TOMLを検査」が成功）。
+#
+# 一方、手元の macOS で試したときは、起動時に macOS のシステム設定を読みにいく箇所で panic して
+# 何もせず終わった（"Attempted to create a NULL object." / dynamic_store.rs:154。
+# ただし試したのがシステム設定へのアクセスを制限したサンドボックス下だったため、
+# 制限の無い macOS でも同じになるかは未確認）。手元で TOML を検査できないときはこれが原因の候補。
 "aqua:tamasfe/taplo" = "0.10.0"
 
 # GitHub Actions のワークフロー検査。

@@ -2,7 +2,7 @@
 #
 # composite action の run: に書いたシェルスクリプトを shellcheck で検査する。
 #
-#   usage: scripts/check-action-shell.sh [action.yml ...]
+#   usage: .github/scripts/check-action-shell.sh [action.yml ...]
 #
 # 引数を省略すると .github/actions/*/action.yml を対象にする。
 #

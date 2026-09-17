@@ -2,7 +2,7 @@
 #
 # PRのタイトルが CLAUDE.md の規約（Conventional Commits 形式・内容は日本語）に沿っているか検査する。
 #
-#   usage: scripts/check-pr-title.sh "<title>"
+#   usage: .github/scripts/check-pr-title.sh "<title>"
 #
 # 検査するのはコミットメッセージではなくPRのタイトル。
 # .github/rulesets/main.json の pull_request ルールがマージ方式を squash だけに限っているため、

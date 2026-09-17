@@ -2,7 +2,7 @@
 #
 # ルールセットが必須にしているステータスチェックの名前と、CI のジョブ名が一致しているか検査する。
 #
-#   usage: scripts/check-required-checks.sh [ruleset.json] [workflow.yml]
+#   usage: .github/scripts/check-required-checks.sh [ruleset.json] [workflow.yml]
 #
 # ステータスチェックの名前はジョブIDではなくジョブの name になる（.github/workflows/ci.yml のコメント）。
 # そのため ci.yml の name を変えてルールセットを直し忘れると、要求された名前のチェックが永久に現れず、

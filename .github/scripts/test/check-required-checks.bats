@@ -7,12 +7,12 @@
 # SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
-# scripts/check-required-checks.sh のテスト。
+# .github/scripts/check-required-checks.sh のテスト。
 #
 # 外部には触れない。ルールセットの定義ファイルとワークフローを一時ディレクトリに作り、
 # 「どの組み合わせを一致と見なし、どの食い違いをどちら向きの指摘として出すか」を観測する。
 
-load ../lib/bats-helpers
+load ../../../scripts/lib/bats-helpers
 
 setup() {
   SCRIPT="${BATS_TEST_DIRNAME}/../check-required-checks.sh"
@@ -89,7 +89,7 @@ write_workflow() {
 @test "引数を省略するとこのリポジトリの定義ファイルとCIを比較して一致する" {
   # 既定の対象が実在のファイルを指していることと、現状が一致していることの両方を見る。
   # ci.yml のジョブ名を変えてルールセットを直し忘れると、この検査が落ちる
-  cd "${BATS_TEST_DIRNAME}/../.." || exit
+  cd "${BATS_TEST_DIRNAME}/../../.." || exit
 
   run -0 "${SCRIPT}"
 }
