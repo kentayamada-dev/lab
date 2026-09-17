@@ -23,7 +23,10 @@ set -euo pipefail
 # この挙動でアクション同梱の設定にフォールバックしている。
 CONFIG_FILE="${1:-"$(dirname "$0")/lychee.toml"}"
 
-die() { printf 'エラー: %s\n' "$*" >&2; exit 2; }
+die() {
+  printf 'エラー: %s\n' "$*" >&2
+  exit 2
+}
 
 command -v lychee >/dev/null 2>&1 || die "lychee が見つからない"
 
@@ -46,6 +49,9 @@ lychee --config "${CONFIG_FILE}" --no-progress --format markdown --output "${wor
 # リンク切れ以外で失敗したときの中身は信用できないため流さない。
 case "${status}" in
   0) cat "${work}/report.md" ;;
-  2) cat "${work}/report.md"; exit 1 ;;
+  2)
+    cat "${work}/report.md"
+    exit 1
+    ;;
   *) die "lychee がリンク切れ以外の理由で失敗した（終了コード ${status}）" ;;
 esac

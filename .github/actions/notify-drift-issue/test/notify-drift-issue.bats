@@ -21,7 +21,7 @@ setup() {
 
   export REPORT_FILE="${BATS_TEST_TMPDIR}/report.md"
   export GITHUB_STEP_SUMMARY="${BATS_TEST_TMPDIR}/summary.md"
-  : > "${GITHUB_STEP_SUMMARY}"
+  : >"${GITHUB_STEP_SUMMARY}"
 
   export DRIFT=true
   export ISSUE_TITLE="chore: 設定が一致していない"
@@ -73,7 +73,7 @@ created_hash() { grep -oE '[0-9a-f]{64}' "${GH_BODY_DIR}/create.md"; }
 @test "drift がなくレポートが空なら、サマリーは見出しだけで空のコードフェンスを載せない" {
   export DRIFT=false
   export REPORT_FORMAT=diff
-  : > "${REPORT_FILE}"
+  : >"${REPORT_FILE}"
 
   run -0 "${SCRIPT}"
 
@@ -141,7 +141,10 @@ created_hash() { grep -oE '[0-9a-f]{64}' "${GH_BODY_DIR}/create.md"; }
   last_line="$(tail -n 1 "${GH_BODY_DIR}/create.md")"
   case "${last_line}" in
     "<!-- drift-hash: "[0-9a-f]*" -->") ;;
-    *) printf 'ハッシュ行が末尾に無い: %s\n' "${last_line}" >&2; return 1 ;;
+    *)
+      printf 'ハッシュ行が末尾に無い: %s\n' "${last_line}" >&2
+      return 1
+      ;;
   esac
   assert_equal "$(created_hash | wc -c | tr -d ' ')" 65
 }
@@ -196,7 +199,10 @@ created_hash() { grep -oE '[0-9a-f]{64}' "${GH_BODY_DIR}/create.md"; }
   run -0 "${SCRIPT}"
   second="$(created_hash)"
 
-  [[ "${second}" != "${first}" ]] || { echo "先頭行が違うのにハッシュが同じ: ${first}" >&2; return 1; }
+  [[ "${second}" != "${first}" ]] || {
+    echo "先頭行が違うのにハッシュが同じ: ${first}" >&2
+    return 1
+  }
 }
 
 @test "指摘内容が変われば、digest-skip-lines を指定していてもハッシュは変わる" {
@@ -210,7 +216,10 @@ created_hash() { grep -oE '[0-9a-f]{64}' "${GH_BODY_DIR}/create.md"; }
   run -0 "${SCRIPT}"
   second="$(created_hash)"
 
-  [[ "${second}" != "${first}" ]] || { echo "指摘内容が違うのにハッシュが同じ: ${first}" >&2; return 1; }
+  [[ "${second}" != "${first}" ]] || {
+    echo "指摘内容が違うのにハッシュが同じ: ${first}" >&2
+    return 1
+  }
 }
 
 @test "任意の文言を渡さなくても、既定の文言で issue 本文を組める" {
@@ -228,7 +237,7 @@ created_hash() { grep -oE '[0-9a-f]{64}' "${GH_BODY_DIR}/create.md"; }
 }
 
 @test "レポートが空でも drift があれば issue を作成する" {
-  : > "${REPORT_FILE}"
+  : >"${REPORT_FILE}"
 
   run -0 "${SCRIPT}"
 
@@ -249,7 +258,7 @@ created_hash() { grep -oE '[0-9a-f]{64}' "${GH_BODY_DIR}/create.md"; }
 @test "既存 issue の本文に同じハッシュがあれば、追記も作成もしない" {
   run -0 "${SCRIPT}"
   hash="$(created_hash)"
-  : > "${GH_LOG}"
+  : >"${GH_LOG}"
 
   GH_ISSUE_LIST_JSON="$(issue_list_json $'42\tchore: 設定が一致していない')"
   export GH_ISSUE_LIST_JSON
@@ -285,7 +294,7 @@ created_hash() { grep -oE '[0-9a-f]{64}' "${GH_BODY_DIR}/create.md"; }
 @test "本文のハッシュが一致しても、より後のコメントに別のハッシュがあれば追記する" {
   run -0 "${SCRIPT}"
   hash="$(created_hash)"
-  : > "${GH_LOG}"
+  : >"${GH_LOG}"
 
   GH_ISSUE_LIST_JSON="$(issue_list_json $'42\tchore: 設定が一致していない')"
   export GH_ISSUE_LIST_JSON
@@ -301,7 +310,7 @@ created_hash() { grep -oE '[0-9a-f]{64}' "${GH_BODY_DIR}/create.md"; }
 @test "本文のハッシュが違っても、最後のコメントのハッシュが一致すればスキップする" {
   run -0 "${SCRIPT}"
   hash="$(created_hash)"
-  : > "${GH_LOG}"
+  : >"${GH_LOG}"
 
   GH_ISSUE_LIST_JSON="$(issue_list_json $'42\tchore: 設定が一致していない')"
   export GH_ISSUE_LIST_JSON

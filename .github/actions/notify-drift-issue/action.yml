@@ -92,7 +92,7 @@ runs:
         ISSUE_DESCRIPTION: ${{ inputs.issue-description }}
         ISSUE_EXTRA_SECTIONS: ${{ inputs.issue-extra-sections }}
         COMPLETION_CRITERIA: ${{ inputs.completion-criteria }}
-      run: '"$GITHUB_ACTION_PATH/notify-drift-issue.sh"'
+      run: '"${GITHUB_ACTION_PATH}/notify-drift-issue.sh"'
 
     # issue を作った上でジョブも失敗させ、Actionsタブでも状態が分かるようにする。
     # ステップの if: で inputs を参照できるかは公式ドキュメントで確認できなかったため、run: 内で判定する
@@ -100,7 +100,7 @@ runs:
       env:
         DRIFT: ${{ inputs.drift }}
       run: |
-        if [ "$DRIFT" = "true" ]; then
+        if [[ "${DRIFT}" = "true" ]]; then
           echo "drift があるためジョブを失敗させます"
           exit 1
         fi

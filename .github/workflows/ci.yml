@@ -115,9 +115,38 @@ jobs:
           git ls-files -z '*.sh' '*.bash' '*.bats' |
             xargs -0 --no-run-if-empty shellcheck -o all -x
 
+      # shfmt は整形だけを見る。shellcheck（書き方の誤り）とも editorconfig-checker（文字コード・改行・
+      # インデント幅・末尾空白）とも守備範囲が重ならず、1行にまとめた関数定義・case の各節のインデント・
+      # 継続行の位置といった層をここで埋める。
+      # -d は差分を出して終了コード1で落ちる（-l はファイル名だけ、-w は書き換え）。
+      # 整形の指定はフラグではなく .editorconfig に置いている（理由はそのファイルのコメント）ため、
+      # ここで整形フラグを渡してはいけない。1つでも渡すと .editorconfig を読まなくなる。
+      - name: シェルスクリプトの整形を検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: git ls-files -z '*.sh' '*.bash' '*.bats' | xargs -0 --no-run-if-empty shfmt -d
+
+      # 上の2つの検査は git 管理下の *.sh / *.bash / *.bats が対象で、action.yml の run: に直接書いた
+      # シェルは含まれない。actionlint も対象は .github/workflows だけ。
+      # 抽出して shellcheck に渡す手順はスクリプト側にある（scripts/check-action-shell.sh）。
+      - name: composite actionのrunを検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: scripts/check-action-shell.sh
+
       - name: JSONの構文を検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: git ls-files -z '*.json' | xargs -0 --no-run-if-empty -n1 jq empty
+
+      # TOML の構文と整形を検査する。mise.toml の構文エラーは上の「検査ツールを導入」で落ちて気づけるが、
+      # lychee.toml は link-check.yml の定期実行まで気づけず、整形の揺れはどちらも誰も見ていなかった。
+      # fmt --check は書き換えずに判定だけする（--diff を付けるとどこが違うかも出る）。
+      # 構文が壊れていれば整形できないため、この1つで構文の検査も兼ねる。
+      # https://taplo.tamasfe.dev/cli/usage/formatting.html
+      #
+      # 未検証: taplo 0.10.0 の macOS 向けビルドは手元で panic して動かせなかった（mise.toml のコメント）。
+      # linux で動くこと、このリポジトリの TOML が既に taplo の整形どおりであることは、この実行が初回の確認になる。
+      - name: TOMLを検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: git ls-files -z '*.toml' | xargs -0 --no-run-if-empty taplo fmt --check --diff
 
       # 検査内容は .github/ci.yamllint.yml に置いている（default プリセット＋ line-length の上限と
       # truthy の調整。それぞれの理由と、リポジトリ直下ではなく .github/ に置いている理由は
@@ -203,6 +232,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: zizmor --persona auditor --strict-collection --color never --no-progress .
 
+      # ステータスチェックの名前はジョブの name になるため、name とルールセットの required_status_checks は
+      # 常に一致していなければならない（このファイル冒頭のコメント）。ずれても両方のファイルは単体では正しく、
+      # CI も緑のまま進むので、突き合わせる検査をここに置く。
+      # ruleset-drift.yml が見ているのは定義ファイルと GitHub 上のルールセットで、こことは別方向。
+      - name: 必須チェックの名前とジョブ名の一致を検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: scripts/check-required-checks.sh
+
       # hadolint は Dockerfile 専用の検査。命令の書き方（タグの固定、apt のバージョン指定、不要なレイヤなど）に加え、
       # shellcheck を内蔵していて RUN の中身も見る（PATH 上の shellcheck には依存しない）。
       # https://github.com/hadolint/hadolint/blob/master/README.md
@@ -256,6 +293,18 @@ jobs:
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: markdownlint-cli2 --config .github/ci.markdownlint-cli2.yaml
 
+      # リンク切れのうち、リポジトリ内のファイルを指すものだけを PR の時点で検査する。
+      # 外部URLの検査は link-check.yml が毎日まとめて行い、必須チェックにはしていない
+      # （外部サイトの不調やレート制限でマージが止まるため。理由はそのファイルのコメント）。
+      # --offline はネットワークへのリクエストを遮断してローカルのファイル参照だけを見るため、
+      # その懸念に当たらない。README からスクリプトへのリンクのように、ファイルを移動・改名したときに
+      # 壊れるリンクを翌日の issue ではなく PR で止められる。
+      # 設定は link-check.yml と同じものを使う（対象と除外は .github/actions/link-check/lychee.toml）。
+      # 終了コードはリンク切れがあれば2、無ければ0（0.24.2 で実測）。
+      - name: ローカルファイルへのリンク切れを検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: lychee --offline --config .github/actions/link-check/lychee.toml --no-progress .
+
       # betterleaks は秘密情報の検査。GitHub のシークレットスキャンとプッシュ保護
       # （scripts/apply-repo-settings.sh で有効化）が提携プロバイダのトークンを push の時点で弾くのに対し、
       # こちらは提携パターン以外の資格情報も既定ルールで検出し、必須チェックとしてマージを止める。
@@ -305,6 +354,27 @@ jobs:
       - name: 依存関係の脆弱性を検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: osv-scanner scan source -r --allow-no-lockfiles .
+
+      # PRのタイトルが CLAUDE.md の規約（Conventional Commits 形式・内容は日本語）に沿っているか検査する。
+      # ルールセットがマージ方式を squash だけに限っているため、main に残るコミットの件名になるのは
+      # PRのタイトル。ブランチ上の個々のコミットは squash されて消えるので、検査する層はここになる。
+      #
+      # push（main）では PR が無くタイトルも取れないため、pull_request のときだけ動かす。
+      # 必須チェックは PR に対して評価されるので、このステップを含む Lint ジョブが必須である限り、
+      # 規約に沿わないタイトルのままではマージできない。
+      #
+      # タイトルは env 経由でスクリプトに渡す。run: に ${{ }} を直接書くと、タイトルに仕込んだ文字列が
+      # そのままシェルとして解釈されうる（zizmor の template-injection / CodeQL の actions/code-injection）。
+      #
+      # Renovate が作るPRのタイトルは .github/renovate.json5 で日本語に揃えているが、
+      # 設定の自動マイグレーション（config:best-practices に含まれる :configMigration）が作るPRの
+      # タイトルまで日本語になるかは未確認。英語のまま作られた場合はこの検査が落ちるので、
+      # そのときは手でタイトルを直す（自動マージが止まるだけで、他への影響は無い）。
+      - name: PRのタイトルを検査
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' && github.event_name == 'pull_request' }}
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: scripts/check-pr-title.sh "$PR_TITLE"
 
   # .github/renovate.json5 はコメントを書けるよう JSON5 にしており、lint ジョブの jq 検査の対象外。
   # Renovate 同梱の validator で、スキーマとプリセット参照の妥当性まで検査する。
@@ -357,12 +427,14 @@ jobs:
         with:
           persist-credentials: false
 
-      # このジョブで要るのは bats と jq だけなので、mise.toml の全ツールではなくこの2つだけを入れる。
-      # テストは外部へ出る gh を PATH の先頭に置いたスタブへ差し替える一方、jq は実物を使う
-      # （scripts/test/helper.bash）。curl・diff・sha256sum はイメージ同梱のものを使う。
-      - name: batsとjqを導入
+      # このジョブで要るのは bats と、テストが実物を使うツールだけなので、mise.toml の全ツールは入れない。
+      # テストは外部へ出る gh を PATH の先頭に置いたスタブへ差し替える一方、
+      # jq・yq・shellcheck は実物を使う（scripts/test/helper.bash と scripts/test/check-*.bats）。
+      # yq は check-required-checks / check-action-shell が、shellcheck は check-action-shell が呼ぶ。
+      # curl・diff・sha256sum はイメージ同梱のものを使う。
+      - name: batsと検査に使うツールを導入
         run: |
-          mise install aqua:bats-core/bats-core aqua:jqlang/jq
+          mise install aqua:bats-core/bats-core aqua:jqlang/jq aqua:mikefarah/yq aqua:koalaman/shellcheck
           mise bin-paths >> "$GITHUB_PATH"
 
       - name: シェルスクリプトをテスト

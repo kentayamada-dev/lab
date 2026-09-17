@@ -34,9 +34,26 @@
 # シェルスクリプトの検査。actionlint も run: の中身を検査する際に PATH 上の shellcheck を使う
 "aqua:koalaman/shellcheck" = "0.11.0"
 
+# シェルスクリプトの整形の検査。shellcheck が見るのは書き方の誤りで、整形は見ない。
+# editorconfig-checker も文字コード・改行・インデント幅・末尾空白までで、
+# 「1行にまとめた関数定義」「case の各節のインデント」「継続行の位置」は誰も見ていなかった。
+# 整形の指定は .editorconfig に置く（shfmt は整形フラグが1つも無いときだけ .editorconfig を読む。
+# 理由と switch_case_indent を有効にしている根拠はそのファイルのコメント）。
+# .bats は shfmt が拡張子から bats 方言と判別する（-ln bats を明示した場合と出力が一致することを
+# v3.14.1 で実測）ため、shellcheck のような方言の指定は要らない。
+# https://github.com/mvdan/sh/blob/master/cmd/shfmt/shfmt.1.scd
+"aqua:mvdan/sh" = "3.14.1"
+
 # JSON の構文検査（jq empty）と、bats テストが実物を使う jq（scripts/test/helper.bash は gh だけをスタブに
 # 差し替え、jq は実物を呼ぶ）。ランナー上で動く notify-drift-issue の jq はランナー同梱のものを使う
 "aqua:jqlang/jq" = "1.8.2"
+
+# YAML から値を取り出す道具。検査そのものではなく、検査スクリプトが使う。
+# scripts/check-action-shell.sh が action.yml の run: を、scripts/check-required-checks.sh が
+# ci.yml のジョブ名を取り出すのに使っている。
+# jq と違って「結果が版で変わる検査ツール」ではないが、mise の公式イメージに同梱されておらず、
+# ランナーにも無い（ジョブがコンテナの中で動くため）ので、ここで固定して入れる
+"aqua:mikefarah/yq" = "4.53.6"
 
 # YAML の構文検査。PyPI 配布のため pipx バックエンドで入れる。mise はこのバックエンドの導入に uv を使い、
 # uv が無ければ pipx にフォールバックするが、mise の公式イメージにはどちらも入っていないため uv も固定する。
@@ -49,6 +66,18 @@
 # https://mise.jdx.dev/dev-tools/backends/pypi.html
 "aqua:astral-sh/uv" = "0.12.15"
 "pipx:yamllint" = "1.38.0"
+
+# TOML の検査。このリポジトリの TOML は mise.toml 自身と .github/actions/link-check/lychee.toml で、
+# JSON（jq）・YAML（yamllint）・Markdown（markdownlint）と違って構文も整形も誰も見ていなかった。
+# mise.toml の構文エラーは CI の mise install が落ちて気づけるが、lychee.toml は
+# link-check.yml の定期実行まで気づけず、整形の揺れはどちらも検査されない。
+#
+# 注意: この版の挙動を手元（macOS）で確認できていない（未検証）。
+# taplo 0.10.0 の darwin-aarch64 ビルドは、起動時に macOS のシステム設定を読みにいく箇所で
+# panic して何もせず終わる（"Attempted to create a NULL object." / dynamic_store.rs:154。
+# サンドボックス環境で実測）。CI は linux なのでこの経路には入らないと考えているが、
+# 実際に動くことと mise.toml が既に taplo の整形どおりかは、最初の CI 実行で確かめる。
+"aqua:tamasfe/taplo" = "0.10.0"
 
 # GitHub Actions のワークフロー検査。
 # 公式 Docker イメージは shellcheck と pyflakes を同梱していたが、こちらはバイナリのみなので、

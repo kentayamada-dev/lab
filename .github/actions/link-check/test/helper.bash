@@ -22,7 +22,7 @@ load ../../../../scripts/lib/bats-helpers
 # 本物の lychee はリンク切れの有無にかかわらずレポートを書くため（0.24.2 で実測）、
 # スタブも終了コードによらず書く。
 install_lychee_stub() {
-  cat > "${STUB_BIN}/lychee" <<'STUB'
+  cat >"${STUB_BIN}/lychee" <<'STUB'
 #!/usr/bin/env bash
 set -uo pipefail
 
@@ -45,7 +45,7 @@ STUB
 
 # lychee が書いたことにするレポートを標準入力から作る
 write_report() {
-  cat > "${STUB_FIXTURES}/report.md"
+  cat >"${STUB_FIXTURES}/report.md"
 }
 
 # 設定ファイルを書き、そのパスを出力する。中身はスタブが読まないので空でよいが、
@@ -53,7 +53,7 @@ write_report() {
 write_config() {
   local path="${1:-${BATS_TEST_TMPDIR}/lychee.toml}"
   mkdir -p "$(dirname "${path}")"
-  printf 'extensions = ["md"]\n' > "${path}"
+  printf 'extensions = ["md"]\n' >"${path}"
   printf '%s' "${path}"
 }
 
@@ -71,7 +71,7 @@ assert_arg() {
     if [[ "${line}" = "$1" ]]; then
       return 0
     fi
-  done < "${STUB_FIXTURES}/args.txt"
+  done <"${STUB_FIXTURES}/args.txt"
 
   printf '引数として渡されていない: %s\n--- 実際の引数 ---\n%s\n' "$1" "$(lychee_args)" >&2
   return 1

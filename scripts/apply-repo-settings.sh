@@ -12,9 +12,12 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 RULESET_DIR="${ROOT}/.github/rulesets"
 
-log()  { printf '\n==> %s\n' "$*"; }
+log() { printf '\n==> %s\n' "$*"; }
 info() { printf '    %s\n' "$*"; }
-die()  { printf 'エラー: %s\n' "$*" >&2; exit 1; }
+die() {
+  printf 'エラー: %s\n' "$*" >&2
+  exit 1
+}
 
 # パスセグメントとして安全な形にエスケープする（"good first issue" など空白を含むラベル名用）
 uri_escape() { jq -rn --arg s "$1" '$s | @uri'; }
@@ -27,8 +30,8 @@ command -v gh >/dev/null 2>&1 || die "gh が見つからない。https://cli.git
 command -v jq >/dev/null 2>&1 || die "jq が見つからない。brew install jq などで導入する"
 gh auth status >/dev/null 2>&1 || die "gh が未認証。gh auth login を実行する"
 
-repo_json="$(gh repo view --json nameWithOwner,visibility,viewerPermission)" \
-  || die "リポジトリを特定できない。gitリモートを確認する"
+repo_json="$(gh repo view --json nameWithOwner,visibility,viewerPermission)" ||
+  die "リポジトリを特定できない。gitリモートを確認する"
 
 REPO="$(jq -r '.nameWithOwner' <<<"${repo_json}")"
 visibility="$(jq -r '.visibility' <<<"${repo_json}")"

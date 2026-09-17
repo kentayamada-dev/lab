@@ -23,7 +23,10 @@
 # shellcheck disable=SC2154
 set -euo pipefail
 
-die() { printf 'エラー: %s\n' "$*" >&2; exit 2; }
+die() {
+  printf 'エラー: %s\n' "$*" >&2
+  exit 2
+}
 
 for cmd in gh jq; do
   command -v "${cmd}" >/dev/null 2>&1 || die "${cmd} が見つからない"
@@ -75,8 +78,8 @@ print_report() {
 # 同じタイトルの open issue のうち最初の1件の番号を出力する（無ければ空）。
 # タイトル検索は日本語やコロンの扱いが不安定なので、一覧を取得して完全一致で判定する
 find_issue() {
-  gh issue list --state open --label "${ISSUE_LABEL}" --limit 100 --json number,title \
-    | jq -r --arg t "${ISSUE_TITLE}" '[.[] | select(.title == $t) | .number] | first // empty'
+  gh issue list --state open --label "${ISSUE_LABEL}" --limit 100 --json number,title |
+    jq -r --arg t "${ISSUE_TITLE}" '[.[] | select(.title == $t) | .number] | first // empty'
 }
 
 # ---- ジョブサマリー -------------------------------------------------------------------------
@@ -95,7 +98,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         print_report
       fi
     fi
-  } >> "${GITHUB_STEP_SUMMARY}"
+  } >>"${GITHUB_STEP_SUMMARY}"
 fi
 
 number="$(find_issue)"
@@ -124,8 +127,8 @@ marker="<!-- drift-hash: ${digest} -->"
 if [[ -n "${number}" ]]; then
   # 本文とコメントのうち最後に記録されたハッシュが、前回通知した検査結果。
   # 本文が無い issue では body が null になるため、文字列だけを対象にする
-  last="$(gh issue view "${number}" --json body,comments \
-    | jq -r '
+  last="$(gh issue view "${number}" --json body,comments |
+    jq -r '
       [.body, .comments[].body]
       | map(select(type == "string") | capture("<!-- drift-hash: (?<h>[0-9a-f]{64}) -->").h)
       | last // empty
@@ -144,7 +147,7 @@ if [[ -n "${number}" ]]; then
     print_report
     echo
     echo "${marker}"
-  } > "${work}/comment_body.md"
+  } >"${work}/comment_body.md"
 
   gh issue comment "${number}" --body-file "${work}/comment_body.md"
   printf 'issue #%s に追記しました\n' "${number}"
@@ -175,7 +178,7 @@ fi
   printf '%s\n' "${COMPLETION_CRITERIA:-- [ ] drift を解消した}"
   echo
   echo "${marker}"
-} > "${work}/issue_body.md"
+} >"${work}/issue_body.md"
 
 gh issue create --title "${ISSUE_TITLE}" --body-file "${work}/issue_body.md" --label "${ISSUE_LABEL}"
 echo "issueを作成しました"

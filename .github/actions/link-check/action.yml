@@ -43,10 +43,10 @@ runs:
         set -euo pipefail
 
         status=0
-        "$GITHUB_ACTION_PATH/check-links.sh" "$CONFIG_FILE" > "$REPORT_FILE" || status=$?
+        "${GITHUB_ACTION_PATH}/check-links.sh" "${CONFIG_FILE}" > "${REPORT_FILE}" || status=$?
 
-        case "$status" in
-          0) echo "drift=false" >> "$GITHUB_OUTPUT" ;;
-          1) echo "drift=true" >> "$GITHUB_OUTPUT" ;;
-          *) cat "$REPORT_FILE"; exit "$status" ;;
+        case "${status}" in
+          0) echo "drift=false" >> "${GITHUB_OUTPUT}" ;;
+          1) echo "drift=true" >> "${GITHUB_OUTPUT}" ;;
+          *) cat "${REPORT_FILE}"; exit "${status}" ;;
         esac
