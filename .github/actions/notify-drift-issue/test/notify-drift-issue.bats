@@ -1,4 +1,6 @@
 #!/usr/bin/env bats
+# bats の shebang は shellcheck が方言を判別できないため明示する
+# shellcheck shell=bash
 #
 # notify-drift-issue.sh のテスト。
 #
