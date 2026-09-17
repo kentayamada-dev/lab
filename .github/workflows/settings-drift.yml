@@ -68,7 +68,7 @@ jobs:
           report-heading: 検査結果
           report-note: 検査結果が変わった場合はコメントで追記されます。
           issue-description: |-
-            定期チェック（`settings-drift.yml`）で、`${{ env.SETTINGS_FILE }}` のキーが公式ドキュメント・公開スキーマと一致しませんでした。
+            定期チェック（`settings-drift.yml`）で、`${{ env.SETTINGS_FILE }}` のキーが公式ドキュメントまたは公開JSONスキーマと一致しない箇所が見つかりました。
             Claude Code 側でキーの削除・改名・スコープ変更があった可能性があります。
           issue-extra-sections: |-
             ## 参照

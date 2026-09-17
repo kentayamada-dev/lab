@@ -116,9 +116,7 @@ jobs:
       # key-duplicates と anchors の検査は yamllint にしか無いため残している。
       - name: YAMLの構文を検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
-        run: |
-          git ls-files -z '*.yml' '*.yaml' |
-            xargs -0 --no-run-if-empty yamllint -c .github/ci.yamllint.yml --strict
+        run: git ls-files -z '*.yml' '*.yaml' | xargs -0 --no-run-if-empty yamllint -c .github/ci.yamllint.yml --strict
 
       # actionlint は GitHub Actions のワークフロー専用の検査で、yamllint では届かない層を見る。
       # 式の型（steps.<id> の参照ミス、関数の引数の数）、ローカルアクションに渡す with: のキー名と必須入力、

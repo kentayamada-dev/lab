@@ -122,7 +122,7 @@ jobs:
 
             - 参照先が移動した: リンクを新しいURLに直すPRを出す
             - 参照先が消えた: 代わりの根拠を示すか、その記述ごと見直す
-            - 一時的な障害・ボット遮断など、URLは正しい: `.github/actions/link-check/lychee.toml` の `exclude` に理由を書いて足す
+            - 一時的な障害・ボット遮断など、URL自体は正しい: `.github/actions/link-check/lychee.toml` の `exclude` に理由を書いて足す
           completion-criteria: |-
             - [ ] 検査結果の各URLについて、参照先が移動したのか消えたのか一時的な障害かを確認した
             - [ ] リンクを修正した、または `.github/actions/link-check/lychee.toml` に除外理由を書いて足した

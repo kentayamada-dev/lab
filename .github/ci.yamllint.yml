@@ -20,14 +20,14 @@
 extends: default
 
 rules:
-  # 日本語のコメントは1行あたりの情報量が英語より少なく、80文字だと説明が細切れになるため100に広げる。
+  # 日本語のコメントは1行あたりの情報量が英語より少なく、80文字だと説明が細切れになるため120に広げる。
   #
   # allow-non-breakable-inline-mappings は、値に空白が無いインラインマッピングを長さ検査から外す。
   # relaxed には入っていたが default には無い。container の
-  # image: ghcr.io/jdx/mise:<版>@sha256:<ダイジェスト> は Renovate が自動更新する行で折り返せず、
-  # これが無いと更新のたびに固定的に失敗する。
+  # image: ghcr.io/renovatebot/renovate:<版>@sha256:<ダイジェスト> は121文字あり、上限を120にしても
+  # 収まらない。Renovate が自動更新する行で折り返しようも無いため、これが無いと更新のたびに固定的に失敗する。
   line-length:
-    max: 100
+    max: 120
     allow-non-breakable-inline-mappings: true
 
   # GitHub Actions のワークフローの on: は、YAML 1.1 では真偽値として解釈される綴り。

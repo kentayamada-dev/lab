@@ -67,7 +67,7 @@ jobs:
           issue-label: maintenance
           summary-drift: ルールセットに差分があります
           summary-ok: ルールセットは定義ファイルと一致しています
-          close-comment: 定期チェックで `${{ env.RULESET_FILE }}` とGitHub上のルールセットが一致したため、自動でcloseしました。
+          close-comment: 定期チェックで `${{ env.RULESET_FILE }}` とGitHub上のルールセットが一致したことを確認したため、自動でcloseしました。
           comment-intro: 差分が前回の通知から変わりました。左が定義ファイル、右がGitHub上の設定です。
           report-heading: 差分
           report-note: 左が定義ファイル、右がGitHub上の設定です。差分が変わった場合はコメントで追記されます。

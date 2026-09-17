@@ -74,8 +74,7 @@ jobs:
       # このワークフローではグローバル設定を RENOVATE_* 環境変数で渡している（アクションがコンテナに引き継ぐ）。
       #
       # renovate-version は Renovate 本体（Docker イメージ）のタグ。既定の "44" だと実行ごとに中身が変わりうるので固定する。
-      # この入力は Renovate の github-actions manager が ghcr.io/renovatebot/renovate の
-      # docker 依存として標準で認識するため、
+      # この入力は Renovate の github-actions manager が ghcr.io/renovatebot/renovate の docker 依存として標準で認識するため、
       # 注記なしで Renovate 自身がバージョンを更新する。
       # digest は付けない。理由は .github/renovate.json5 の uses-with 向け packageRule を参照。
       - name: Renovateを実行
