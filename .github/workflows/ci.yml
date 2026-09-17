@@ -20,9 +20,10 @@ concurrency:
 # name を置くとステータスチェックの名前はジョブIDではなくその name になる
 # （zizmorcore/zizmor の CI で、job_id lint / name Lint のジョブが API 上 "Lint" として
 # 返ることを実測）。.github/rulesets/main.json の required_status_checks の context は
-# こちらに合わせる（Lint / Scripts test / Renovate config）。
+# こちらに合わせる（Lint / PR title / Scripts test / Renovate config）。
 # name を変えるときは ruleset も同時に直して scripts/apply-repo-settings.sh を再実行しないと、
 # 要求された名前のチェックが永久に現れずマージできなくなる。
+# 両者の食い違いは .github/scripts/check-required-checks.sh が lint ジョブの中で検出する。
 #
 # 検査ツールは mise でまとめて導入する。版は mise.toml に固定してあり、手元でも同じ版を再現できる
 # （導入手段を mise に寄せた理由はそのファイルのコメント）。
@@ -356,14 +357,34 @@ jobs:
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: osv-scanner scan source -r --allow-no-lockfiles .
 
-      # PRのタイトルが CLAUDE.md の規約（Conventional Commits 形式・内容は日本語）に沿っているか検査する。
-      # ルールセットがマージ方式を squash だけに限っているため、main に残るコミットの件名になるのは
-      # PRのタイトル。ブランチ上の個々のコミットは squash されて消えるので、検査する層はここになる。
-      #
-      # push（main）では PR が無くタイトルも取れないため、pull_request のときだけ動かす。
-      # 必須チェックは PR に対して評価されるので、このステップを含む Lint ジョブが必須である限り、
-      # 規約に沿わないタイトルのままではマージできない。
-      #
+  # PRのタイトルが CLAUDE.md の規約（Conventional Commits 形式・内容は日本語）に沿っているか検査する。
+  # ルールセットがマージ方式を squash だけに限っているため、main に残るコミットの件名になるのは
+  # PRのタイトル。ブランチ上の個々のコミットは squash されて消えるので、検査する層はここになる。
+  #
+  # このジョブだけ lint に入れず独立させている。他の検査と違ってファイルではなくPRのメタデータが対象で、
+  # mise のツールを1つも使わない（bash と grep だけ）ため、lint のコンテナも mise install も要らない。
+  # 実測で lint は45秒のうち32秒がコンテナ起動とツール導入なので、そこに相乗りするより速く、
+  # タイトルだけ直したときに検査全体を回し直さずに済む。
+  #
+  # push（main）では PR が無くタイトルも取れないため、pull_request のときだけ動かす。
+  # 必須チェックが評価されるのは PR に対してなので、これで足りる。
+  #
+  # ジョブ名を変えるときはルールセットの required_status_checks も直す
+  # （このファイル冒頭のコメント。食い違いは .github/scripts/check-required-checks.sh が検出する）。
+  pr-title:
+    name: PR title
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
       # タイトルは env 経由でスクリプトに渡す。run: に ${{ }} を直接書くと、タイトルに仕込んだ文字列が
       # そのままシェルとして解釈されうる（zizmor の template-injection / CodeQL の actions/code-injection）。
       #
@@ -372,7 +393,6 @@ jobs:
       # タイトルまで日本語になるかは未確認。英語のまま作られた場合はこの検査が落ちるので、
       # そのときは手でタイトルを直す（自動マージが止まるだけで、他への影響は無い）。
       - name: PRのタイトルを検査
-        if: ${{ !cancelled() && steps.tools.outcome == 'success' && github.event_name == 'pull_request' }}
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: .github/scripts/check-pr-title.sh "$PR_TITLE"
