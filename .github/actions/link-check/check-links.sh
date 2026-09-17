@@ -27,7 +27,7 @@ die() { printf 'エラー: %s\n' "$*" >&2; exit 2; }
 
 command -v lychee >/dev/null 2>&1 || die "lychee が見つからない"
 
-[ -f "$CONFIG_FILE" ] || die "$CONFIG_FILE が存在しない"
+[[ -f "${CONFIG_FILE}" ]] || die "${CONFIG_FILE} が存在しない"
 
 # 作業ディレクトリは TMPDIR 配下に明示して作る（既定の一時領域に書けない実行環境があるため）。
 # lychee のレポートは --output でファイルにしか書けないため、ここに書いてから標準出力へ流す。
@@ -40,12 +40,12 @@ trap 'rm -rf "$work"' EXIT
 #
 # set -e の下でも終了コードを受け取れるよう、|| で拾う
 status=0
-lychee --config "$CONFIG_FILE" --no-progress --format markdown --output "$work/report.md" . || status=$?
+lychee --config "${CONFIG_FILE}" --no-progress --format markdown --output "${work}/report.md" . || status=$?
 
 # レポートはリンク切れの有無にかかわらず書かれる（0.24.2 で実測）。
 # リンク切れ以外で失敗したときの中身は信用できないため流さない。
-case "$status" in
-  0) cat "$work/report.md" ;;
-  2) cat "$work/report.md"; exit 1 ;;
+case "${status}" in
+  0) cat "${work}/report.md" ;;
+  2) cat "${work}/report.md"; exit 1 ;;
   *) die "lychee がリンク切れ以外の理由で失敗した（終了コード ${status}）" ;;
 esac

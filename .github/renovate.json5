@@ -34,6 +34,7 @@
   semanticCommits: 'enabled',
   commitMessageAction: '',
   commitMessageTopic: '{{depName}} を',
+  // editorconfig-checker-disable-next-line
   commitMessageExtra: '{{#if isMajor}}v{{{newMajor}}}{{else}}{{#if isSingleVersion}}v{{{newVersion}}}{{else}}{{{newValue}}}{{/if}}{{/if}} に更新',
   // 既定（auto）だと semanticCommitType が小文字のとき件名全体を小文字化し、depName の大文字（owner 名など）が潰れる
   commitMessageLowerCase: 'never',

@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
+# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
+# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
+# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
 # check-ruleset-drift.sh の bats テスト用ヘルパ。
 #
@@ -14,7 +19,7 @@ load ../../../../scripts/lib/bats-helpers
 # gh のスタブ。エンドポイントに応じてフィクスチャを標準出力へ流す。
 # STUB_GH_FAIL_LIST / STUB_GH_FAIL_GET を立てると取得失敗を再現する。
 install_gh_stub() {
-  cat > "$STUB_BIN/gh" <<'STUB'
+  cat > "${STUB_BIN}/gh" <<'STUB'
 #!/usr/bin/env bash
 set -uo pipefail
 
@@ -44,7 +49,7 @@ case "$endpoint" in
     ;;
 esac
 STUB
-  chmod +x "$STUB_BIN/gh"
+  chmod +x "${STUB_BIN}/gh"
 }
 
 # ルールセット一覧の応答を作る。引数は "id<TAB>name" の並び。
@@ -54,13 +59,13 @@ write_ruleset_list() {
     printf '['
     local first=1
     for entry in "$@"; do
-      IFS=$'\t' read -r id name <<<"$entry"
-      [ "$first" -eq 1 ] || printf ','
+      IFS=$'\t' read -r id name <<<"${entry}"
+      [[ "${first}" -eq 1 ]] || printf ','
       first=0
-      jq -nc --argjson id "$id" --arg name "$name" '{id: $id, name: $name}'
+      jq -nc --argjson id "${id}" --arg name "${name}" '{id: $id, name: $name}'
     done
     printf ']'
-  } > "$STUB_FIXTURES/list.json"
+  } > "${STUB_FIXTURES}/list.json"
 }
 
 # ルールセット詳細の応答を作る。標準入力のJSONに、APIが必ず付ける読み取り専用の
@@ -75,12 +80,12 @@ write_ruleset_detail() {
     updated_at: "2026-01-02T00:00:00Z",
     current_user_can_bypass: "always",
     _links: { self: { href: "https://api.github.com/x" } }
-  }' > "$STUB_FIXTURES/detail.json"
+  }' > "${STUB_FIXTURES}/detail.json"
 }
 
 # 定義ファイルを書き、そのパスを出力する
 write_ruleset_file() {
-  local path="$BATS_TEST_TMPDIR/main.json"
-  cat > "$path"
-  printf '%s' "$path"
+  local path="${BATS_TEST_TMPDIR}/main.json"
+  cat > "${path}"
+  printf '%s' "${path}"
 }

@@ -32,6 +32,7 @@ concurrency:
 #
 # scripts-test を lint の needs にぶら下げず、独立した必須チェックにしている。
 # needs の依存先が失敗してスキップされたジョブは required check としてマージを止めない場合があるため。
+# editorconfig-checker-disable-next-line
 # https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks
 #
 # サードパーティのアクションは使わない。リポジトリ設定で実行可能なアクションを GitHub 公式と
@@ -95,9 +96,24 @@ jobs:
 
       # 以降の検査は互いに独立しているため、前の検査が落ちても残りを実行して指摘をまとめて出す。
       # ツールの導入自体に失敗したときは、後続を動かしても command not found が並ぶだけなので動かさない。
+      # -o all は既定で無効になっている optional チェックを全て有効にする（require-variable-braces、
+      # quote-safe-variables、require-double-brackets、deprecate-which など11件。--list-optional で一覧が出る）。
+      # severity の既定は style（最も低い＝全て出る）なので -S は要らない。
+      # https://github.com/koalaman/shellcheck/wiki/Optional
+      #
+      # -x は source した先のファイルも読む。既定ではコマンドラインで渡したファイルしか追わないため、
+      # scripts/lib/bats-helpers.bash のような共通ヘルパで定義された変数・関数を把握できない。
+      # このリポジトリには source / load で他のファイルを読むスクリプトが7つある。
+      #
+      # 対象は *.sh だけでなく *.bash（bats の共通ヘルパ）と *.bats（テスト本体）も含める。
+      # -x で source 先を読めても、読み込み先のファイル自体が検査対象になるわけではないため。
+      # *.bats は shebang が #!/usr/bin/env bats で shellcheck が方言を判別できないので、
+      # 各ファイルの先頭に # shellcheck shell=bash を置いている。
       - name: シェルスクリプトを検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
-        run: git ls-files -z '*.sh' | xargs -0 --no-run-if-empty shellcheck
+        run: |
+          git ls-files -z '*.sh' '*.bash' '*.bats' |
+            xargs -0 --no-run-if-empty shellcheck -o all -x
 
       - name: JSONの構文を検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
@@ -160,9 +176,12 @@ jobs:
       # composite action の両方が .gitignore を尊重しつつ集められる。
       # 検査内容の調整は .github/zizmor.yml に置いている（self-repository を無効にしている理由もそこ）。
       #
-      # persona は pedantic を使う。既定の regular より一段厳しく、permissions に説明コメントが無い
-      # （undocumented-permissions）、ジョブに name が無い（anonymous-definition）といった、
-      # 脆弱性そのものではないが読み手に前提が伝わらない書き方まで指摘させる。
+      # persona は auditor を使う。regular（既定）→ pedantic → auditor の順に厳しく、pedantic は
+      # permissions に説明コメントが無い（undocumented-permissions）、ジョブに name が無い
+      # （anonymous-definition）といった「脆弱性そのものではないが読み手に前提が伝わらない書き方」を、
+      # auditor はさらに「偽陽性になりそうなものも含め zizmor が検出できる全て」を出す。
+      # 偽陽性が出たら .github/zizmor.yml の ignore で個別に外す。
+      # https://docs.zizmor.sh/usage/#personas
       # excessive-permissions 自体は regular でも有効な検査だが、「ワークフロー冒頭の write 権限を
       # 全ジョブが上書きしている」という形の指摘だけは pedantic でしか出ず、これがこのリポジトリの方針と
       # 衝突するため .github/zizmor.yml で対象を絞っている（regular では出ないことを 1.30.1 で実測）。
@@ -182,7 +201,7 @@ jobs:
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: zizmor --persona pedantic --strict-collection --color never --no-progress .
+        run: zizmor --persona auditor --strict-collection --color never --no-progress .
 
       # hadolint は Dockerfile 専用の検査。命令の書き方（タグの固定、apt のバージョン指定、不要なレイヤなど）に加え、
       # shellcheck を内蔵していて RUN の中身も見る（PATH 上の shellcheck には依存しない）。
@@ -192,14 +211,14 @@ jobs:
       # 引数で渡したファイルをそのまま Dockerfile として読むため、対象の決定はこの find のパターンが全て。
       # Dockerfile をまだ置いていない間は xargs が hadolint を起動しないため、この検査は何もせず成功する。
       #
-      # 終了コードは既定の failure-threshold（info）に従い、info 以上の指摘があれば 1 になる（v2.15.1 で実測）。
-      # style の指摘だけでは落ちない。
+      # --failure-threshold style は、最も低い severity である style の指摘でも失敗させる。
+      # 既定は info で、style の指摘だけでは落ちない（v2.15.1 で実測）。
       - name: Dockerfileを検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: |
           find . -path ./.git -prune -o -type f \
             \( -name Dockerfile -o -name 'Dockerfile.*' -o -name '*.Dockerfile' \) -print0 |
-            xargs -0 --no-run-if-empty hadolint --no-color
+            xargs -0 --no-run-if-empty hadolint --no-color --failure-threshold style
 
       # 対象はリポジトリ直下から見た git 管理下（および未追跡・非 ignore）のテキストファイル全て。
       # YAML 以外のファイルにも文字コード・改行・インデント幅・末尾空白・最終改行の検査を広げる。
@@ -310,6 +329,7 @@ jobs:
       contents: read
 
     container:
+      # editorconfig-checker-disable-next-line
       image: ghcr.io/renovatebot/renovate:44.95.0@sha256:33fd5ccb592fd10226c057c656e2a9aaa3d5c4fb84a616d2cbc2b426ba347ec1
       options: --user root
 

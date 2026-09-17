@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
+# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
+# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
+# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
 # check-links.sh の bats テスト用ヘルパ。
 #
@@ -17,7 +22,7 @@ load ../../../../scripts/lib/bats-helpers
 # 本物の lychee はリンク切れの有無にかかわらずレポートを書くため（0.24.2 で実測）、
 # スタブも終了コードによらず書く。
 install_lychee_stub() {
-  cat > "$STUB_BIN/lychee" <<'STUB'
+  cat > "${STUB_BIN}/lychee" <<'STUB'
 #!/usr/bin/env bash
 set -uo pipefail
 
@@ -35,26 +40,26 @@ done
 
 exit "${STUB_LYCHEE_EXIT:-0}"
 STUB
-  chmod +x "$STUB_BIN/lychee"
+  chmod +x "${STUB_BIN}/lychee"
 }
 
 # lychee が書いたことにするレポートを標準入力から作る
 write_report() {
-  cat > "$STUB_FIXTURES/report.md"
+  cat > "${STUB_FIXTURES}/report.md"
 }
 
 # 設定ファイルを書き、そのパスを出力する。中身はスタブが読まないので空でよいが、
 # スクリプトの存在チェックを通すために実ファイルとして置く。
 write_config() {
-  local path="${1:-$BATS_TEST_TMPDIR/lychee.toml}"
-  mkdir -p "$(dirname "$path")"
-  printf 'extensions = ["md"]\n' > "$path"
-  printf '%s' "$path"
+  local path="${1:-${BATS_TEST_TMPDIR}/lychee.toml}"
+  mkdir -p "$(dirname "${path}")"
+  printf 'extensions = ["md"]\n' > "${path}"
+  printf '%s' "${path}"
 }
 
 # lychee のスタブが受け取った引数を1行ずつ出力する
 lychee_args() {
-  cat "$STUB_FIXTURES/args.txt"
+  cat "${STUB_FIXTURES}/args.txt"
 }
 
 # 指定した値が、lychee の引数の1つとしてそのまま渡されたかを判定する。
@@ -63,10 +68,10 @@ lychee_args() {
 assert_arg() {
   local line
   while IFS= read -r line; do
-    if [ "$line" = "$1" ]; then
+    if [[ "${line}" = "$1" ]]; then
       return 0
     fi
-  done < "$STUB_FIXTURES/args.txt"
+  done < "${STUB_FIXTURES}/args.txt"
 
   printf '引数として渡されていない: %s\n--- 実際の引数 ---\n%s\n' "$1" "$(lychee_args)" >&2
   return 1

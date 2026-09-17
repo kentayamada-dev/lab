@@ -8,6 +8,13 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 2
 
+# editorconfig-checker が行長を検査する。charset = utf-8 のときはバイト数ではなく文字数
+# （utf8.RuneCountInString）で数えるため、日本語1文字は1桁として扱われる。
+# 値は yamllint の line-length（.github/ci.yamllint.yml）と揃えている。
+# 折り返せない行（URL、コンテナイメージのダイジェスト）は
+# editorconfig-checker-disable-next-line で個別に外す。
+max_line_length = 120
+
 # 番号付きリストの継続行はマーカー幅（"1. " = 3桁）に揃えるため、2の倍数にならない
 [*.md]
 indent_size = unset

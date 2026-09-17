@@ -27,3 +27,11 @@ exclude = [
   # https://www.rfc-editor.org/rfc/rfc6761#section-6.2
   '^https?://([^/]*\.)?example\.test(/|$)',
 ]
+
+# URL のフラグメントの存在も確かめる。既定は無効で、#section のようなアンカーが参照先に
+# 存在しなくてもリンク切れとして扱われない。full はアンカー（#section）とテキストフラグメント
+# （#:~:text=）の両方を対象にする。
+include_fragments = "full"
+
+# HTTPS で到達できる URL に http:// でリンクしている箇所を失敗にする。既定は false。
+require_https = true
