@@ -155,6 +155,14 @@ body_containing() {
   [[ "$(jq -r '.delete_branch_on_merge' <<<"${body}")" = "true" ]]
 }
 
+@test "リポジトリの説明文を送る" {
+  # GitHub の Community Standards が求める項目。UI で空にされても再実行で戻せるよう、定義側から送る
+  run -0 "${SCRIPT}"
+
+  body="$(body_containing allow_squash_merge)"
+  [[ -n "$(jq -r '.description // empty' <<<"${body}")" ]]
+}
+
 @test "GITHUB_TOKEN の既定権限は読み取りのみで、レビュー承認を許可しない" {
   run -0 "${SCRIPT}"
 

@@ -75,8 +75,11 @@ fi
 
 log "リポジトリ設定を適用"
 
+# description は GitHub の Community Standards が求める項目の1つで、UI からも変えられる。
+# 他の設定と同じくここで管理することで、UI で書き換わっても再実行すれば元に戻る。
 gh api --silent --method PATCH "repos/${REPO}" --input - <<'JSON'
 {
+  "description": "個人の実験用リポジトリ",
   "allow_squash_merge": true,
   "allow_merge_commit": false,
   "allow_rebase_merge": false,
@@ -88,6 +91,7 @@ gh api --silent --method PATCH "repos/${REPO}" --input - <<'JSON'
 }
 JSON
 
+info "説明文を設定"
 info "マージ方法: squashのみ / 自動マージ: 有効 / マージ後にブランチ削除: 有効"
 info "Wiki・Projects・Discussions: 無効"
 
