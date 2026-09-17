@@ -15,6 +15,15 @@ on:
     # 毎日 06:00 JST。GitHubの仕様上、実行時刻は数分〜数十分遅れることがある。
     # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#schedule
     - cron: "0 21 * * *"
+  # Renovate が作った PR がマージされたら再実行する。
+  # Dependency Dashboard（issue）の本文は Renovate の各実行の最後に書き出され、それ以外のタイミングでは更新されない。
+  # 定期実行だけだと、実行中に自動マージされた PR や実行後にマージされた PR が翌日の実行まで「Open」に残る
+  # （2026-09-16 の定期実行 35162988251 では、実行中に作成・自動マージされた #14 がダッシュボードに Open のまま残った）。
+  # ホスト型（Mend）はマージ等のイベントを優先するジョブキューで追従するが、Actions 運用ではトリガーを自分で足す。
+  # https://docs.renovatebot.com/getting-started/running/
+  # 「マージ済み・Renovate のブランチ・同一リポジトリ」への絞り込みはジョブの if で行う（on: では表現できない）。
+  pull_request:
+    types: [closed]
   workflow_dispatch:
     inputs:
       dry-run:
@@ -44,6 +53,17 @@ jobs:
     runs-on: ubuntu-26.04-arm
     timeout-minutes: 30
 
+    # pull_request では「Renovate が作った PR がマージされた」ときだけ動かす。閉じただけの PR や人のブランチで
+    # Renovate を回す理由は無い。renovate/ は branchPrefix の既定値（.github/renovate.json5 では変えていない）。
+    # https://docs.renovatebot.com/configuration-options/#branchprefix
+    # fork から renovate/ 名義の PR が来ても、fork 発の pull_request には Secrets が渡らず RENOVATE_TOKEN が空で
+    # 失敗するだけなので、同一リポジトリのブランチに限定して無駄な失敗を避ける。
+    if: >-
+      github.event_name != 'pull_request'
+      || (github.event.pull_request.merged
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && startsWith(github.event.pull_request.head.ref, 'renovate/'))
+
     permissions:
       contents: read
 
@@ -70,6 +90,6 @@ jobs:
           # 自分のアドレスを使うと Renovate ブランチへの手動 push を「未変更」と誤認して上書きされうるため、既定のままにしている。
           # https://github.com/renovatebot/renovate/discussions/39309
           # https://docs.renovatebot.com/configuration-options/#gitauthor
-          # workflow_dispatch 以外（schedule）では inputs が空なので、通常実行になる
+          # workflow_dispatch 以外（schedule / pull_request）では inputs が空なので、通常実行になる
           RENOVATE_DRY_RUN: ${{ inputs.dry-run && 'full' || '' }}
           LOG_LEVEL: ${{ inputs.log-level || 'info' }}
