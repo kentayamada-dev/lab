@@ -109,7 +109,7 @@
 "aqua:hadolint/hadolint" = "2.15.1"
 
 # .editorconfig への準拠の検査
-"aqua:editorconfig-checker/editorconfig-checker" = "4.0.1"
+"aqua:editorconfig-checker/editorconfig-checker" = "4.0.2"
 
 # Markdown の検査。JavaScript 実装のため npm バックエンドで入れる。
 # 実行に要る Node.js は mise の公式イメージが同梱しているものを使う（イメージのビルド時に mise use -g node@lts
