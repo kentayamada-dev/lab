@@ -115,7 +115,7 @@
 # 実行に要る Node.js は mise の公式イメージが同梱しているものを使う（イメージのビルド時に mise use -g node@lts
 # しているため）。ここで固定するのは検査結果を決める markdownlint-cli2 の版だけ。
 # https://github.com/jdx/mise/blob/main/packaging/mise/Dockerfile
-"npm:markdownlint-cli2" = "0.23.2"
+"npm:markdownlint-cli2" = "0.23.3"
 
 # 綴りの検査
 "aqua:crate-ci/typos" = "1.50.2"
