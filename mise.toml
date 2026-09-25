@@ -118,7 +118,7 @@
 "npm:markdownlint-cli2" = "0.23.3"
 
 # 綴りの検査
-"aqua:crate-ci/typos" = "1.50.2"
+"aqua:crate-ci/typos" = "1.50.3"
 
 # 秘密情報の検査。gitleaks の作者らが作っている別実装で、既定のルールだけでリポジトリ内の資格情報を検出する。
 # GitHub のシークレットスキャンとプッシュ保護（scripts/apply-repo-settings.sh で有効化）が提携プロバイダの
