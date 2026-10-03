@@ -61,17 +61,25 @@ jobs:
       contents: read
 
     container:
-      # mise の公式イメージ。rust（debian ベース）から作られていて linux/amd64 と linux/arm64 の両方を持つため、
-      # arm ランナーで動く（ghcr.io の manifest を取得して実測）。検査に要る git・bash・find のほか、
-      # markdownlint-cli2 が要る Node.js も同梱している（イメージのビルド時に mise use -g node@lts している）。
+      # mise の公式イメージの -debian 版。Debian slim に mise と ca-certificates・curl・git を足したもので、
+      # linux/amd64 と linux/arm64 の両方を持つため arm ランナーで動く（ghcr.io の manifest を取得して実測）。
       # USER 指定が無く root で動くため --user root は要らない。
-      # ENTRYPOINT は mise 自身だが、runner はジョブのコンテナを --entrypoint tail で起動するため上書きは要らない。
-      # https://github.com/jdx/mise/blob/main/packaging/mise/Dockerfile
+      # https://github.com/jdx/mise/blob/main/packaging/debian/Dockerfile
+      #
+      # 接尾辞の無い版（ghcr.io/jdx/mise:<版>）は 2026.10.0 から scratch イメージになり、mise のバイナリと
+      # CA 証明書しか入っていない（jdx/mise#13413）。runner はジョブのコンテナを --entrypoint tail で起動するため、
+      # tail が無いとコンテナの起動自体が "exec: "tail": executable file not found" で失敗する（#26 で発生）。
+      # 2026.9.x までの rust ベースで Node.js 入りのイメージは dev タグに移り、mise の内部向けとされている。
+      # https://github.com/jdx/mise/blob/main/.github/workflows/docker.yml
+      #
+      # -debian 版には Node.js が入っていないため、markdownlint-cli2 が要る Node.js は mise.toml で入れる。
+      # Renovate は最初のハイフン以降を互換性の指標として扱うため、-debian の付いたタグだけを更新先にする。
+      # https://docs.renovatebot.com/modules/versioning/docker/
       #
       # mise の版は、同梱する aqua レジストリのスナップショットの新しさも決める。古い mise だと新しいツールの
       # アセット名を解決できず導入に失敗することがある（2026.8.10 では editorconfig-checker 4.0.1 が
       # "no asset found" で落ち、2026.9.9 では入ることを手元で実測）。
-      image: ghcr.io/jdx/mise:2026.9.10@sha256:e6263d300a50e3a28f1a3cef3969ab171d4dfa5f3bccdf868ae53c8dbf41685f
+      image: ghcr.io/jdx/mise:2026.10.0-debian@sha256:8544c3c5648d98e93b22389ed8d208ec9470a2c92b027de85bb2dc4ed4545cb8
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -447,7 +455,7 @@ jobs:
       contents: read
 
     container:
-      image: ghcr.io/jdx/mise:2026.9.10@sha256:e6263d300a50e3a28f1a3cef3969ab171d4dfa5f3bccdf868ae53c8dbf41685f
+      image: ghcr.io/jdx/mise:2026.10.0-debian@sha256:8544c3c5648d98e93b22389ed8d208ec9470a2c92b027de85bb2dc4ed4545cb8
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
