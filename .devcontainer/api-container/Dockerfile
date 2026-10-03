@@ -7,7 +7,7 @@
 #
 # 値は manifest list（OCI image index）の digest で、linux/amd64 と linux/arm64/v8 の両方を含む
 # （docker buildx imagetools inspect で確認）。アーキテクチャ別の digest を書くと片方でしか動かない。
-FROM golang:1.27.1-trixie@sha256:9baa6b4187bbb98d240372a8a235ac0bb6b5ddd52bba1431dc2f7c0705862728
+FROM golang:1.27.1-trixie@sha256:3b77fc618ec235a1ab412de7737f120dd507c57e8d87de4cbb7994fb94275ed5
 
 # 変数名を USERNAME ではなく DEV_USER にしているのは、hadolint の DL3064 が
 # 「機密値の疑いがある名前」として username を部分一致・大文字小文字無視で検出し、
