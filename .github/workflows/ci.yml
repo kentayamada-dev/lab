@@ -79,7 +79,7 @@ jobs:
       # mise の版は、同梱する aqua レジストリのスナップショットの新しさも決める。古い mise だと新しいツールの
       # アセット名を解決できず導入に失敗することがある（2026.8.10 では editorconfig-checker 4.0.1 が
       # "no asset found" で落ち、2026.9.9 では入ることを手元で実測）。
-      image: ghcr.io/jdx/mise:2026.10.0-debian@sha256:8544c3c5648d98e93b22389ed8d208ec9470a2c92b027de85bb2dc4ed4545cb8
+      image: ghcr.io/jdx/mise:2026.10.1-debian@sha256:3daa20e31600afa0b4182736b1d46ba87d47dccb41db55880e657d4290f47574
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -455,7 +455,7 @@ jobs:
       contents: read
 
     container:
-      image: ghcr.io/jdx/mise:2026.10.0-debian@sha256:8544c3c5648d98e93b22389ed8d208ec9470a2c92b027de85bb2dc4ed4545cb8
+      image: ghcr.io/jdx/mise:2026.10.1-debian@sha256:3daa20e31600afa0b4182736b1d46ba87d47dccb41db55880e657d4290f47574
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
