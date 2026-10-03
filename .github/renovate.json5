@@ -44,25 +44,22 @@
   // "{prefix} {action} {topic} {extra}" の順で組み立てられるため、日本語の語順に合わせて各部品を差し替える。
   // commitMessage そのものの上書きは非推奨なので部品側を変える。
   // https://docs.renovatebot.com/configuration-options/#commitmessage
+  //
+  // バージョン更新（major / minor / patch）と digest 更新の文言は、ここではなく packageRules（末尾）で決める。
+  // 理由はそちらのコメント。ここの commitMessageTopic は、pin / rollback / replacement など残りの種別が使う。
   semanticCommits: 'enabled',
   commitMessageAction: '',
   commitMessageTopic: '{{depName}} を',
-  // editorconfig-checker-disable-next-line
-  commitMessageExtra: '{{#if isMajor}}v{{{newMajor}}}{{else}}{{#if isSingleVersion}}v{{{newVersion}}}{{else}}{{{newValue}}}{{/if}}{{/if}} に更新',
   // 既定（auto）だと semanticCommitType が小文字のとき件名全体を小文字化し、depName の大文字（owner 名など）が潰れる
   commitMessageLowerCase: 'never',
 
-  // 更新種別ごとの既定値（digest は "{{depName}} digest" / "to {{newDigestShort}}"、pin 系は action "Pin" など）は
-  // 上の部品より後に合成されて英語に戻るため、種別側でも日本語に揃える。
-  // https://docs.renovatebot.com/configuration-options/#digest
+  // 更新種別ごとの既定値（pin 系は action "Pin" など）は上の部品より後に合成されて英語に戻るため、
+  // 種別側でも日本語に揃える。
+  // https://docs.renovatebot.com/configuration-options/#pin
   //
   // pin / pinDigest のグループでは、更新先のバージョンや digest が依存ごとに異なると Renovate が commitMessageExtra を
   // 削除する（lib/workers/repository/updates/generate.ts）。group の文言を commitMessageExtra に置くと
   // PR タイトルが "chore(deps):" だけになった（dry-run で実測）ため、削除されない commitMessageTopic 側に置く。
-  digest: {
-    commitMessageTopic: '{{depName}} の digest を',
-    commitMessageExtra: '{{newDigestShort}} に更新',
-  },
   pin: {
     commitMessageAction: '',
     commitMessageExtra: '{{newValue}} に固定',
@@ -123,6 +120,30 @@
     {
       matchPackageNames: ['koalaman/shellcheck'],
       abandonmentThreshold: null,
+    },
+    // バージョン更新と digest 更新のコミットメッセージ・PR タイトルの文言。
+    // トップレベルではなくここに置くのは、manager や datasource が持つ既定の文言のほうがトップレベルより後に
+    // 合成されて勝つため。docker datasource は commitMessageTopic を "{{{depName}}} Docker tag"、
+    // commitMessageExtra を "to ..." にし（lib/modules/datasource/docker/index.ts の defaultConfig）、
+    // github-actions manager は依存ごとに commitMessageTopic を "{{{depName}}} action" にする
+    // （lib/modules/manager/github-actions/extract.ts）。そのため Docker イメージの更新 PR は英語のタイトルになり、
+    // PR title の検査で落ちていた（#26）。
+    // packageRules はそれらの後、さらに更新種別ごとの設定（digest など）を合成した後にもう一度適用されるため、
+    // ここで決めた文言が最後に残る（lib/workers/repository/updates/flatten.ts）。
+    //
+    // 版の表記には prettyNewMajor / prettyNewVersion を使う。prettyNewVersion は数字で始まる版にだけ v を付ける
+    // （lib/workers/repository/updates/generate.ts の prettifyVersion）。自前で "v{{{newVersion}}}" と書いていたときは、
+    // タグ自体が v で始まる GitHub Actions の更新で "vv46.3.6" になっていた（#35・#37・#39）。
+    {
+      matchUpdateTypes: ['major', 'minor', 'patch'],
+      commitMessageTopic: '{{depName}} を',
+      // editorconfig-checker-disable-next-line
+      commitMessageExtra: '{{#if isMajor}}{{{prettyNewMajor}}}{{else}}{{#if isSingleVersion}}{{{prettyNewVersion}}}{{else}}{{{newValue}}}{{/if}}{{/if}} に更新',
+    },
+    {
+      matchUpdateTypes: ['digest'],
+      commitMessageTopic: '{{depName}} の digest を',
+      commitMessageExtra: '{{newDigestShort}} に更新',
     },
   ],
 }

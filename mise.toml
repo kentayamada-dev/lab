@@ -112,10 +112,17 @@
 "aqua:editorconfig-checker/editorconfig-checker" = "4.0.2"
 
 # Markdown の検査。JavaScript 実装のため npm バックエンドで入れる。
-# 実行に要る Node.js は mise の公式イメージが同梱しているものを使う（イメージのビルド時に mise use -g node@lts
-# しているため）。ここで固定するのは検査結果を決める markdownlint-cli2 の版だけ。
-# https://github.com/jdx/mise/blob/main/packaging/mise/Dockerfile
 "npm:markdownlint-cli2" = "0.23.3"
+
+# markdownlint-cli2 の実行に要る Node.js。
+# 以前は mise の公式イメージが同梱する Node.js を使っていたが、2026.10.0 からイメージの中身が変わり、
+# CI が使う -debian 版には Node.js が入っていない（ci.yml の lint ジョブのコメント）。
+# 入れないと markdownlint-cli2 の導入は成功するが、実行時に "exec: node: not found" で落ちる
+# （2026.10.0-debian のコンテナで実測）。
+# 版は導入時点の LTS（`mise latest node@lts` の結果）。Renovate の mise manager は core の node を
+# node-version datasource で追う（lib/modules/manager/mise/upgradeable-tooling.ts）。
+# https://github.com/jdx/mise/blob/main/packaging/debian/Dockerfile
+node = "24.21.0"
 
 # 綴りの検査
 "aqua:crate-ci/typos" = "1.50.3"
