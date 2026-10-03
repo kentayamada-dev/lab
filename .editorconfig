@@ -19,6 +19,16 @@ max_line_length = 120
 [*.md]
 indent_size = unset
 
+# Make はレシピ行の行頭をタブで始めることを要求する（.RECIPEPREFIX を別の文字に変えない限り）。
+# https://www.gnu.org/software/make/manual/make.html
+#
+# editorconfig-checker は indent_style を検査対象にしており、Makefile を特別扱いする記述は
+# 公式 README に無い。この節を外すと Makefile のレシピ行が
+# "wrong indent style found (tabs instead of spaces)" として指摘され、節があれば通ることを
+# 4.0.1 で実測した。
+[Makefile]
+indent_style = tab
+
 # shfmt（シェルスクリプトの整形。ci.yml の「シェルスクリプトの整形を検査」）が読む設定。
 # shfmt 専用の設定ファイルは無く、整形の指定は .editorconfig に書くか実行時のフラグで渡すかの二択で、
 # 「整形フラグを1つでも渡すと .editorconfig を一切読まなくなる」（v3.14.1 で実測）。

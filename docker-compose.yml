@@ -1,0 +1,27 @@
+---
+# devcontainer が使うコンテナの定義。.devcontainer/<名前>/devcontainer.json が dockerComposeFile として
+# このファイルを指し、service でどのコンテナに入るかを選ぶ。1つの compose ファイルを複数の
+# devcontainer.json で共有する形は、VS Code が複数コンテナ構成として案内しているものに合わせている。
+# https://code.visualstudio.com/remote/advancedcontainers/connect-multiple-containers
+services:
+  api:
+    # 指定しないと Docker はコンテナ ID の先頭12桁をホスト名にする。シェルのプロンプトに出る名前が
+    # 作り直すたびに変わってしまうため、サービス名と同じ固定の名前を与える
+    hostname: api
+
+    build:
+      # Dockerfile はこのディレクトリの既定名のものを使う。ユーザー名と UID/GID は Dockerfile の ARG の
+      # 既定値をそのまま使い、args でここから渡し直さない（同じ値を2箇所で持たないため）
+      context: .devcontainer/api-container
+
+    # devcontainer.json の workspaceFolder が /workspace/api を指すため、リポジトリ全体を /workspace に置く。
+    # api/ だけをマウントすると、コンテナの中からリポジトリ直下の設定ファイルが見えなくなる
+    volumes:
+      - .:/workspace
+
+    # compose を使う devcontainer では overrideCommand の既定が false で、コンテナ自身の command が
+    # そのまま使われる（イメージや Dockerfile を直接指定する場合の既定は true で、
+    # そちらは devcontainer 側が待機用のコマンドに差し替える）。golang イメージの既定の command は
+    # すぐ終了するため、明示しないとコンテナが立ち上がった直後に落ちる。
+    # https://containers.dev/implementors/json_reference/
+    command: sleep infinity

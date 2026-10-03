@@ -9,15 +9,28 @@
 // JSON ではなく JSON5 にしているのは、設定の「なぜ」をコメントで残すため。
 // そのため CI の jq による構文検査の対象外になるので、代わりに renovate-config-validator で検査する（ci.yml）。
 //
-// customManagers（regex）は持たない。ワークフローが使うツールは、Renovate が標準で追える形
-// （アクションの SHA 固定、ジョブの container image、mise.toml の [tools]）に寄せている。
+// ワークフローが使うツールは、Renovate が標準で追える形（アクションの SHA 固定、
+// ジョブの container image、mise.toml の [tools]）に寄せている。そこに載せられない1箇所
+// （devcontainer の Dockerfile で go install するツールの版）だけは、自前の regex ではなく
+// 公式プリセット customManagers:dockerfileVersions で追う（extends のコメント）。
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
 
   // config:recommended に加えて、GitHub Actions のコミット SHA 固定（helpers:pinGitHubActionDigests）や
   // 設定の自動マイグレーション（:configMigration）などが含まれる。
   // https://docs.renovatebot.com/upgrade-best-practices/#use-the-configbest-practices-preset
-  extends: ['config:best-practices'],
+  //
+  // customManagers:dockerfileVersions は、Dockerfile の `# renovate: datasource=... depName=...`
+  // コメントの直後にある `ENV`/`ARG` の `<名前>_VERSION` を依存として拾うプリセット。
+  // .devcontainer/api-container/Dockerfile が go install で入れるツールの版がこれに当たる。
+  //
+  // 標準の dockerfile manager では追えない。ARG 行自体は読むが（extract.ts の ARG 正規表現）、
+  // 読んだ値は FROM や COPY --from のイメージ名にある変数を展開するための表に入るだけで、
+  // それ自体は依存にならない。プリセットを外した状態の --dry-run=extract で、あの Dockerfile から
+  // 検出される依存が golang だけになることを 44.95.0 で実測した。
+  // 正規表現を自分で書かずプリセットを使うのは、パターンの保守を上流に任せるため。
+  // https://docs.renovatebot.com/presets-customManagers/#custommanagersdockerfileversions
+  extends: ['config:best-practices', 'customManagers:dockerfileVersions'],
 
   // :maintainLockFilesWeekly など、プリセット内のスケジュールを評価する基準時刻
   timezone: 'Asia/Tokyo',
