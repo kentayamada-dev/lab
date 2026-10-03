@@ -1,5 +1,29 @@
 # lab
 
+## 開発環境（devcontainer）
+
+api の開発は VS Code の dev container で行う。コンテナの定義は
+[docker-compose.yml](docker-compose.yml) と [.devcontainer/api-container/](.devcontainer/api-container/) にある。
+
+```bash
+make dev-api
+```
+
+[Makefile](Makefile) の `dev-api` が [vscli](https://github.com/michidk/vscli) を呼び、
+`.devcontainer/api-container/devcontainer.json` を指定して VS Code を開く。
+コンテナの起動と接続は Dev Containers 拡張が行うため、`docker compose` を直接叩く必要はない。
+
+- 前提: Docker が動いていること、VS Code に Dev Containers 拡張が入っていること、`vscli` が PATH にあること
+  （`brew install michidk/tools/vscli`）
+- リポジトリ全体が `/workspace` にマウントされ、`/workspace/api` が作業ディレクトリになる。
+  `api/` が空でまだ git に載っていないため、クローン直後はこのディレクトリを先に作る必要がある
+- コンテナは `dev` ユーザー（UID/GID 1000）で動く。root では動かさない
+- Go の language server（gopls）はイメージに同梱している。整形（gofumpt）と静的解析（staticcheck）は
+  gopls が内蔵しているものを使い、`devcontainer.json` の `gopls` 設定で有効にしている。
+  gopls の版は [.devcontainer/api-container/Dockerfile](.devcontainer/api-container/Dockerfile) の
+  `ARG` に固定してあり、Renovate が更新を追う
+- VS Code を閉じてもコンテナは止まらない（`shutdownAction` が `none`）。止めるときは `docker compose down`
+
 ## リポジトリ設定の適用
 
 リポジトリの説明文・ルールセット・マージ方式・セキュリティ機能・Actions の実行許可・ラベルは、GitHub の UI ではなく
