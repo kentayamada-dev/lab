@@ -15,8 +15,9 @@ make dev-api
 
 - 前提: Docker が動いていること、VS Code に Dev Containers 拡張が入っていること、`vscli` が PATH にあること
   （`brew install michidk/tools/vscli`）
-- リポジトリ全体が `/workspace` にマウントされ、`/workspace/api` が作業ディレクトリになる。
-  `api/` が空でまだ git に載っていないため、クローン直後はこのディレクトリを先に作る必要がある
+- リポジトリ全体が `/workspace` にマウントされ、`/workspace/api` が作業ディレクトリになる
+- コンテナの中では `go run .` で HTTP サーバーが起動する（既定のポートは 8080、環境変数 `PORT` で変更できる）。
+  `GET /healthz` が `{"status":"ok"}` を返す。テストは `go test ./...`
 - コンテナは `dev` ユーザー（UID/GID 1000）で動く。root では動かさない
 - Go の language server（gopls）はイメージに同梱している。整形（gofumpt）と静的解析（staticcheck）は
   gopls が内蔵しているものを使い、`devcontainer.json` の `gopls` 設定で有効にしている。
