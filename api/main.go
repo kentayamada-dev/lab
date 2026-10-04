@@ -25,13 +25,7 @@ func run() error {
 		port = "8080"
 	}
 
-	srv := &http.Server{
-		Addr:    net.JoinHostPort("", port),
-		Handler: newMux(),
-		// http.Server の既定はどのタイムアウトも無制限で、ヘッダーを少しずつ送り続ける接続（Slowloris）に
-		// 接続を握られ続ける。ヘッダーの読み込みだけは必ず打ち切る。
-		ReadHeaderTimeout: 5 * time.Second,
-	}
+	srv := newServer(port)
 
 	// docker compose down などのコンテナ停止は SIGTERM を送るため、SIGINT（Ctrl+C）と合わせて受けて
 	// 処理中のリクエストを捌き切ってから終了する
@@ -49,6 +43,8 @@ func run() error {
 		return err
 	case <-ctx.Done():
 	}
+	// Go 1.26 以降、NotifyContext はシグナルで止まったとき Cause に受けたシグナルを入れる（go doc os/signal.NotifyContext）
+	slog.Info("shutting down", "cause", context.Cause(ctx))
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -60,4 +56,18 @@ func run() error {
 		return err
 	}
 	return nil
+}
+
+func newServer(port string) *http.Server {
+	return &http.Server{
+		Addr:    net.JoinHostPort("", port),
+		Handler: newMux(),
+		// http.Server の既定はどのタイムアウトも無制限で、ヘッダーを少しずつ送り続ける接続（Slowloris）に
+		// 接続を握られ続ける。ヘッダーの読み込みだけは必ず打ち切る。
+		ReadHeaderTimeout: 5 * time.Second,
+		// IdleTimeout は 0 だと ReadTimeout を使い、それも 0 なら無制限になる（go doc net/http.Server）。
+		// ReadTimeout は設定していないので、明示しないと keep-alive で待機している接続が残り続ける。
+		// 値は計測に基づくものではない上限。
+		IdleTimeout: 60 * time.Second,
+	}
 }

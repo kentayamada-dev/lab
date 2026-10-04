@@ -29,7 +29,7 @@ func TestHealthz(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			newMux().ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, nil))
+			newMux().ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), tt.method, tt.path, nil))
 
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
@@ -49,7 +49,7 @@ func TestHealthz(t *testing.T) {
 
 func TestHealthzAllowHeader(t *testing.T) {
 	rec := httptest.NewRecorder()
-	newMux().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/healthz", nil))
+	newMux().ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/healthz", nil))
 
 	if got := rec.Header().Get("Allow"); got != "GET, HEAD" {
 		t.Errorf("Allow = %q, want %q", got, "GET, HEAD")
