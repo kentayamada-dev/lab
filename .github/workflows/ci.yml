@@ -20,7 +20,7 @@ concurrency:
 # name を置くとステータスチェックの名前はジョブIDではなくその name になる
 # （zizmorcore/zizmor の CI で、job_id lint / name Lint のジョブが API 上 "Lint" として
 # 返ることを実測）。.github/rulesets/main.json の required_status_checks の context は
-# こちらに合わせる（Lint / PR title / Scripts test / Renovate config）。
+# こちらに合わせる（Lint / PR title / Scripts test / Renovate config / Go test）。
 # name を変えるときは ruleset も同時に直して scripts/apply-repo-settings.sh を再実行しないと、
 # 要求された名前のチェックが永久に現れずマージできなくなる。
 # 両者の食い違いは .github/scripts/check-required-checks.sh が lint ジョブの中で検出する。
@@ -478,3 +478,60 @@ jobs:
         # CI が実行する検査のテスト。
         # 共通ヘルパ（scripts/lib/bats-helpers.bash）は各テストが load で読むため、ここには並べない
         run: bats scripts/test .github/scripts/test .github/actions/*/test
+
+  # api/ の Go コードの整形・依存の整合・静的解析・テスト。
+  #
+  # Go は mise ではなく、devcontainer（.devcontainer/api-container/Dockerfile）と同じ golang イメージを
+  # 同じ digest でジョブのコンテナにして使う。手元とCIで Go の版が食い違わないようにするため。
+  # mise.toml に入れると lint ジョブの mise install でも Go が導入され、Go を使わない lint が遅くなる。
+  # digest は Dockerfile と2箇所に書くことになるが、どちらも Renovate が追う。
+  # golang イメージは linux/arm64 を含む manifest list（Dockerfile のコメント）なので arm ランナーで動く。
+  #
+  # git の safe.directory は登録しない。コンテナは root で、workspace はホストの runner ユーザーの所有のため
+  # git は dubious ownership で拒否するが、ここで使う go コマンドは git を呼ばない。
+  # 所有者の違う git リポジトリを root で扱う状態を作り、vet と test は通り、
+  # go build だけが VCS stamping で "error obtaining VCS status" になることを 1.27.1 で実測した。
+  # バイナリをビルドするステップを足すなら、safe.directory の登録か -buildvcs=false が要る。
+  #
+  # 各検査は互いに独立しているため、lint ジョブと同じく前の検査が落ちても残りを実行する。
+  go-test:
+    name: Go test
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+
+    container:
+      # editorconfig-checker-disable-next-line
+      image: golang:1.27.1-trixie@sha256:3b77fc618ec235a1ab412de7737f120dd507c57e8d87de4cbb7994fb94275ed5
+
+    defaults:
+      run:
+        working-directory: api
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      # -l ではなく -d を使う。-l は未整形のファイル名を出すだけで終了コードが 0 のままのため、CI が落ちない。
+      # -d は差分を出して終了コード 1 になる（どちらも 1.27.1 で実測）。
+      # devcontainer の gopls は gofumpt で整形するが、gofumpt はイメージに入っていないため検査は gofmt の範囲。
+      - name: 整形を検査
+        run: gofmt -d .
+
+      # go.mod / go.sum が import と食い違っていれば差分を出して終了コード 1 になる（1.27.1 で実測）。
+      # 書き換えはしない。
+      - name: go.modの整合を検査
+        if: ${{ !cancelled() }}
+        run: go mod tidy -diff
+
+      - name: 静的解析
+        if: ${{ !cancelled() }}
+        run: go vet ./...
+
+      # -race はデータ競合を検出する。cgo と C コンパイラが要るが、golang の Debian ベースのイメージには gcc が入っている。
+      - name: テスト
+        if: ${{ !cancelled() }}
+        run: go test -race ./...
