@@ -13,3 +13,18 @@ RUN test "$(id -u node):$(id -g node)" = "1000:1000" \
   && usermod --login $DEV_USER --home /home/$DEV_USER --move-home node
 
 USER $DEV_USER
+
+# 版は customManagers:dockerfileVersions が次行の注記で追う。<名前>_VERSION の形から変数名を変えない。
+# renovate: datasource=npm depName=get-pnpm
+ARG GET_PNPM_VERSION=0.0.5
+# renovate: datasource=npm depName=pnpm
+ARG PNPM_VERSION=12.8.2
+
+# pnpm setup は PATH を .bashrc にしか書かず、非対話シェル（docker compose exec など）で pnpm が見つからないため ENV でも通す
+ENV PNPM_HOME=/home/$DEV_USER/.local/share/pnpm
+ENV PATH=$PNPM_HOME/bin:$PATH
+
+# 公式の npm 経由の手順。get-pnpm は npm の署名でダウンロードを検証してから pnpm setup に渡す。
+# SHELL が無いと pnpm setup が ERR_PNPM_UNKNOWN_SHELL で止まる。https://pnpm.io/installation#using-npm
+RUN SHELL=/bin/bash npx --yes "get-pnpm@${GET_PNPM_VERSION}" "${PNPM_VERSION}" \
+  && rm -rf ~/.npm
