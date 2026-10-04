@@ -1,16 +1,8 @@
 #!/usr/bin/env bats
-# bats の shebang は shellcheck が方言を判別できないため明示する
-# shellcheck shell=bash
-# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
-# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
-# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
-# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# bats の書き方に由来する指摘を外す（各コードの理由は scripts/lib/bats-helpers.bash 冒頭）
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
-# notify-drift-issue.sh のテスト。
-#
-# このスクリプトの振る舞いは、ほぼすべてが gh への呼び出しそのもの。
-# gh をスタブに差し替え、「どの issue 操作を、どんな本文で行うか（行わないか）」を観測する。
+# gh をスタブにし、どの issue 操作をどんな本文で行うか（行わないか）を観測する。
 
 load helper
 

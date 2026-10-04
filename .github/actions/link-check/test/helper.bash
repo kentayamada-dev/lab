@@ -1,26 +1,14 @@
 #!/usr/bin/env bash
-# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
-# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
-# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
-# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# bats の書き方に由来する指摘を外す（各コードの理由は scripts/lib/bats-helpers.bash 冒頭）
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
-# check-links.sh の bats テスト用ヘルパ。
-#
-# テストは実際のリンク検査をしない。外部へ出る lychee は PATH の先頭に置いたスタブへ差し替え、
-# レポートと終了コードをテスト側から固定する。
-#
-# スタブの置き場（setup_stubs / only_commands）と判定（assert_*）は他のテストと同じものを使うため、
-# scripts/lib/bats-helpers.bash に置いている。ここに残すのはこの action 固有のスタブと判定だけ。
+# check-links.sh のテスト用スタブ。リンク検査をしないよう lychee を差し替え、レポートと終了コードを固定する。
 load ../../../../scripts/lib/bats-helpers
 
 # ---- スタブとフィクスチャ -------------------------------------------------------------------
 
-# lychee のスタブ。--output で指定されたパスにフィクスチャのレポートを書き、
-# STUB_LYCHEE_EXIT（既定 0）で終了する。渡された引数は args.txt に記録し、テストから照合する。
-#
-# 本物の lychee はリンク切れの有無にかかわらずレポートを書くため（0.24.2 で実測）、
-# スタブも終了コードによらず書く。
+# --output 先にフィクスチャのレポートを書き STUB_LYCHEE_EXIT（既定0）で終わる。引数は args.txt に記録する。
+# 本物の lychee と同じく、終了コードによらずレポートを書く（0.24.2 で実測）。
 install_lychee_stub() {
   cat >"${STUB_BIN}/lychee" <<'STUB'
 #!/usr/bin/env bash
@@ -62,9 +50,7 @@ lychee_args() {
   cat "${STUB_FIXTURES}/args.txt"
 }
 
-# 指定した値が、lychee の引数の1つとしてそのまま渡されたかを判定する。
-# 引数は1行に1つ記録されるため行単位で照合する（部分一致だと "." のような値が
-# 他の引数の一部に紛れて通ってしまう）。
+# 引数は1行1つで記録されるので行単位で完全一致させる（部分一致だと "." が他の引数に紛れて通る）
 assert_arg() {
   local line
   while IFS= read -r line; do

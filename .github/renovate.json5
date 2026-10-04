@@ -1,34 +1,10 @@
-// Renovate のリポジトリ設定（何をどう更新するか）。
-// Renovate が設定ファイルとして探す場所のひとつ（.github/renovate.json5）に置いている。
-// https://docs.renovatebot.com/configuration-options/
-//
-// 実行基盤はホスト型サービスではなく、このリポジトリの Actions（.github/workflows/renovate.yml）で自前運用している。
-// 実行に関わる設定（対象リポジトリ・認証・ログレベル）はそちらの環境変数で渡し、ここには置かない。
-// https://docs.renovatebot.com/getting-started/running/
-//
-// JSON ではなく JSON5 にしているのは、設定の「なぜ」をコメントで残すため。
-// そのため CI の jq による構文検査の対象外になるので、代わりに renovate-config-validator で検査する（ci.yml）。
-//
-// ワークフローが使うツールは、Renovate が標準で追える形（アクションの SHA 固定、
-// ジョブの container image、mise.toml の [tools]）に寄せている。そこに載せられない1箇所
-// （devcontainer の Dockerfile で go install するツールの版）だけは、自前の regex ではなく
-// 公式プリセット customManagers:dockerfileVersions で追う（extends のコメント）。
+// Renovate のリポジトリ設定。実行設定（対象・認証・ログレベル）は .github/workflows/renovate.yml の環境変数で渡す。
+// 理由をコメントで残すため JSON5 にしており、jq の代わりに renovate-config-validator で検査する（ci.yml）。
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
 
-  // config:recommended に加えて、GitHub Actions のコミット SHA 固定（helpers:pinGitHubActionDigests）や
-  // 設定の自動マイグレーション（:configMigration）などが含まれる。
-  // https://docs.renovatebot.com/upgrade-best-practices/#use-the-configbest-practices-preset
-  //
-  // customManagers:dockerfileVersions は、Dockerfile の `# renovate: datasource=... depName=...`
-  // コメントの直後にある `ENV`/`ARG` の `<名前>_VERSION` を依存として拾うプリセット。
-  // .devcontainer/api-container/Dockerfile が go install で入れるツールの版がこれに当たる。
-  //
-  // 標準の dockerfile manager では追えない。ARG 行自体は読むが（extract.ts の ARG 正規表現）、
-  // 読んだ値は FROM や COPY --from のイメージ名にある変数を展開するための表に入るだけで、
-  // それ自体は依存にならない。プリセットを外した状態の --dry-run=extract で、あの Dockerfile から
-  // 検出される依存が golang だけになることを 44.95.0 で実測した。
-  // 正規表現を自分で書かずプリセットを使うのは、パターンの保守を上流に任せるため。
+  // dockerfileVersions は Dockerfile の # renovate: 付き <名前>_VERSION を追う。標準の dockerfile manager は
+  // ARG を依存にしない（44.95.0 の --dry-run=extract で実測）。
   // https://docs.renovatebot.com/presets-customManagers/#custommanagersdockerfileversions
   extends: ['config:best-practices', 'customManagers:dockerfileVersions'],
 
@@ -39,27 +15,16 @@
   labels: ['dependencies'],
   dependencyDashboardLabels: ['dependencies'],
 
-  // コミットメッセージと PR タイトルは Conventional Commits 形式・内容は日本語（CLAUDE.md）。
-  // 既定は "chore(deps): update dependency X to v1.2.3" のように
-  // "{prefix} {action} {topic} {extra}" の順で組み立てられるため、日本語の語順に合わせて各部品を差し替える。
-  // commitMessage そのものの上書きは非推奨なので部品側を変える。
+  // 件名を日本語の語順にするため、非推奨の commitMessage 上書きではなく部品を差し替える。版・digest 更新の文言は packageRules 側。
   // https://docs.renovatebot.com/configuration-options/#commitmessage
-  //
-  // バージョン更新（major / minor / patch）と digest 更新の文言は、ここではなく packageRules（末尾）で決める。
-  // 理由はそちらのコメント。ここの commitMessageTopic は、pin / rollback / replacement など残りの種別が使う。
   semanticCommits: 'enabled',
   commitMessageAction: '',
   commitMessageTopic: '{{depName}} を',
   // 既定（auto）だと semanticCommitType が小文字のとき件名全体を小文字化し、depName の大文字（owner 名など）が潰れる
   commitMessageLowerCase: 'never',
 
-  // 更新種別ごとの既定値（pin 系は action "Pin" など）は上の部品より後に合成されて英語に戻るため、
-  // 種別側でも日本語に揃える。
-  // https://docs.renovatebot.com/configuration-options/#pin
-  //
-  // pin / pinDigest のグループでは、更新先のバージョンや digest が依存ごとに異なると Renovate が commitMessageExtra を
-  // 削除する（lib/workers/repository/updates/generate.ts）。group の文言を commitMessageExtra に置くと
-  // PR タイトルが "chore(deps):" だけになった（dry-run で実測）ため、削除されない commitMessageTopic 側に置く。
+  // 種別ごとの既定文言は上の部品より後に合成されて英語に戻るため、種別側でも日本語にする。group の文言は
+  // commitMessageExtra に置くと消される（generate.ts。dry-run で実測）ので commitMessageTopic に置く。
   pin: {
     commitMessageAction: '',
     commitMessageExtra: '{{newValue}} に固定',
@@ -80,60 +45,28 @@
   },
 
   packageRules: [
-    // minor / patch / digest / pinDigest は CI が通れば自動マージする。major は人が確認する。
-    // pinDigest（未固定のタグに初めて digest を付ける更新）は、そのタグが現時点で指す内容を書き足すだけで
-    // 実行されるイメージは変わらないため、自動マージに含める。digest とは別の更新種別なので明示が必要。
-    // https://docs.renovatebot.com/configuration-options/#pindigest
-    // platformAutomerge（既定 true）により GitHub の auto-merge を使うので、
-    // リポジトリ側の "Allow auto-merge" とルールセットの必須ステータスチェックが前提（apply-repo-settings.sh / rulesets/main.json）。
-    // https://docs.renovatebot.com/configuration-options/#automerge
+    // major 以外は CI が通れば自動マージする（pinDigest は実行されるイメージを変えないため含める）。
+    // GitHub の auto-merge と必須チェックが前提（apply-repo-settings.sh / rulesets/main.json）。
     {
       matchUpdateTypes: ['minor', 'patch', 'digest', 'pinDigest'],
       automerge: true,
     },
-    // renovatebot/github-action の renovate-version 入力（depType: uses-with）は docker 依存として認識されるが、
-    // github-actions manager はこの入力へ digest を書き込めない。docker:pinDigests のまま放置すると
-    // "Digest is not updated" で pin-dependencies ブランチ全体の更新が失敗し、他の依存の pin も止まる（dry-run で実測）。
-    // バージョン更新自体は引き続き Renovate が追う。
+    // github-actions manager は uses-with の入力に digest を書けず、pin のブランチ全体が失敗するため無効にする
+    // （dry-run で実測。書けないことの上流の根拠は未検証）。https://docs.renovatebot.com/modules/manager/github-actions/
     {
       matchManagers: ['github-actions'],
       matchDepTypes: ['uses-with'],
       pinDigests: false,
     },
-    // shellcheck を abandoned 判定の対象から外す。
-    // config:best-practices に含まれる abandonments:recommended が「最終リリースから1年」を閾値にするが
-    // （lib/config/presets/internal/abandonments.preset.ts）、shellcheck はリリース間隔がもともとそれより長い
-    // （0.9.0 2022-12-13 → 0.10.0 2024-03-08 → 0.11.0 2025-08-04）。開発自体は続いており
-    // （master への直近コミットは 2026-06-11、リポジトリは非アーカイブ。GitHub API で確認）、
-    // 実用的な移行先も無い（actionlint は run: の検査に PATH 上の shellcheck を使う。mise.toml のコメント参照）。
-    // 判断材料にならない指摘がダッシュボードに常駐するため、このパッケージだけ無効にする。
-    // null は abandonments:recommended 自身が @types/* に使っている値と同じ（threshold 'eternal' → null）。
+    // shellcheck はリリース間隔が閾値（1年）より長いが開発は続いており、判断材料にならない指摘が常駐するため対象から外す。
+    // 照合するのは packageName で、aqua バックエンドの名前を除いた形になる（dry-run で実測）。
     // https://docs.renovatebot.com/presets-abandonments/
-    //
-    // matchPackageNames が照合するのは depName ではなく packageName
-    // （lib/util/package-rules/package-names.ts の PackageNameMatcher）。
-    // mise manager の aqua バックエンドは packageName にバックエンド名を含めないため、
-    // mise.toml の "aqua:koalaman/shellcheck" に対してここは "koalaman/shellcheck" と書く
-    // （lib/modules/manager/mise/backends.ts の createAquaToolConfig）。
-    // dry-run（--platform=local --dry-run=extract）で packageName が "koalaman/shellcheck"、
-    // datasource が github-tags になることを実測。
     {
       matchPackageNames: ['koalaman/shellcheck'],
       abandonmentThreshold: null,
     },
-    // バージョン更新と digest 更新のコミットメッセージ・PR タイトルの文言。
-    // トップレベルではなくここに置くのは、manager や datasource が持つ既定の文言のほうがトップレベルより後に
-    // 合成されて勝つため。docker datasource は commitMessageTopic を "{{{depName}}} Docker tag"、
-    // commitMessageExtra を "to ..." にし（lib/modules/datasource/docker/index.ts の defaultConfig）、
-    // github-actions manager は依存ごとに commitMessageTopic を "{{{depName}}} action" にする
-    // （lib/modules/manager/github-actions/extract.ts）。そのため Docker イメージの更新 PR は英語のタイトルになり、
-    // PR title の検査で落ちていた（#26）。
-    // packageRules はそれらの後、さらに更新種別ごとの設定（digest など）を合成した後にもう一度適用されるため、
-    // ここで決めた文言が最後に残る（lib/workers/repository/updates/flatten.ts）。
-    //
-    // 版の表記には prettyNewMajor / prettyNewVersion を使う。prettyNewVersion は数字で始まる版にだけ v を付ける
-    // （lib/workers/repository/updates/generate.ts の prettifyVersion）。自前で "v{{{newVersion}}}" と書いていたときは、
-    // タグ自体が v で始まる GitHub Actions の更新で "vv46.3.6" になっていた（#35・#37・#39）。
+    // manager・datasource の既定文言はトップレベルより後に合成されて勝つため、最後に適用される packageRules で決める（#26）。
+    // v は自前で付けず prettyNewVersion に任せる。v 始まりのタグに v が重なるのを防ぐため（#35）。
     {
       matchUpdateTypes: ['major', 'minor', 'patch'],
       commitMessageTopic: '{{depName}} を',

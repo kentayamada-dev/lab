@@ -1,17 +1,12 @@
 #!/usr/bin/env bats
-# bats の shebang は shellcheck が方言を判別できないため明示する
-# shellcheck shell=bash
-# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
-# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
-# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
-# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# bats の書き方由来の誤検出を外す: SC2030/SC2031（@test ごとの subshell）、SC2154（bats・load 先が設定する変数）、
+# SC2016（期待値の $ を展開しない）、SC2312（失敗は run で受ける）
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
 # scripts/apply-repo-settings.sh のテスト。
 #
-# このスクリプトの振る舞いは、ほぼすべてがGitHubへの呼び出しそのもの。
-# そこで gh をスタブに差し替え、「実際に何を送るか」「何を送らないか」を観測する。
-# 実リポジトリの設定は一切変更しない。
+# 振る舞いのほぼすべてが GitHub への呼び出しなので、gh をスタブに差し替えて「何を送るか・送らないか」を見る。
+# 実リポジトリの設定は変更しない。
 
 load helper
 
@@ -35,7 +30,7 @@ write_ruleset() {
   printf '%s\n' "$2" >"${REPO_DIR}/.github/rulesets/$1"
 }
 
-# gh api 呼び出しの総数
+# grep -c は0件のとき終了コード1を返すため、|| true で 0 を出力させる
 api_call_count() {
   grep -c '^api ' "${GH_LOG}" || true
 }
@@ -83,7 +78,7 @@ body_containing() {
 
   assert_contains "${output}" "パブリックリポジトリ専用"
   # 中途半端に適用されないこと
-  [[ "$(api_call_count)" -eq 0 ]]
+  [[ "$(api_call_count)" -eq 0 ]] || false
 }
 
 @test "ADMIN でなければ何も変更せずに終わる" {
@@ -92,7 +87,7 @@ body_containing() {
   run -1 "${SCRIPT}"
 
   assert_contains "${output}" "ADMIN が必要"
-  [[ "$(api_call_count)" -eq 0 ]]
+  [[ "$(api_call_count)" -eq 0 ]] || false
 }
 
 # ---- ルールセット -----------------------------------------------------------------------------
@@ -103,7 +98,7 @@ body_containing() {
   run -0 "${SCRIPT}"
 
   assert_contains "${output}" "作成: main"
-  [[ "$(gh_calls_matching "--method POST" "repos/${REPO}/rulesets" "main.json")" -eq 1 ]]
+  [[ "$(gh_calls_matching "--method POST" "repos/${REPO}/rulesets" "main.json")" -eq 1 ]] || false
 }
 
 @test "同名のルールセットがあれば そのidを更新する" {
@@ -113,8 +108,8 @@ body_containing() {
   run -0 "${SCRIPT}"
 
   assert_contains "${output}" "更新: main (id=42)"
-  [[ "$(gh_calls_matching "--method PUT" "repos/${REPO}/rulesets/42")" -eq 1 ]]
-  [[ "$(gh_calls_matching "--method POST" "repos/${REPO}/rulesets")" -eq 0 ]]
+  [[ "$(gh_calls_matching "--method PUT" "repos/${REPO}/rulesets/42")" -eq 1 ]] || false
+  [[ "$(gh_calls_matching "--method POST" "repos/${REPO}/rulesets")" -eq 0 ]] || false
 }
 
 @test "別名のルールセットだけがあるときは作成する" {
@@ -123,15 +118,15 @@ body_containing() {
 
   run -0 "${SCRIPT}"
 
-  [[ "$(gh_calls_matching "--method POST" "repos/${REPO}/rulesets")" -eq 1 ]]
-  [[ "$(gh_calls_matching "repos/${REPO}/rulesets/42")" -eq 0 ]]
+  [[ "$(gh_calls_matching "--method POST" "repos/${REPO}/rulesets")" -eq 1 ]] || false
+  [[ "$(gh_calls_matching "repos/${REPO}/rulesets/42")" -eq 0 ]] || false
 }
 
 @test "ルールセットの定義が無ければ一覧も取得せずスキップする" {
   run -0 "${SCRIPT}"
 
   assert_contains "${output}" "定義なし。スキップ"
-  [[ "$(gh_calls_matching "rulesets")" -eq 0 ]]
+  [[ "$(gh_calls_matching "rulesets")" -eq 0 ]] || false
 }
 
 @test "ルールセットに name が無ければ終わる" {
@@ -148,11 +143,20 @@ body_containing() {
   run -0 "${SCRIPT}"
 
   body="$(body_containing allow_squash_merge)"
-  [[ "$(jq -r '.allow_squash_merge' <<<"${body}")" = "true" ]]
-  [[ "$(jq -r '.allow_merge_commit' <<<"${body}")" = "false" ]]
-  [[ "$(jq -r '.allow_rebase_merge' <<<"${body}")" = "false" ]]
-  [[ "$(jq -r '.allow_auto_merge' <<<"${body}")" = "true" ]]
-  [[ "$(jq -r '.delete_branch_on_merge' <<<"${body}")" = "true" ]]
+  [[ "$(jq -r '.allow_squash_merge' <<<"${body}")" = "true" ]] || false
+  [[ "$(jq -r '.allow_merge_commit' <<<"${body}")" = "false" ]] || false
+  [[ "$(jq -r '.allow_rebase_merge' <<<"${body}")" = "false" ]] || false
+  [[ "$(jq -r '.allow_auto_merge' <<<"${body}")" = "true" ]] || false
+  [[ "$(jq -r '.delete_branch_on_merge' <<<"${body}")" = "true" ]] || false
+}
+
+@test "squash の件名はコミット数によらずPRタイトルにする" {
+  # 既定の COMMIT_OR_PR_TITLE だと1コミットのPRはコミットの件名になり、PRタイトル検査を素通りする
+  run -0 "${SCRIPT}"
+
+  body="$(body_containing allow_squash_merge)"
+  [[ "$(jq -r '.squash_merge_commit_title' <<<"${body}")" = "PR_TITLE" ]] || false
+  [[ "$(jq -r '.squash_merge_commit_message' <<<"${body}")" = "COMMIT_MESSAGES" ]] || false
 }
 
 @test "リポジトリの説明文を送る" {
@@ -160,24 +164,24 @@ body_containing() {
   run -0 "${SCRIPT}"
 
   body="$(body_containing allow_squash_merge)"
-  [[ -n "$(jq -r '.description // empty' <<<"${body}")" ]]
+  [[ -n "$(jq -r '.description // empty' <<<"${body}")" ]] || false
 }
 
 @test "GITHUB_TOKEN の既定権限は読み取りのみで、レビュー承認を許可しない" {
   run -0 "${SCRIPT}"
 
   body="$(body_containing default_workflow_permissions)"
-  [[ "$(jq -r '.default_workflow_permissions' <<<"${body}")" = "read" ]]
-  [[ "$(jq -r '.can_approve_pull_request_reviews' <<<"${body}")" = "false" ]]
+  [[ "$(jq -r '.default_workflow_permissions' <<<"${body}")" = "read" ]] || false
+  [[ "$(jq -r '.can_approve_pull_request_reviews' <<<"${body}")" = "false" ]] || false
 }
 
 @test "実行できるアクションはGitHub公式と検証済みに限り、パターン追加はしない" {
   run -0 "${SCRIPT}"
 
   body="$(body_containing github_owned_allowed)"
-  [[ "$(jq -r '.github_owned_allowed' <<<"${body}")" = "true" ]]
-  [[ "$(jq -r '.verified_allowed' <<<"${body}")" = "true" ]]
-  [[ "$(jq -r '.patterns_allowed | length' <<<"${body}")" -eq 0 ]]
+  [[ "$(jq -r '.github_owned_allowed' <<<"${body}")" = "true" ]] || false
+  [[ "$(jq -r '.verified_allowed' <<<"${body}")" = "true" ]] || false
+  [[ "$(jq -r '.patterns_allowed | length' <<<"${body}")" -eq 0 ]] || false
 }
 
 @test "シークレットスキャンをプッシュ保護より先に送る" {
@@ -186,41 +190,63 @@ body_containing() {
 
   secret_line="$(grep -n '"secret_scanning":' "${GH_BODY_LOG}" | head -1 | cut -d: -f1)"
   push_line="$(grep -n '"secret_scanning_push_protection":' "${GH_BODY_LOG}" | head -1 | cut -d: -f1)"
-  [[ -n "${secret_line}" ]]
-  [[ -n "${push_line}" ]]
-  [[ "${secret_line}" -lt "${push_line}" ]]
+  [[ -n "${secret_line}" ]] || false
+  [[ -n "${push_line}" ]] || false
+  [[ "${secret_line}" -lt "${push_line}" ]] || false
 }
 
 @test "Dependabotと脆弱性報告とリリース不変化を有効にする" {
   run -0 "${SCRIPT}"
 
-  [[ "$(gh_calls_matching "--method PUT" "repos/${REPO}/vulnerability-alerts")" -eq 1 ]]
-  [[ "$(gh_calls_matching "--method PUT" "repos/${REPO}/automated-security-fixes")" -eq 1 ]]
-  [[ "$(gh_calls_matching "--method PUT" "repos/${REPO}/private-vulnerability-reporting")" -eq 1 ]]
-  [[ "$(gh_calls_matching "--method PUT" "repos/${REPO}/immutable-releases")" -eq 1 ]]
+  [[ "$(gh_calls_matching "--method PUT" "repos/${REPO}/vulnerability-alerts")" -eq 1 ]] || false
+  [[ "$(gh_calls_matching "--method PUT" "repos/${REPO}/automated-security-fixes")" -eq 1 ]] || false
+  [[ "$(gh_calls_matching "--method PUT" "repos/${REPO}/private-vulnerability-reporting")" -eq 1 ]] || false
+  [[ "$(gh_calls_matching "--method PUT" "repos/${REPO}/immutable-releases")" -eq 1 ]] || false
 }
 
 # ---- CodeQL -----------------------------------------------------------------------------------
 
-@test "CodeQLが未設定なら actions を対象に有効化する" {
+@test "CodeQLが未設定なら actions と go を対象に有効化する" {
   export GH_CODEQL_STATE="not-configured"
 
   run -0 "${SCRIPT}"
 
   assert_contains "${output}" "CodeQL: 有効化"
   body="$(body_containing query_suite)"
-  [[ "$(jq -r '.state' <<<"${body}")" = "configured" ]]
-  [[ "$(jq -r '.languages | join(",")' <<<"${body}")" = "actions" ]]
+  [[ "$(jq -r '.state' <<<"${body}")" = "configured" ]] || false
+  [[ "$(jq -r '.languages | join(",")' <<<"${body}")" = "actions,go" ]] || false
 }
 
-@test "CodeQLが既に有効なら変更を送らない" {
-  # 解析中に PATCH すると409になりうるため、現在の状態を見てから変更する設計
+@test "CodeQLが同じ言語で既に有効なら変更を送らない" {
+  # 別の構成での検証が進行中に PATCH すると409になるため、現在の状態を見てから変更する設計
+  # https://docs.github.com/en/rest/code-scanning/code-scanning#update-a-code-scanning-default-setup-configuration
   export GH_CODEQL_STATE="configured"
+  export GH_CODEQL_LANGUAGES="actions,go"
 
   run -0 "${SCRIPT}"
 
   assert_contains "${output}" "CodeQL: 既に有効"
-  [[ "$(gh_calls_matching "--method PATCH" "code-scanning/default-setup")" -eq 0 ]]
+  [[ "$(gh_calls_matching "--method PATCH" "code-scanning/default-setup")" -eq 0 ]] || false
+}
+
+@test "CodeQLの言語が順序だけ違うなら変更を送らない" {
+  export GH_CODEQL_STATE="configured"
+  export GH_CODEQL_LANGUAGES="go,actions"
+
+  run -0 "${SCRIPT}"
+
+  [[ "$(gh_calls_matching "--method PATCH" "code-scanning/default-setup")" -eq 0 ]] || false
+}
+
+@test "CodeQLが有効でも言語が足りなければ actions と go に更新する" {
+  export GH_CODEQL_STATE="configured"
+  export GH_CODEQL_LANGUAGES="actions"
+
+  run -0 "${SCRIPT}"
+
+  assert_contains "${output}" "CodeQL: 解析対象の言語を更新"
+  body="$(body_containing query_suite)"
+  [[ "$(jq -r '.languages | join(",")' <<<"${body}")" = "actions,go" ]] || false
 }
 
 # ---- ラベル -----------------------------------------------------------------------------------
@@ -230,9 +256,9 @@ body_containing() {
 
   run -0 "${SCRIPT}"
 
-  [[ "$(gh_calls_matching "--method DELETE" "repos/${REPO}/labels/documentation")" -eq 1 ]]
-  [[ "$(gh_calls_matching "--method DELETE" "repos/${REPO}/labels/question")" -eq 1 ]]
-  [[ "$(gh_calls_matching "--method DELETE" "repos/${REPO}/labels/wontfix")" -eq 1 ]]
+  [[ "$(gh_calls_matching "--method DELETE" "repos/${REPO}/labels/documentation")" -eq 1 ]] || false
+  [[ "$(gh_calls_matching "--method DELETE" "repos/${REPO}/labels/question")" -eq 1 ]] || false
+  [[ "$(gh_calls_matching "--method DELETE" "repos/${REPO}/labels/wontfix")" -eq 1 ]] || false
 }
 
 @test "空白を含むラベル名はURIエスケープして削除する" {
@@ -240,7 +266,7 @@ body_containing() {
 
   run -0 "${SCRIPT}"
 
-  [[ "$(gh_calls_matching "--method DELETE" "repos/${REPO}/labels/good%20first%20issue")" -eq 1 ]]
+  [[ "$(gh_calls_matching "--method DELETE" "repos/${REPO}/labels/good%20first%20issue")" -eq 1 ]] || false
 }
 
 @test "存在しない既定ラベルは削除しようとしない" {
@@ -248,7 +274,7 @@ body_containing() {
 
   run -0 "${SCRIPT}"
 
-  [[ "$(gh_calls_matching "--method DELETE" "labels/")" -eq 0 ]]
+  [[ "$(gh_calls_matching "--method DELETE" "labels/")" -eq 0 ]] || false
 }
 
 @test "bug と enhancement は既定ラベルでも削除せず上書きする" {
@@ -256,10 +282,10 @@ body_containing() {
 
   run -0 "${SCRIPT}"
 
-  [[ "$(gh_calls_matching "--method DELETE" "repos/${REPO}/labels/bug")" -eq 0 ]]
-  [[ "$(gh_calls_matching "--method DELETE" "repos/${REPO}/labels/enhancement")" -eq 0 ]]
-  [[ "$(gh_calls_matching "--method PATCH" "repos/${REPO}/labels/bug")" -eq 1 ]]
-  [[ "$(gh_calls_matching "--method PATCH" "repos/${REPO}/labels/enhancement")" -eq 1 ]]
+  [[ "$(gh_calls_matching "--method DELETE" "repos/${REPO}/labels/bug")" -eq 0 ]] || false
+  [[ "$(gh_calls_matching "--method DELETE" "repos/${REPO}/labels/enhancement")" -eq 0 ]] || false
+  [[ "$(gh_calls_matching "--method PATCH" "repos/${REPO}/labels/bug")" -eq 1 ]] || false
+  [[ "$(gh_calls_matching "--method PATCH" "repos/${REPO}/labels/enhancement")" -eq 1 ]] || false
 }
 
 @test "管理ラベルが無ければ作成する" {
@@ -268,7 +294,7 @@ body_containing() {
   run -0 "${SCRIPT}"
 
   for name in bug dependencies enhancement maintenance; do
-    [[ "$(gh_calls_matching "--method POST" "repos/${REPO}/labels" "name=${name}")" -eq 1 ]]
+    [[ "$(gh_calls_matching "--method POST" "repos/${REPO}/labels" "name=${name}")" -eq 1 ]] || false
   done
 }
 
@@ -280,11 +306,11 @@ body_containing() {
   grep -o 'description=[^ ]*' "${GH_LOG}" | sed 's/^description=//' >"${BATS_TEST_TMPDIR}/descriptions"
 
   # 取り出せていないのに通ってしまわないよう、管理ラベル4件ぶん揃っていることを先に確かめる
-  [[ "$(wc -l <"${BATS_TEST_TMPDIR}/descriptions" | tr -d " ")" -eq 4 ]]
+  [[ "$(wc -l <"${BATS_TEST_TMPDIR}/descriptions" | tr -d " ")" -eq 4 ]] || false
 
   while IFS= read -r description; do
-    [[ -n "${description}" ]]
-    [[ "${#description}" -le 100 ]]
+    [[ -n "${description}" ]] || false
+    [[ "${#description}" -le 100 ]] || false
   done <"${BATS_TEST_TMPDIR}/descriptions"
 }
 

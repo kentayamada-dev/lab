@@ -25,6 +25,7 @@ runs:
   steps:
     # 終了コード 1 = drift あり、2 = ドキュメント取得失敗など検査自体の失敗（ここで即失敗させる）。
     # run: 内に ${{ }} を直接書くとCodeQLのactions/code-injectionで警告されうるため、envを経由する
+    # https://codeql.github.com/codeql-query-help/actions/actions-code-injection-medium/
     - id: check
       shell: bash
       env:

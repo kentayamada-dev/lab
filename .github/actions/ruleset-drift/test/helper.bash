@@ -1,17 +1,8 @@
 #!/usr/bin/env bash
-# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
-# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
-# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
-# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# bats の書き方に由来する指摘を外す（各コードの理由は scripts/lib/bats-helpers.bash 冒頭）
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
-# check-ruleset-drift.sh の bats テスト用ヘルパ。
-#
-# テストは実GitHubに触れない。外部へ出る gh は PATH の先頭に置いたスタブへ差し替え、
-# 応答はフィクスチャで固定する。jq と diff は実物を使う。
-#
-# スタブの置き場（setup_stubs / only_commands）と判定（assert_*）は他のテストと同じものを使うため、
-# scripts/lib/bats-helpers.bash に置いている。ここに残すのはこの action 固有のスタブと判定だけ。
+# check-ruleset-drift.sh のテスト用スタブ。実GitHubに触れないよう gh だけ差し替え、jq と diff は実物を使う。
 load ../../../../scripts/lib/bats-helpers
 
 # ---- スタブとフィクスチャ -------------------------------------------------------------------
@@ -23,7 +14,7 @@ install_gh_stub() {
 #!/usr/bin/env bash
 set -uo pipefail
 
-# api 以降でフラグでもフラグの値でもない最初の引数がエンドポイント
+# api 以降でフラグでもフラグの値でもない引数がエンドポイント（複数あれば最後のもの）
 shift
 endpoint=""
 while [ "$#" -gt 0 ]; do

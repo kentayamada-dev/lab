@@ -1,15 +1,9 @@
 ---
 name: Renovate
 
-# 依存関係の更新 PR を作る Renovate を、ホスト型サービス（Mend App）ではなくこのリポジトリの Actions で動かす。
-# リポジトリ側の設定（何をどう更新するか）は .github/renovate.json5、ここにはそれを動かすための実行設定だけを書く。
-#
-# 認証には Personal Access Token（PAT）を使う。既定の GITHUB_TOKEN だとワークフローファイルを更新できず、
-# 作った PR の CI も手動承認待ちになるため、自動マージが成立しない。
+# Renovate を Actions で自前運用する実行設定（何を更新するかは .github/renovate.json5）。PAT の登録手順は README。
+# 既定の GITHUB_TOKEN ではワークフローを更新できず PR の CI も承認待ちになり、自動マージが成立しないため PAT を使う。
 # https://github.com/renovatebot/github-action#readme
-#
-# PAT の発行と Secrets への登録は GitHub の UI で行う（このリポジトリのスクリプトでは管理していない）。
-# 手順は README.md の「Renovate の事前準備」を参照。
 
 on:
   schedule:
@@ -17,13 +11,8 @@ on:
     # editorconfig-checker-disable-next-line
     # https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows#schedule
     - cron: "0 21 * * *"
-  # Renovate が作った PR がマージされたら再実行する。
-  # Dependency Dashboard（issue）の本文は Renovate の各実行の最後に書き出され、それ以外のタイミングでは更新されない。
-  # 定期実行だけだと、実行中に自動マージされた PR や実行後にマージされた PR が翌日の実行まで「Open」に残る
-  # （2026-09-16 の定期実行 35162988251 では、実行中に作成・自動マージされた #14 がダッシュボードに Open のまま残った）。
-  # ホスト型（Mend）はマージ等のイベントを優先するジョブキューで追従するが、Actions 運用ではトリガーを自分で足す。
-  # https://docs.renovatebot.com/getting-started/running/
-  # 「マージ済み・Renovate のブランチ・同一リポジトリ」への絞り込みはジョブの if で行う（on: では表現できない）。
+  # Dependency Dashboard は各実行の最後にしか更新されないため、Renovate の PR がマージされたら再実行する（#14）。
+  # 絞り込みは on: では書けないのでジョブの if で行う。https://docs.renovatebot.com/getting-started/running/
   pull_request:
     types: [closed]
   workflow_dispatch:
@@ -55,11 +44,8 @@ jobs:
     runs-on: ubuntu-26.04-arm
     timeout-minutes: 30
 
-    # pull_request では「Renovate が作った PR がマージされた」ときだけ動かす。閉じただけの PR や人のブランチで
-    # Renovate を回す理由は無い。renovate/ は branchPrefix の既定値（.github/renovate.json5 では変えていない）。
+    # 同一リポジトリの renovate/（branchPrefix の既定値）の PR がマージされたときだけ動かす。fork 発は Secrets が渡らず失敗するだけ。
     # https://docs.renovatebot.com/configuration-options/#branchprefix
-    # fork から renovate/ 名義の PR が来ても、fork 発の pull_request には Secrets が渡らず RENOVATE_TOKEN が空で
-    # 失敗するだけなので、同一リポジトリのブランチに限定して無駄な失敗を避ける。
     if: >-
       github.event_name != 'pull_request'
       || (github.event.pull_request.merged
@@ -70,14 +56,8 @@ jobs:
       contents: read
 
     steps:
-      # Renovate は自分でリポジトリを clone するので、ここで checkout は要らない。
-      # README の例に checkout があるのは、グローバル設定をファイルで渡す場合にそのファイルを読むため。
-      # このワークフローではグローバル設定を RENOVATE_* 環境変数で渡している（アクションがコンテナに引き継ぐ）。
-      #
-      # renovate-version は Renovate 本体（Docker イメージ）のタグ。既定の "44" だと実行ごとに中身が変わりうるので固定する。
-      # この入力は Renovate の github-actions manager が ghcr.io/renovatebot/renovate の docker 依存として標準で認識するため、
-      # 注記なしで Renovate 自身がバージョンを更新する。
-      # digest は付けない。理由は .github/renovate.json5 の uses-with 向け packageRule を参照。
+      # checkout は不要（Renovate が自分で clone し、グローバル設定は RENOVATE_* 環境変数で渡すため）。
+      # renovate-version は中身がぶれないよう固定する。Renovate 自身が更新し、digest を付けない理由は renovate.json5。
       - name: Renovateを実行
         uses: renovatebot/github-action@6d26fcf0275dc65624cbc3d51fe78bc773f98321  # v46.3.6
         with:
@@ -86,12 +66,8 @@ jobs:
         env:
           # 対象はこのリポジトリだけ。autodiscover は使わない
           RENOVATE_REPOSITORIES: ${{ github.repository }}
-          # コミット作者（gitAuthor）は指定しない。PAT の持ち主に公開メールが無く、PAT にも Email addresses 権限を
-          # 付けていないため推定に失敗し、既定の "Renovate <renovate@whitesourcesoftware.com>" になる。
-          # このアドレスは Mend 所有の @renovate-bot のもので、コミットに Unverified バッジが付き、Renovate も warn を出すが、
-          # 自分のアドレスを使うと Renovate ブランチへの手動 push を「未変更」と誤認して上書きされうるため、既定のままにしている。
-          # https://github.com/renovatebot/renovate/discussions/39309
-          # https://docs.renovatebot.com/configuration-options/#gitauthor
+          # gitAuthor は指定しない。自分のアドレスにすると手動 push を「未変更」と誤認して上書きされうるため、
+          # Unverified でも既定のままにする。https://github.com/renovatebot/renovate/discussions/39309
           # workflow_dispatch 以外（schedule / pull_request）では inputs が空なので、通常実行になる
           RENOVATE_DRY_RUN: ${{ inputs.dry-run && 'full' || '' }}
           LOG_LEVEL: ${{ inputs.log-level || 'info' }}
