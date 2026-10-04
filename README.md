@@ -36,7 +36,7 @@ make dev-web
 - 上のマウントに加えて、pnpm のストアと `web/node_modules` を named volume（`pnpm-store`、`web-node-modules`）に置く。
   ホストの `web/node_modules` は空のまま。`pnpm install` はコンテナの中で実行する。
   `docker compose down -v` を使うと、この2つの volume も消える
-- `web/` ディレクトリはまだリポジトリに無い。中身は別途追加する
+- `web/` には Next.js と React の依存だけを入れてある。アプリのコードはまだ無い
 - Node.js は公式イメージ `node:26.10.0-trixie` を digest で固定して使う。
   公式イメージにある `node` ユーザー（UID/GID 1000）を `dev` に改名して、api と同じユーザー名にしている
 - パッケージマネージャーは pnpm を使う。イメージ同梱の npm から公式の手順（[get-pnpm](https://pnpm.io/installation#using-npm)）で導入している。
