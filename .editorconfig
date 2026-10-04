@@ -29,6 +29,14 @@ indent_size = unset
 [Makefile]
 indent_style = tab
 
+# gofmt はインデントにタブを使い、設定で変えられない。
+# この節を外すと api/ の Go ファイルが editorconfig-checker に
+# "wrong indent style found (tabs instead of spaces)" として指摘されることを 4.0.2 で実測した。
+# go.mod も go コマンドが require ブロックの中をタブで字下げして書き出すため含める。
+# https://pkg.go.dev/cmd/gofmt
+[{*.go,go.mod}]
+indent_style = tab
+
 # shfmt（シェルスクリプトの整形。ci.yml の「シェルスクリプトの整形を検査」）が読む設定。
 # shfmt 専用の設定ファイルは無く、整形の指定は .editorconfig に書くか実行時のフラグで渡すかの二択で、
 # 「整形フラグを1つでも渡すと .editorconfig を一切読まなくなる」（v3.14.1 で実測）。
