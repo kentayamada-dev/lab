@@ -22,3 +22,12 @@ services:
     # compose 構成の devcontainer は overrideCommand の既定が false で、golang イメージの既定 command はすぐ終わるため待機させる。
     # https://containers.dev/implementors/json_reference/
     command: sleep infinity
+
+  # 各設定の理由は api と同じ。node イメージの既定 command（node）も TTY が無いとすぐ終わる
+  web:
+    hostname: web
+    build:
+      context: .devcontainer/web-container
+    volumes:
+      - .:/workspace
+    command: sleep infinity

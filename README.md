@@ -25,6 +25,18 @@ make dev-api
   `ARG` に固定してあり、Renovate が更新を追う
 - VS Code を閉じてもコンテナは止まらない（`shutdownAction` が `none`）。止めるときは `docker compose down`
 
+web（Node.js）の開発用コンテナも同じ compose ファイルに `web` サービスとして定義している。
+定義は [.devcontainer/web-container/](.devcontainer/web-container/) にある。
+
+```bash
+make dev-web
+```
+
+- 前提・マウント・ユーザー（`dev`、UID/GID 1000）・`shutdownAction` は api と同じ。作業ディレクトリは `/workspace/web`
+- `web/` ディレクトリはまだリポジトリに無い。中身は別途追加する
+- Node.js は公式イメージ `node:26.10.0-trixie` を digest で固定して使う。npm はイメージ同梱のもの。
+  公式イメージにある `node` ユーザー（UID/GID 1000）を `dev` に改名して、api と同じユーザー名にしている
+
 ## リポジトリ設定の適用
 
 リポジトリの説明文・ルールセット・マージ方式・セキュリティ機能・Actions の実行許可・ラベルは、GitHub の UI ではなく
