@@ -77,10 +77,16 @@ log "リポジトリ設定を適用"
 
 # description は GitHub の Community Standards が求める項目の1つで、UI からも変えられる。
 # 他の設定と同じくここで管理することで、UI で書き換わっても再実行すれば元に戻る。
+#
+# squash の件名は PR_TITLE に固定する。既定の COMMIT_OR_PR_TITLE だと1コミットのPRはコミットの件名になり、
+# check-pr-title.sh の検査を素通りする。本文は既定と同じ COMMIT_MESSAGES（title と組で送る必要がある）。
+# https://docs.github.com/en/rest/repos/repos#update-a-repository
 gh api --silent --method PATCH "repos/${REPO}" --input - <<'JSON'
 {
   "description": "個人の実験用リポジトリ",
   "allow_squash_merge": true,
+  "squash_merge_commit_title": "PR_TITLE",
+  "squash_merge_commit_message": "COMMIT_MESSAGES",
   "allow_merge_commit": false,
   "allow_rebase_merge": false,
   "allow_auto_merge": true,
@@ -92,7 +98,7 @@ gh api --silent --method PATCH "repos/${REPO}" --input - <<'JSON'
 JSON
 
 info "説明文を設定"
-info "マージ方法: squashのみ / 自動マージ: 有効 / マージ後にブランチ削除: 有効"
+info "マージ方法: squashのみ（件名はPRタイトル） / 自動マージ: 有効 / マージ後にブランチ削除: 有効"
 info "Wiki・Projects・Discussions: 無効"
 
 # シークレットスキャンを先、プッシュ保護を後に適用する。GitHub の UI 手順の順序に合わせたもので、

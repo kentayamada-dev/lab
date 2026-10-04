@@ -150,6 +150,15 @@ body_containing() {
   [[ "$(jq -r '.delete_branch_on_merge' <<<"${body}")" = "true" ]] || false
 }
 
+@test "squash の件名はコミット数によらずPRタイトルにする" {
+  # 既定の COMMIT_OR_PR_TITLE だと1コミットのPRはコミットの件名になり、PRタイトル検査を素通りする
+  run -0 "${SCRIPT}"
+
+  body="$(body_containing allow_squash_merge)"
+  [[ "$(jq -r '.squash_merge_commit_title' <<<"${body}")" = "PR_TITLE" ]] || false
+  [[ "$(jq -r '.squash_merge_commit_message' <<<"${body}")" = "COMMIT_MESSAGES" ]] || false
+}
+
 @test "リポジトリの説明文を送る" {
   # GitHub の Community Standards が求める項目。UI で空にされても再実行で戻せるよう、定義側から送る
   run -0 "${SCRIPT}"

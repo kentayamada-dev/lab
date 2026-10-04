@@ -4,10 +4,8 @@
 #
 #   usage: .github/scripts/check-pr-title.sh "<title>"
 #
-# コミットではなくPRタイトルを検査する。.github/rulesets/main.json がマージを squash に限っており、
-# GitHub の既定では squash の件名がPRタイトルになるため（コミットが1つのPRだけはそのコミットの件名）。
-# editorconfig-checker-disable-next-line
-# https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/configuring-commit-squashing-for-pull-requests
+# コミットではなくPRタイトルを検査する。.github/rulesets/main.json がマージを squash に限り、
+# scripts/apply-repo-settings.sh が squash の件名を PR_TITLE に固定しているため、main に残る件名はPRタイトルになる。
 #
 # 終了コード: 0 = 適合 / 1 = 不適合 / 2 = 検査自体が実行できなかった
 #

@@ -231,7 +231,7 @@ jobs:
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
         run: osv-scanner scan source -r .
 
-  # squash マージのみのため、main に残る件名は PR タイトルになる。そのためタイトルを CLAUDE.md の規約で検査する。
+  # main に残る件名は PR タイトルになる（squash のみ・件名は PR_TITLE）ため、タイトルを CLAUDE.md の規約で検査する。
   #
   # 対象が PR のメタデータで mise のツールも使わないため、lint のコンテナ起動とツール導入を待たない独立ジョブにする。
   #
