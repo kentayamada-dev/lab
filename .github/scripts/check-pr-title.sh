@@ -4,9 +4,10 @@
 #
 #   usage: .github/scripts/check-pr-title.sh "<title>"
 #
-# 検査するのはコミットメッセージではなくPRのタイトル。
-# .github/rulesets/main.json の pull_request ルールがマージ方式を squash だけに限っているため、
-# main に残るコミットの件名になるのはPRのタイトルであって、ブランチ上の個々のコミットではない。
+# コミットではなくPRタイトルを検査する。.github/rulesets/main.json がマージを squash に限っており、
+# GitHub の既定では squash の件名がPRタイトルになるため（コミットが1つのPRだけはそのコミットの件名）。
+# editorconfig-checker-disable-next-line
+# https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/configuring-commit-squashing-for-pull-requests
 #
 # 終了コード: 0 = 適合 / 1 = 不適合 / 2 = 検査自体が実行できなかった
 #
@@ -23,22 +24,21 @@ command -v grep >/dev/null 2>&1 || die "grep が見つからない"
 
 TITLE="$1"
 
-# 指摘はまとめて出す。1件直すたびにCIを回し直さずに済むようにするため。
-# 配列ではなく文字列に溜めているのは、空配列への ${arr[@]} が bash 3.2 の set -u で
-# unbound variable になるため（CI は bash 5 だが、手元の macOS の既定は 3.2）。
+# 指摘は1回でまとめて出す（1件直すたびにCIを回し直させない）。配列でなく文字列に溜めるのは、
+# 手元 macOS の既定の bash 3.2 では set -u で空配列の ${arr[@]} が unbound variable になるため（4.4 で解消）。
+# https://lists.gnu.org/archive/html/bug-bash/2019-05/msg00024.html
 problems=""
 note() { problems="${problems}  - $1
 "; }
 
-# Conventional Commits が定める型に、Angular の規約でよく使われるものを足した一覧。
-# このリポジトリの過去のコミットは feat / fix / docs / ci / chore を使っている（git log で確認）。
+# Conventional Commits の型に、Angular 規約でよく使われる型を足した一覧。
 # https://www.conventionalcommits.org/ja/v1.0.0/
 TYPES="build chore ci docs feat fix perf refactor revert style test"
 
 if [[ -z "${TITLE}" ]]; then
   note "タイトルが空"
 else
-  # 前後の空白は、squash 後のコミット件名にそのまま残るため不適合として扱う
+  # 前後の空白は、squash 後のコミット件名にそのまま残る（未検証）ため不適合として扱う
   if [[ "${TITLE}" != "${TITLE#[[:space:]]}" ]]; then
     note "先頭に空白がある"
   fi
@@ -79,10 +79,8 @@ else
         *) ;;
       esac
 
-      # CLAUDE.md の「内容は日本語で書く」を機械的に確かめる。
-      # 「日本語かどうか」は判定できないので、非ASCII文字を含むことで代用している（近似であることを明示する）。
-      # C ロケールでは UTF-8 の多バイト文字を構成するバイトが [:print:] に含まれないため、
-      # 非ASCII文字が1つでもあれば一致する。
+      # 「内容は日本語」は判定できないので、非ASCII文字を含むかで近似する。C ロケールでは
+      # UTF-8 の多バイト文字のバイトが [:print:] に入らないため、非ASCII文字が1つでもあれば一致する。
       if ! printf '%s' "${description}" | LC_ALL=C grep -q '[^[:print:]]'; then
         note "説明に日本語が含まれていない（ASCII文字だけで書かれている）"
       fi

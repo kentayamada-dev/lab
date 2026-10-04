@@ -1,18 +1,12 @@
 #!/usr/bin/env bats
-# bats の shebang は shellcheck が方言を判別できないため明示する
-# shellcheck shell=bash
-# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
-# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
-# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
-# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# bats の書き方由来の誤検出を外す: SC2030/SC2031（@test ごとの subshell）、SC2154（bats・load 先が設定する変数）、
+# SC2016（期待値の $ を展開しない）、SC2312（失敗は run で受ける）
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
 # .github/scripts/check-action-shell.sh のテスト。
 #
-# 外部には触れない。action.yml を一時ディレクトリに作り、
-# 「run: の中身を shellcheck に届けているか」「届けられないときに黙って成功しないか」を観測する。
-# 検査そのものには実物の shellcheck を使う
-# （何を指摘するかはツールの仕事で、ここで固定したいのは渡し方のほう）。
+# 外部に触れず、一時ディレクトリの action.yml で「run: を shellcheck に届けているか」
+# 「届けられないとき黙って成功しないか」を見る。検査には実物の shellcheck を使う（固定したいのは渡し方）。
 
 load ../../../scripts/lib/bats-helpers
 

@@ -1,25 +1,8 @@
 #!/usr/bin/env bash
+# drift 検査の結果をジョブサマリーに書き、同じタイトルの open issue を作成・追記（結果ハッシュが変わったときだけ）・close する。
+# 終了コード: 0 = 完了 / 2 = 入力や前提の不備（gh・jq の失敗はその終了コード）。drift でジョブを落とすかは action.yml が決める。
 #
-# drift 検査の結果をジョブサマリーに書き、GitHub issue で通知する。
-#
-#   usage: .github/actions/notify-drift-issue/notify-drift-issue.sh
-#
-# 入力はすべて環境変数で受け取る（action.yml が inputs を写す）。
-#   必須: DRIFT（true / false）/ REPORT_FILE / ISSUE_TITLE / ISSUE_LABEL / RUN_URL
-#   任意: REPORT_FORMAT（markdown | diff、既定 markdown）/ DIGEST_SKIP_LINES（既定 0）
-#         SUMMARY_DRIFT / SUMMARY_OK / CLOSE_COMMENT / COMMENT_INTRO / REPORT_HEADING / REPORT_NOTE
-#         ISSUE_DESCRIPTION / ISSUE_EXTRA_SECTIONS / COMPLETION_CRITERIA
-#         GITHUB_STEP_SUMMARY（設定されていればジョブサマリーにも書く）
-#
-# 振る舞い:
-#   DRIFT=false: 同じタイトルの open issue があれば、経緯のコメントを残して close する
-#   DRIFT=true : open issue が無ければ作成する。あれば、検査結果が前回の通知から変わったときだけコメントで追記する
-#
-# 「前回の通知」は本文・コメントに埋め込んだ検査結果ハッシュの HTML コメント（GitHub 上では表示されない）で判定する。
-#
-# 終了コード: 0 = 通知処理が完了 / 2 = 入力や前提の不備。gh や jq が失敗したときはその終了コードで落ちる。
-# drift があるときにジョブを失敗させるかどうかは、このスクリプトではなく呼び出し側（action.yml）が決める。
-# 入力はすべて action.yml が env で渡すため、このスクリプト内では代入されない（上の usage を参照）。
+# 入力はすべて action.yml が env で渡すため、このスクリプト内では代入されない。
 # shellcheck disable=SC2154
 set -euo pipefail
 
@@ -31,7 +14,7 @@ die() {
 for cmd in gh jq; do
   command -v "${cmd}" >/dev/null 2>&1 || die "${cmd} が見つからない"
 done
-# sha256sum は coreutils のコマンドで macOS には無い。手元でも同じ結果を再現できるよう shasum に切り替える
+# sha256sum が無い環境（以前の macOS など。どの版からあるかは未検証）では shasum -a 256 で同じハッシュを取る
 if command -v sha256sum >/dev/null 2>&1; then
   sha256() { sha256sum | cut -d' ' -f1; }
 elif command -v shasum >/dev/null 2>&1; then
@@ -60,7 +43,7 @@ case "${DIGEST_SKIP_LINES}" in
   *) ;;
 esac
 
-# 作業ディレクトリは TMPDIR 配下に明示して作る（既定の一時領域に書けない実行環境があるため）
+# 作業ディレクトリは TMPDIR 配下に明示して作る（既定の一時領域に書けない実行環境への対処。推測）
 work="$(mktemp -d "${TMPDIR:-/tmp}/notify-drift.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
@@ -76,7 +59,7 @@ print_report() {
 }
 
 # 同じタイトルの open issue のうち最初の1件の番号を出力する（無ければ空）。
-# タイトル検索は日本語やコロンの扱いが不安定なので、一覧を取得して完全一致で判定する
+# タイトル検索は日本語やコロンの扱いが不安定なので、一覧を取得して完全一致で判定する（未検証）
 find_issue() {
   gh issue list --state open --label "${ISSUE_LABEL}" --limit 100 --json number,title |
     jq -r --arg t "${ISSUE_TITLE}" '[.[] | select(.title == $t) | .number] | first // empty'

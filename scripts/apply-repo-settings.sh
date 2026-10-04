@@ -95,9 +95,10 @@ info "説明文を設定"
 info "マージ方法: squashのみ / 自動マージ: 有効 / マージ後にブランチ削除: 有効"
 info "Wiki・Projects・Discussions: 無効"
 
-# シークレットスキャンを先に、プッシュ保護を後に適用する。
-# APIレベルでの依存関係は公式ドキュメントで確認できていない（未検証）が、
-# GitHubのUI手順がこの順序のため合わせている。
+# シークレットスキャンを先、プッシュ保護を後に適用する。GitHub の UI 手順の順序に合わせたもので、
+# API 上の依存関係は未検証。
+# editorconfig-checker-disable-next-line
+# https://docs.github.com/en/code-security/secret-scanning/enabling-secret-scanning-features/enabling-push-protection-for-your-repository
 log "セキュリティ機能を有効化"
 
 gh api --silent --method PATCH "repos/${REPO}" --input - <<'JSON'
@@ -125,24 +126,25 @@ info "リリースの不変化"
 # CodeQLのデフォルトセットアップ。ルールセットの code_scanning ルールが
 # CodeQLの結果を要求するため、これが未設定だとmainへのマージがブロックされる。
 #
-# 解析中にPATCHすると409になりうるので、現在の状態を見てから変更する。
-# languages を明示しているのは、このリポジトリにCodeQL対応言語のコードがなく、
-# 解析対象がワークフロー（actions）だけのため。対応言語のコードを置いたらここに足す。
-codeql_state="$(gh api "repos/${REPO}/code-scanning/default-setup" --jq '.state')"
+# 別の構成での検証が進行中に PATCH すると409になるため、現在の状態と言語が一致していれば送らない。
+# https://docs.github.com/en/rest/code-scanning/code-scanning#update-a-code-scanning-default-setup-configuration
+# 対応言語のコードを置いたら codeql_languages に足す（actions はワークフロー、go は api/）。比較のため昇順で書く。
+codeql_languages="actions,go"
+codeql_current="$(gh api "repos/${REPO}/code-scanning/default-setup" \
+  --jq '[.state, (.languages // [] | sort | join(","))] | @tsv')"
+IFS=$'\t' read -r codeql_state current_languages <<<"${codeql_current}"
 
-if [[ "${codeql_state}" = "configured" ]]; then
+if [[ "${codeql_state}" = "configured" && "${current_languages}" = "${codeql_languages}" ]]; then
   info "CodeQL: 既に有効"
 else
-  gh api --silent --method PATCH "repos/${REPO}/code-scanning/default-setup" --input - <<'JSON'
-{
-  "state": "configured",
-  "query_suite": "default",
-  "languages": [
-    "actions"
-  ]
-}
-JSON
-  info "CodeQL: 有効化（初回の解析が終わるまでマージはブロックされる）"
+  jq -n --arg languages "${codeql_languages}" \
+    '{state: "configured", query_suite: "default", languages: ($languages | split(","))}' |
+    gh api --silent --method PATCH "repos/${REPO}/code-scanning/default-setup" --input -
+  if [[ "${codeql_state}" = "configured" ]]; then
+    info "CodeQL: 解析対象の言語を更新（${current_languages:-なし} → ${codeql_languages}）"
+  else
+    info "CodeQL: 有効化（初回の解析が終わるまでマージはブロックされる）"
+  fi
 fi
 
 # allowed_actions を selected にしてから、許可する範囲を指定する順序で呼ぶ。
@@ -189,7 +191,7 @@ unused_default_labels=(
 )
 
 for name in "${unused_default_labels[@]}"; do
-  # label_exists は gh の終了コードで真偽を返す関数なので、if 条件で呼ぶのが正しい使い方
+  # label_exists は grep の終了コードを真偽として返す関数で、if 条件で呼ぶのが意図どおりのため SC2310 を外す
   # shellcheck disable=SC2310
   if label_exists "${name}"; then
     escaped="$(uri_escape "${name}")"
@@ -209,7 +211,7 @@ managed_labels=(
 
 for entry in "${managed_labels[@]}"; do
   IFS=$'\t' read -r name color description <<<"${entry}"
-  # label_exists は gh の終了コードで真偽を返す関数なので、if 条件で呼ぶのが正しい使い方
+  # label_exists は grep の終了コードを真偽として返す関数で、if 条件で呼ぶのが意図どおりのため SC2310 を外す
   # shellcheck disable=SC2310
   if label_exists "${name}"; then
     escaped="$(uri_escape "${name}")"

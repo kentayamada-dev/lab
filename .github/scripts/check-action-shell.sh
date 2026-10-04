@@ -6,12 +6,9 @@
 #
 # 引数を省略すると .github/actions/*/action.yml を対象にする。
 #
-# ci.yml の shellcheck は git ls-files で集めた *.sh / *.bash / *.bats を検査するため、
-# action.yml の run: に直接書いたシェルは対象外になる。actionlint も run: の中身を
-# 検査に回すが、対象は .github/workflows のワークフローだけで action.yml は見ない
-# （引数なしの actionlint がワークフローを探すことは ci.yml のコメントのとおり。
-# action.yml を対象にしないことは公式ドキュメントで明言を確認できていない＝未確認）。
-# その結果、条件分岐や終了コードの処理を含む run: が誰にも検査されていなかったため、ここで埋める。
+# ci.yml の shellcheck は git 管理下の *.sh / *.bash / *.bats だけを、actionlint は引数なしだとワークフローだけを
+# 検査する（action.yml を見ないことは未検証）。そのため composite action の run: はここで検査する。
+# https://github.com/rhysd/actionlint/blob/main/docs/usage.md
 #
 # run: に ${{ }} を直接書くと shellcheck がパースに失敗してこの検査が落ちる。
 # 値は env: 経由で渡すというリポジトリの方針（各 action.yml のコメント）と同じ向きなので、そのままにしている。
@@ -96,9 +93,8 @@ while IFS= read -r line; do
   snippet="${line%% <- *}"
   shell="${snippet##*.}"
 
-  # -o all は ci.yml の shellcheck と同じ（optional チェックを全て有効にする）。
-  # SC2154（未代入の変数を参照）だけは外す。run: が読む変数はステップの env: と
-  # ランナーが与える環境変数（GITHUB_OUTPUT など）で、どちらも切り出したシェルからは見えないため。
+  # -o all は ci.yml の shellcheck に揃える。SC2154 を外すのは、run: が読む env: やランナーの環境変数
+  # （GITHUB_OUTPUT など）が切り出したシェルからは見えず、正しい run: まで落ちるため。
   shellcheck -s "${shell}" -o all -e SC2154 "${snippet}" || status=1
 done <"${mapping}"
 

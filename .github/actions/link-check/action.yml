@@ -2,10 +2,8 @@
 name: Link check
 description: リポジトリ内のURLに到達できるか lychee で検査する
 
-# 検査ロジックは、ローカルでも同じ結果を再現できるように check-links.sh に置いている。
-# この action はスクリプトの終了コードを出力 drift に写すだけで、issue の作成などは呼び出し側のワークフローが行う。
-#
-# lychee 自体はこの action では導入しない。版を mise.toml で固定して呼び出し側のジョブが入れる。
+# 検査ロジックはローカルで再現できるよう check-links.sh に置き、この action は終了コードを出力 drift に写すだけ。
+# issue の作成と lychee の導入（版は mise.toml）は呼び出し側のワークフローが行う
 
 inputs:
   config-file:
@@ -33,6 +31,7 @@ runs:
   steps:
     # 終了コード 1 = リンク切れあり、2 = lychee の実行失敗など検査自体の失敗（ここで即失敗させる）。
     # run: 内に ${{ }} を直接書くとCodeQLのactions/code-injectionで警告されうるため、envを経由する
+    # https://codeql.github.com/codeql-query-help/actions/actions-code-injection-medium/
     - id: check
       shell: bash
       env:

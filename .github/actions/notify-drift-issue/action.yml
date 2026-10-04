@@ -2,7 +2,6 @@
 name: Notify drift issue
 description: drift 検査の結果をジョブサマリーに書き、GitHub issue で通知する
 
-# settings-drift.yml と ruleset-drift.yml が同じ通知処理を持っていたため、ここに集約した。
 # 処理本体は notify-drift-issue.sh にあり、bats でテストしている（test/）。
 # 各ワークフローは検査結果（drift とレポート）と、issue に載せる文言だけを渡す。
 
@@ -72,6 +71,7 @@ runs:
   using: composite
   steps:
     # run: 内に ${{ }} を直接書くとCodeQLのactions/code-injectionで警告されうるため、envを経由する
+    # https://codeql.github.com/codeql-query-help/actions/actions-code-injection-medium/
     - id: notify
       shell: bash
       env:

@@ -1,13 +1,8 @@
 ---
 name: Link check
 
-# ドキュメントやコメントに書いたURLの生存を定期的に確かめる。
-# CLAUDE.md が「外部要因への対処には根拠となるURLを添える」と定めているため、
-# リポジトリ内のURLは時間とともに参照先の移動・削除で腐っていく。
-#
-# PRの必須チェックにはしない。外部サイトの一時的な不調やレート制限で落ちると、
-# リポジトリと無関係な理由でマージが止まるため。ruleset-drift / settings-drift と同じく
-# 定期実行し、結果は issue で通知する。
+# リポジトリ内のURLの生存を定期的に確かめる。外部サイトの一時的な不調やレート制限で
+# リポジトリと無関係にマージが止まらないよう、PRの必須チェックにはせず issue で通知する
 
 on:
   schedule:
@@ -26,10 +21,7 @@ concurrency:
   group: link-check
   cancel-in-progress: false
 
-# 検査と通知をジョブに分けているのは、両者が必要とする実行環境が違うため。
-# lychee は ci.yml の検査ツールと同じく mise で導入する（版は mise.toml）。
-# 一方 notify-drift-issue はランナー同梱の gh を使うので、コンテナではなくランナー上で動かす。
-# 結果の受け渡しには artifact を使う（ジョブ間でワークスペースは共有されない）。
+# lychee は mise のコンテナで、notify-drift-issue はランナー同梱の gh で動くためジョブを分け、結果は artifact で渡す
 jobs:
   check:
     name: Link check
@@ -51,20 +43,13 @@ jobs:
         with:
           persist-credentials: false
 
-      # このジョブで要るのは lychee だけなので、mise.toml の全ツールではなくこれだけを入れる。
-      # $GITHUB_PATH に書いた PATH は同じジョブの後続のアクションにも効くため、
-      # 次のローカルアクションの中からも lychee を呼べる。
+      # 要るのは lychee だけなので単体で入れる。$GITHUB_PATH は後続のローカルアクションの中にも効く
       # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#adding-a-system-path
       - name: lycheeを導入
         run: |
           mise install aqua:lycheeverse/lychee
           mise bin-paths >> "$GITHUB_PATH"
 
-      # 検査ロジックは ruleset-drift / settings-drift と同じく、ローカルでも同じ結果を再現できるよう
-      # ./.github/actions/link-check のスクリプトに置いている。lychee に渡す引数と終了コードの扱いはそちら。
-      # 検査対象と除外は .github/ci.lychee.toml（既定値）。
-      #
-      # github.token を渡すと github.com へのリクエストが API 経由になり、レート制限で落ちにくくなる。
       - name: リンク切れを検査
         id: check
         uses: ./.github/actions/link-check
@@ -104,9 +89,10 @@ jobs:
         with:
           drift: ${{ needs.check.outputs.drift }}
           report-file: report.md
-          # lychee の markdown レポートに実行日時は入らず、入力ごとの並びも結果の並びも
-          # 文字列の大小で整列される（v0.24.2 の formatters/stats/markdown.rs と sort_stats_iter で確認）。
-          # そのためリンク切れの顔ぶれが同じなら毎回同じハッシュになり、除く行は無い。
+          # lychee の markdown レポートは実行日時を含まず、入力も結果も文字列順に整列されるため（v0.24.2）、
+          # digest-skip-lines は既定の 0 でよい
+          # https://github.com/lycheeverse/lychee/blob/lychee-v0.24.2/lychee-bin/src/formatters/stats/markdown.rs
+          # https://github.com/lycheeverse/lychee/blob/lychee-v0.24.2/lychee-bin/src/formatters/stats/mod.rs
           issue-title: "chore: リポジトリ内のリンクが切れている"
           issue-label: maintenance
           summary-drift: リンク切れがあります

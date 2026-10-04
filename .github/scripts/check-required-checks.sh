@@ -4,10 +4,8 @@
 #
 #   usage: .github/scripts/check-required-checks.sh [ruleset.json] [workflow.yml]
 #
-# ステータスチェックの名前はジョブIDではなくジョブの name になる（.github/workflows/ci.yml のコメント）。
-# そのため ci.yml の name を変えてルールセットを直し忘れると、要求された名前のチェックが永久に現れず、
-# PR がマージできなくなる。逆に ci.yml へジョブを足してルールセットに書き忘れると、
-# そのジョブは落ちてもマージを止めない。どちらも CI は緑のまま進むので、ここで突き合わせる。
+# チェック名はジョブの name になる（ci.yml のコメント）。ずれると必須のチェックが永久に現れずマージ不能になるか、
+# 必須に無いジョブが落ちてもマージを止めない。どちらも CI は緑のまま進むため、ここで突き合わせる。
 #
 # .github/workflows/ruleset-drift.yml が見ているのは「定義ファイルと GitHub 上のルールセット」で、
 # こちらが見るのは「定義ファイルとワークフロー」。同じファイルを起点にした別方向の検査になる。
@@ -44,9 +42,8 @@ jq -r '
   | .context
 ' "${RULESET_FILE}" | LC_ALL=C sort -u >"${work}/required.txt"
 
-# ワークフローのジョブが報告するチェックの名前。
-# name があればそれ、無ければジョブID がそのまま名前になる。
-# strategy.matrix を使うジョブは "name (値)" という形に展開されるが、このリポジトリには無いので扱わない
+# name があればそれ、無ければジョブIDがチェック名になる。strategy.matrix のジョブは "name (値)" に
+# 展開される（未検証）が、このリポジトリには無いので扱わない
 yq -r '.jobs | to_entries[] | .value.name // .key' "${WORKFLOW_FILE}" |
   LC_ALL=C sort -u >"${work}/jobs.txt"
 

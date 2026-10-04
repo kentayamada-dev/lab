@@ -1,32 +1,14 @@
 #!/usr/bin/env bash
-# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
-# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
-# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
-# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# bats の書き方に由来する指摘を外す（各コードの理由は scripts/lib/bats-helpers.bash 冒頭）
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
-# notify-drift-issue.sh の bats テスト用ヘルパ。
-#
-# テストは実GitHubに触れない。gh は PATH の先頭に置いたスタブへ差し替え、
-# 「何を送ったか」「何を送らなかったか」を記録から観測する。
-#
-# スタブの置き場（setup_stubs / only_commands）と判定（assert_*）は他のテストと同じものを使うため、
-# scripts/lib/bats-helpers.bash に置いている。ここに残すのはこの action 固有のスタブと判定だけ。
+# notify-drift-issue.sh のテスト用スタブ。実GitHubに触れないよう gh を差し替え、送った操作を記録から観測する。
 load ../../../../scripts/lib/bats-helpers
 
 # ---- gh のスタブ ----------------------------------------------------------------------------
 
-# 呼び出しの引数を1呼び出し1行で GH_LOG へ記録し、--body-file で渡された本文は
-# GH_BODY_DIR/<サブコマンド>.md に保存する（gh_body で読む）。
-#
-# --comment の本文のように引数に改行が含まれると1呼び出しが複数行に割れ、
-# 行単位で照合する gh_calls_matching が同じ呼び出しの引数を別々の行として見てしまう。
-# そのため改行は \n の2文字に置き換えて記録する。
-#
-# 応答は環境変数で固定する:
-#   GH_ISSUE_LIST_JSON  : gh issue list の応答（既定 []）
-#   GH_ISSUE_VIEW_JSON  : gh issue view の応答（既定は本文もコメントも空）
-#   GH_FAIL_SUBCOMMAND  : このサブコマンド（create など）を終了コード1で失敗させる
+# 呼び出しを GH_LOG に1行ずつ、--body-file の本文を GH_BODY_DIR/<サブコマンド>.md に記録する。
+# gh_calls_matching は行単位で照合するため、引数中の改行は \n の2文字に置き換えて記録する。
 install_gh_stub() {
   GH_LOG="${BATS_TEST_TMPDIR}/gh.log"
   GH_BODY_DIR="${BATS_TEST_TMPDIR}/gh-bodies"
@@ -130,9 +112,7 @@ write_report() {
 
 # ---- 判定 -----------------------------------------------------------------------------------
 
-# assert_equal だけはこの action でしか使わないため共有していない。
-# [[ ]] を避けている理由は共有ヘルパのコメント。
-
+# [[ ]] 単独の偽は bash 3.2 の set -e で拾われないため、偽は return 1 で返す（scripts/lib/bats-helpers.bash 参照）
 assert_equal() {
   [[ "$1" = "$2" ]] && return 0
   printf '一致しない\n--- 期待 ---\n%s\n--- 実際 ---\n%s\n' "$2" "$1" >&2

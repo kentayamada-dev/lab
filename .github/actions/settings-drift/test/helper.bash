@@ -1,17 +1,8 @@
 #!/usr/bin/env bash
-# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
-# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
-# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
-# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# bats の書き方に由来する指摘を外す（各コードの理由は scripts/lib/bats-helpers.bash 冒頭）
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
-# check-settings-drift.sh の bats テスト用ヘルパ。
-#
-# テストは実ネットワークに触れない。外部へ出る curl は PATH の先頭に置いたスタブへ差し替え、
-# 応答はフィクスチャで固定する。
-#
-# スタブの置き場（setup_stubs / only_commands）と判定（assert_*）は他のテストと同じものを使うため、
-# scripts/lib/bats-helpers.bash に置いている。ここに残すのはこの action 固有のスタブと判定だけ。
+# check-settings-drift.sh のテスト用スタブ。実ネットワークに触れないよう curl を差し替え、応答をフィクスチャで固定する。
 load ../../../../scripts/lib/bats-helpers
 
 # ---- スタブとフィクスチャ -------------------------------------------------------------------
@@ -45,11 +36,8 @@ STUB
   chmod +x "${STUB_BIN}/curl"
 }
 
-# 設定索引のドキュメントを作る。引数は "キー<TAB>スコープ" の並び。
-#
-# スクリプトは索引が MIN_INDEX_ROWS(100) 行未満だと「表形式が変わった」と見なして
-# 終了コード2で落ちるため、既定では埋め草の行で水増しする。
-# 行数を意図的に減らす検証では DOCS_FILLER_ROWS=0 を指定する。
+# 引数は "キー<TAB>スコープ" の並び。索引が MIN_INDEX_ROWS 行未満だと終了コード2で落ちるため埋め草で水増しする
+# （行数不足を検証するときは DOCS_FILLER_ROWS=0）。
 write_docs() {
   local out="${STUB_FIXTURES}/docs.md"
   local filler="${DOCS_FILLER_ROWS-120}"
@@ -71,12 +59,8 @@ write_docs() {
   } >"${out}"
 }
 
-# 公開JSONスキーマを作る。
-#   $1: properties に足すJSONオブジェクト（省略時は空）
-#   $2: $defs に足すJSONオブジェクト（省略時は空）
-#
-# トップレベル定義が MIN_SCHEMA_PROPS(50) 件未満だと取得内容が壊れていると見なされるため、
-# こちらも既定で水増しする。件数を減らす検証では SCHEMA_FILLER_PROPS=0 を指定する。
+# $1: properties、$2: $defs に足すJSON（省略時は空）。MIN_SCHEMA_PROPS 件未満だと取得失敗扱いになるため
+# 既定で水増しする（件数不足の検証は SCHEMA_FILLER_PROPS=0）。
 write_schema() {
   local props="${1:-}"
   local defs="${2:-}"

@@ -1,10 +1,6 @@
 #!/usr/bin/env bats
-# bats の shebang は shellcheck が方言を判別できないため明示する
-# shellcheck shell=bash
-# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
-# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
-# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
-# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# bats の書き方由来の誤検出を外す: SC2030/SC2031（@test ごとの subshell）、SC2154（bats・load 先が設定する変数）、
+# SC2016（期待値の $ を展開しない）、SC2312（失敗は run で受ける）
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
 # .github/scripts/check-pr-title.sh のテスト。
@@ -112,7 +108,7 @@ setup() {
 }
 
 @test "末尾に空白があれば落とす" {
-  # squash 後のコミット件名に残るため。形式としては通ってしまうので個別に見ている
+  # squash 後のコミット件名に残る（未検証）ため。形式としては通ってしまうので個別に見ている
   run -1 "${SCRIPT}" "ci: 検査を足す "
 
   assert_contains "${output}" "末尾に空白がある"

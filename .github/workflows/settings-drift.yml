@@ -11,7 +11,7 @@ on:
 
 permissions:
   contents: read
-  issues: write  # 定義ファイルとの差分を検知したら issue で通知するため
+  issues: write  # settings.json のキーが公式ドキュメントと乖離していたら issue で通知するため
 
 # 同時実行すると同じ内容のissueが二重に作られうるため、直列化する
 concurrency:
@@ -26,7 +26,7 @@ jobs:
 
     permissions:
       contents: read
-      issues: write  # 定義ファイルとの差分を検知したら issue で通知するため
+      issues: write  # settings.json のキーが公式ドキュメントと乖離していたら issue で通知するため
 
     env:
       SETTINGS_FILE: .claude/settings.json
@@ -36,12 +36,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # 検査ロジックは、ローカルでも同じ結果を再現できるように .github/actions/settings-drift の
-      # スクリプトに置き、その action が終了コードを出力 drift（true / false）に写す。
-      # 検査自体の失敗（ドキュメント取得失敗など、終了コード2）は action 側で即失敗させる。
-      #
-      # リポジトリ設定で実行可能なアクションを GitHub 公式と検証済みに限っているが（ci.yml 冒頭）、
-      # 同じリポジトリ内のローカルアクション（./）はその設定でも常に許可される。
+      # 実行可能なアクションを公式・検証済みに限っていても（ci.yml 冒頭）、同一リポジトリのローカルアクションは常に許可される
       # editorconfig-checker-disable-next-line
       # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository#allowing-select-actions-and-reusable-workflows-to-run
       - name: 公式ドキュメントとスキーマに対して settings.json を検査

@@ -1,46 +1,29 @@
 # CI が使う検査ツールとそのバージョン。.github/workflows/ci.yml と link-check.yml が、ここに書いた版を
 # mise 経由で導入する。手元でも `mise install` と `mise exec -- <ツール>` で同じ版を再現できる。
 #
-# 導入手段を mise に一本化している理由:
+# 導入手段は mise に一本化する。版を固定して Renovate に追わせられ、arm ランナーに揃えられ、
+# 導入時に aqua レジストリの定義に従ってチェックサム・署名・provenance が検証されるため。
 #
-# 1. 版を固定して Renovate に追わせられる。以前は shellcheck・jq・yamllint をランナーイメージ同梱のもの、
-#    bats を apt で入れていたが、この4つはランナーイメージの更新で黙って変わり、Renovate も追えなかった。
-# 2. arm ランナーに揃えられる。alpine ベースのイメージをジョブのコンテナにすると、その中で
-#    JavaScript Action（actions/checkout）を動かす都合で x64 ランナーに縛られていた（ci.yml のコメント参照）。
-# 3. 導入時にチェックサム・署名・provenance が検証される（検証の有無と種類は aqua レジストリの
-#    パッケージ定義に従う。例えば ghalint では SLSA provenance とチェックサムが検証される）。
+# renovate-config-validator は mise のレジストリに無いため、ci.yml で Renovate のイメージを使う。
+# notify-drift-issue の gh・jq は結果が版に依存しないため、ランナーに同梱のものを使う。
 #
-# renovate-config-validator は mise のレジストリに無いため、ci.yml では Renovate 本体の Docker イメージを
-# ジョブのコンテナにしたまま残している。gh と jq を使う通知まわり（.github/actions/notify-drift-issue）も
-# mise には寄せていない。検査結果が版で変わるツールとは違い、こちらは結果が版に依存しない道具のため。
+# 版の更新は Renovate の mise manager が追う。https://docs.renovatebot.com/modules/manager/mise/
 #
-# Renovate はこのファイルを mise manager で読み、バックエンドごとに datasource が決まる
-# （aqua → github-tags、npm → npm、pypi → pypi）。
-# https://docs.renovatebot.com/modules/manager/mise/
-#
-# バージョンに v を付けないのは、mise が aqua のタグから先頭の v を落とした形を版として扱うため
-# （src/backend/aqua.rs の versioned_package_from_tag）。Renovate 側も v を落として比較する
-# （lib/modules/manager/mise/backends.ts の createAquaToolConfig）。
+# 版に v を付けない。mise は aqua のタグから先頭の v を落とした形を版とし、Renovate も v を落として比較するため。
+# https://github.com/jdx/mise/blob/v2026.10.1/src/backend/aqua.rs#L5620
+# https://github.com/renovatebot/renovate/blob/44.132.2/lib/modules/manager/mise/backends.ts#L40
 #
 # この設定は [tools] にプレーンなバージョン文字列を書くだけなので、mise trust は要らない。
 # https://mise.jdx.dev/cli/trust.html
 #
-# mise.lock（解決済みバージョンとアーティファクトのチェックサムを記録するロックファイル）は置いていない。
-# 公式は再現性のために勧めているが、ここでは全ツールを範囲指定ではなく完全なバージョンで固定しており、
-# 導入時の検証も aqua レジストリのチェックサム・署名・provenance に乗るため、得られるものが小さいと判断した。
-# 再現性をさらに上げたくなったら `mise lock` を実行し、CI を `mise install --locked` に変える。
+# mise.lock は置かない。全ツールを完全な版で固定し、検証も aqua レジストリに任せているため（必要なら mise lock と --locked）。
 # https://mise.jdx.dev/dev-tools/mise-lock.html
 [tools]
 # シェルスクリプトの検査。actionlint も run: の中身を検査する際に PATH 上の shellcheck を使う
 "aqua:koalaman/shellcheck" = "0.11.0"
 
-# シェルスクリプトの整形の検査。shellcheck が見るのは書き方の誤りで、整形は見ない。
-# editorconfig-checker も文字コード・改行・インデント幅・末尾空白までで、
-# 「1行にまとめた関数定義」「case の各節のインデント」「継続行の位置」は誰も見ていなかった。
-# 整形の指定は .editorconfig に置く（shfmt は整形フラグが1つも無いときだけ .editorconfig を読む。
-# 理由と switch_case_indent を有効にしている根拠はそのファイルのコメント）。
-# .bats は shfmt が拡張子から bats 方言と判別する（-ln bats を明示した場合と出力が一致することを
-# v3.14.1 で実測）ため、shellcheck のような方言の指定は要らない。
+# シェルスクリプトの整形の検査（shellcheck も editorconfig-checker も整形は見ない）。設定は .editorconfig に置く（理由はそちら）。
+# .bats は拡張子から bats 方言と判別されるので -ln は不要（v3.14.1 で実測）。
 # https://github.com/mvdan/sh/blob/master/cmd/shfmt/shfmt.1.scd
 "aqua:mvdan/sh" = "3.14.1"
 
@@ -48,110 +31,60 @@
 # 差し替え、jq は実物を呼ぶ）。ランナー上で動く notify-drift-issue の jq はランナー同梱のものを使う
 "aqua:jqlang/jq" = "1.8.2"
 
-# YAML から値を取り出す道具。検査そのものではなく、検査スクリプトが使う。
-# .github/scripts/check-action-shell.sh が action.yml の run: を、.github/scripts/check-required-checks.sh が
-# ci.yml のジョブ名を取り出すのに使っている。
-# jq と違って「結果が版で変わる検査ツール」ではないが、mise の公式イメージに同梱されておらず、
-# ランナーにも無い（ジョブがコンテナの中で動くため）ので、ここで固定して入れる
+# 検査スクリプト（check-action-shell.sh・check-required-checks.sh）が YAML から値を取り出すのに使う。
+# mise の公式イメージにも、ジョブがコンテナで動くランナーにも無いため、ここで固定して入れる。
 "aqua:mikefarah/yq" = "4.54.1"
 
-# YAML の構文検査。PyPI 配布のため pipx バックエンドで入れる。mise はこのバックエンドの導入に uv を使い、
-# uv が無ければ pipx にフォールバックするが、mise の公式イメージにはどちらも入っていないため uv も固定する。
+# uv は pipx バックエンドの導入に使われ、mise の公式イメージに無いため固定する。
 # https://mise.jdx.dev/dev-tools/backends/pipx.html
-#
-# バックエンド名は pipx を使う。現行の名前は pypi で、pipx はそれと併存する互換名（別のツール識別子として
-# 扱われる）だが、Renovate の mise manager は pipx にしか対応しておらず、pypi と書くと未対応バックエンドとして
-# 更新が追われなくなる（lib/modules/manager/mise/extract.ts の backend 分岐に pypi が無い）。
-# 加えて古い mise は pypi を解釈せずこの行を黙って無視する（2026.8.10 で実測）。
+# pypi ではなく pipx と書く。古い mise は pypi を解釈せずこの行を黙って無視するため（2026.8.10 で実測）。
 # https://mise.jdx.dev/dev-tools/backends/pypi.html
 "aqua:astral-sh/uv" = "0.12.23"
 "pipx:yamllint" = "1.38.0"
 
-# TOML の検査。このリポジトリの TOML は mise.toml 自身と .github/ci.lychee.toml で、
-# JSON（jq）・YAML（yamllint）・Markdown（markdownlint）と違って構文も整形も誰も見ていなかった。
-# mise.toml の構文エラーは CI の mise install が落ちて気づけるが、ci.lychee.toml は
-# link-check.yml の定期実行まで気づけず、整形の揺れはどちらも検査されない。
+# TOML（mise.toml・.github/ci.lychee.toml）の構文と整形の検査。ci.lychee.toml の誤りは定期実行まで気づけないため。
 #
-# CI（linux/arm64）で動くことは確認済み（#24 の Lint ジョブの「TOMLを検査」が成功）。
-#
-# 一方、手元の macOS で試したときは、起動時に macOS のシステム設定を読みにいく箇所で panic して
-# 何もせず終わった（"Attempted to create a NULL object." / dynamic_store.rs:154。
-# ただし試したのがシステム設定へのアクセスを制限したサンドボックス下だったため、
-# 制限の無い macOS でも同じになるかは未確認）。手元で TOML を検査できないときはこれが原因の候補。
+# システム設定へのアクセスを制限したサンドボックス下の macOS では、起動時に panic して何もせず終わる
+# （"Attempted to create a NULL object."）。制限の無い macOS では検査できる（0.10.0 で実測）。
 "aqua:tamasfe/taplo" = "0.10.0"
 
-# GitHub Actions のワークフロー検査。
-# 公式 Docker イメージは shellcheck と pyflakes を同梱していたが、こちらはバイナリのみなので、
-# run: の中身の検査は PATH 上のツールに依存する。shellcheck は上で入れている。
-# pyflakes（shell: python の run: を検査する）は入れていない。このリポジトリに python の run: が無いため。
+# バイナリ版は run: の検査に PATH 上の shellcheck・pyflakes を使う。pyflakes は python の run: が無いため入れていない。
 # https://github.com/rhysd/actionlint/blob/main/docs/checks.md
 "aqua:rhysd/actionlint" = "1.7.12"
 
 # GitHub Actions のセキュリティ方針の検査
 "aqua:suzuki-shunsuke/ghalint" = "1.5.6"
 
-# GitHub Actions のセキュリティ静的解析。actionlint（構文・式・run: の中身）や
-# ghalint（permissions・timeout・SHA 固定といった方針）とは主な守備範囲が異なり、
-# $GITHUB_ENV 経由の任意コード実行（github-env）、キャッシュ汚染（cache-poisoning）、
-# なりすましコミット（impostor-commit）など、攻撃の筋道そのものを検査する。
-# 一部は重なる。式インジェクション（template-injection）は actionlint の untrusted inputs 検査と、
-# unpinned-uses / artipacked / excessive-permissions / secrets-inherit は ghalint の
-# action_ref_should_be_full_length_commit_sha / checkout_persist_credentials_should_be_false /
-# job_permissions / deny_inherit_secrets と対応する。それでも互いに相手が持たない検査があるため併用している。
-# https://docs.zizmor.sh/audits/
-# https://github.com/rhysd/actionlint/blob/main/docs/checks.md
-# https://github.com/suzuki-shunsuke/ghalint#policies
-#
-# 検査内容の調整は .github/ci.zizmor.yml に置いている。
+# actionlint・ghalint と一部重なるが、$GITHUB_ENV 経由の実行やキャッシュ汚染など相手に無い検査があるため併用する。
+# 検査内容の調整は .github/ci.zizmor.yml。https://docs.zizmor.sh/audits/
 "aqua:zizmorcore/zizmor" = "1.30.1"
 
 # Dockerfile の検査。RUN の中身の検査には shellcheck を内蔵しており、PATH 上のものには依存しない
 "aqua:hadolint/hadolint" = "2.15.1"
 
-# .editorconfig への準拠の検査
 "aqua:editorconfig-checker/editorconfig-checker" = "4.0.2"
 
 # Markdown の検査。JavaScript 実装のため npm バックエンドで入れる。
 "npm:markdownlint-cli2" = "0.23.3"
 
-# markdownlint-cli2 の実行に要る Node.js。
-# 以前は mise の公式イメージが同梱する Node.js を使っていたが、2026.10.0 からイメージの中身が変わり、
-# CI が使う -debian 版には Node.js が入っていない（ci.yml の lint ジョブのコメント）。
-# 入れないと markdownlint-cli2 の導入は成功するが、実行時に "exec: node: not found" で落ちる
-# （2026.10.0-debian のコンテナで実測）。
-# 版は導入時点の LTS（`mise latest node@lts` の結果）。Renovate の mise manager は core の node を
-# node-version datasource で追う（lib/modules/manager/mise/upgradeable-tooling.ts）。
+# markdownlint-cli2 の実行に要る。CI が使う mise の -debian イメージには Node.js が無く、実行時に node: not found で落ちる。
 # https://github.com/jdx/mise/blob/main/packaging/debian/Dockerfile
 node = "24.21.0"
 
 # 綴りの検査
 "aqua:crate-ci/typos" = "1.50.3"
 
-# 秘密情報の検査。gitleaks の作者らが作っている別実装で、既定のルールだけでリポジトリ内の資格情報を検出する。
-# GitHub のシークレットスキャンとプッシュ保護（scripts/apply-repo-settings.sh で有効化）が提携プロバイダの
-# トークンを push の時点で止めるのに対し、こちらは提携パターン以外の文字列も対象にする。
-# 無料のシークレットスキャンが提携パターンに限られるかは公式ドキュメントで明言を確認できていない（未確認）。
-#
-# aqua レジストリの定義は、チェックサムに加えて cosign の sigstore bundle も検証する
-# （手元の mise 2026.8.10 で "Cosign verified" と表示されることを実測）。
-# https://github.com/aquaproj/aqua-registry/blob/main/pkgs/betterleaks/betterleaks/registry.yaml
+# 秘密情報の検査。GitHub のプッシュ保護が止める提携トークン以外の文字列も既定ルールで検出するため併用する
+# （無料版が提携パターンに限られるかは未確認）。
 "aqua:betterleaks/betterleaks" = "1.9.0"
 
-# 依存関係の既知の脆弱性の検査。ロックファイル・マニフェストから依存を取り出し、OSV データベースと突き合わせる。
-# 対応するのは package-lock.json・go.mod・requirements.txt・Cargo.lock といった各言語のロックファイルで、
-# このリポジトリには現時点でどれも無い（手元の v2.6.0 で走らせて "No package sources found" を実測）。
-# それでも入れているのは、依存を持つコードを置いた時点から追加の設定なしに効かせるため。
-# 対象が無い間の扱いは ci.yml のステップのコメント。
+# 依存の既知の脆弱性の検査。ロックファイルやマニフェスト（api/go.mod など）を OSV と突き合わせる。
 # https://google.github.io/osv-scanner/supported-languages-and-lockfiles/
 #
-# mise.toml 自体（この設定で固定している検査ツール群）は対象外。aqua や mise を読む extractor は
-# osv-scalibr に無い。GitHub Actions の uses: も同じく対象外で、そちらは zizmor の
-# known-vulnerable-actions が見ている。
+# mise.toml と uses: は読む extractor が osv-scalibr に無く対象外（uses: は zizmor の known-vulnerable-actions）。
 # https://github.com/google/osv-scalibr/tree/main/extractor/filesystem/language
 #
-# aqua レジストリの定義は、v1.7.0 以降のバージョンに対してチェックサムと SLSA provenance を検証する。
-# 古い版に付いている supported_envs の制限はこのブロックには無いため、
-# CI の arm ランナー（linux/arm64）でも入る。
+# aqua レジストリの定義に supported_envs の制限が無く、CI の arm ランナー（linux/arm64）でも入る。
 # https://github.com/aquaproj/aqua-registry/blob/main/pkgs/google/osv-scanner/registry.yaml
 "aqua:google/osv-scanner" = "2.6.0"
 

@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
-# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
-# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
-# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# bats の書き方由来の誤検出を外す: SC2030/SC2031（@test ごとの subshell）、SC2154（bats・load 先が設定する変数）、
+# SC2016（期待値の $ を展開しない）、SC2312（失敗は run で受ける）
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
 # apply-repo-settings.sh の bats テスト用ヘルパ。
@@ -16,11 +14,8 @@ load ../lib/bats-helpers
 
 # ---- apply-repo-settings.sh 用 --------------------------------------------------------------
 
-# gh のスタブ。
-#
-# 呼び出しの引数をそのまま GH_LOG へ、--input - で渡された本文を
-# "エンドポイント<TAB>JSON" の形で GH_BODY_LOG へ記録する。
-# 応答が必要なエンドポイントだけ環境変数の値を返す。
+# gh のスタブ。引数を GH_LOG に、--input - の本文を "エンドポイント<TAB>JSON" で GH_BODY_LOG に記録し、
+# 応答が要るエンドポイントだけ環境変数の値を返す。
 install_gh_stub() {
   GH_LOG="${BATS_TEST_TMPDIR}/gh.log"
   GH_BODY_LOG="${BATS_TEST_TMPDIR}/gh-body.log"
@@ -51,7 +46,6 @@ esac
 
 args=("$@")
 
-# 本文を標準入力から受け取る呼び出しかどうかを先に判定する
 reads_stdin=0
 prev=""
 for a in "${args[@]}"; do
@@ -61,12 +55,14 @@ for a in "${args[@]}"; do
   prev="$a"
 done
 
-# エンドポイントは api 以降でフラグでもフラグの値でもない最初の引数
+# エンドポイントは api 以降でフラグでもフラグの値でもない引数。複数あれば最後のものになる
 shift
 endpoint=""
+jq_filter=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --method|--jq|--input|-f|-F|-H|--field|--raw-field) shift 2 ;;
+    --jq) jq_filter="$2"; shift 2 ;;
+    --method|--input|-f|-F|-H|--field|--raw-field) shift 2 ;;
     -*) shift ;;
     *) endpoint="$1"; shift ;;
   esac
@@ -82,7 +78,12 @@ case "$endpoint" in
     [ -z "${GH_RULESETS_TSV:-}" ] || printf '%s\n' "$GH_RULESETS_TSV"
     ;;
   */code-scanning/default-setup)
-    printf '%s\n' "${GH_CODEQL_STATE:-not-configured}"
+    # スクリプトが --jq で並べ替え・整形するため、JSON に --jq を適用して返す。
+    # gh の --jq が文字列を引用符なしで出す（jq -r 相当）ことは公式に明記が無く未検証
+    # https://cli.github.com/manual/gh_api
+    jq -n --arg state "${GH_CODEQL_STATE:-not-configured}" --arg languages "${GH_CODEQL_LANGUAGES:-}" \
+      '{state: $state, languages: (if $languages == "" then null else ($languages | split(",")) end)}' |
+      jq -r "${jq_filter:-.}" || exit 1
     ;;
   */labels)
     [ -z "${GH_LABELS:-}" ] || printf '%s\n' "$GH_LABELS"

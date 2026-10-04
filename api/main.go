@@ -65,9 +65,8 @@ func newServer(port string) *http.Server {
 		// http.Server の既定はどのタイムアウトも無制限で、ヘッダーを少しずつ送り続ける接続（Slowloris）に
 		// 接続を握られ続ける。ヘッダーの読み込みだけは必ず打ち切る。
 		ReadHeaderTimeout: 5 * time.Second,
-		// IdleTimeout は 0 だと ReadTimeout を使い、それも 0 なら無制限になる（go doc net/http.Server）。
-		// ReadTimeout は設定していないので、明示しないと keep-alive で待機している接続が残り続ける。
-		// 値は計測に基づくものではない上限。
+		// IdleTimeout が 0 だと ReadTimeout（未設定）に従い無制限になり、keep-alive の待機接続が残り続ける
+		// （go doc net/http.Server）。値は計測に基づかない上限。
 		IdleTimeout: 60 * time.Second,
 	}
 }

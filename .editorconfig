@@ -8,49 +8,25 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 2
 
-# editorconfig-checker が行長を検査する。charset = utf-8 のときはバイト数ではなく文字数
-# （utf8.RuneCountInString）で数えるため、日本語1文字は1桁として扱われる。
-# 値は yamllint の line-length（.github/ci.yamllint.yml）と揃えている。
-# 折り返せない行（URL、コンテナイメージのダイジェスト）は
-# editorconfig-checker-disable-next-line で個別に外す。
+# editorconfig-checker は utf-8 なら文字数で数える。値は yamllint の line-length（.github/ci.yamllint.yml）と揃える。
+# 折り返せない行（URL・digest）は editorconfig-checker-disable-next-line で個別に外す。
 max_line_length = 120
 
 # 番号付きリストの継続行はマーカー幅（"1. " = 3桁）に揃えるため、2の倍数にならない
 [*.md]
 indent_size = unset
 
-# Make はレシピ行の行頭をタブで始めることを要求する（.RECIPEPREFIX を別の文字に変えない限り）。
+# Make のレシピ行はタブ必須。この節が無いと editorconfig-checker がタブを指摘する（4.0.1 で実測）。
 # https://www.gnu.org/software/make/manual/make.html
-#
-# editorconfig-checker は indent_style を検査対象にしており、Makefile を特別扱いする記述は
-# 公式 README に無い。この節を外すと Makefile のレシピ行が
-# "wrong indent style found (tabs instead of spaces)" として指摘され、節があれば通ることを
-# 4.0.1 で実測した。
 [Makefile]
 indent_style = tab
 
-# gofmt はインデントにタブを使い、設定で変えられない。
-# この節を外すと api/ の Go ファイルが editorconfig-checker に
-# "wrong indent style found (tabs instead of spaces)" として指摘されることを 4.0.2 で実測した。
-# go.mod も go コマンドが require ブロックの中をタブで字下げして書き出すため含める。
-# https://pkg.go.dev/cmd/gofmt
+# gofmt と go コマンド（go.mod の require）はタブで字下げし、設定で変えられないため。https://pkg.go.dev/cmd/gofmt
 [{*.go,go.mod}]
 indent_style = tab
 
-# shfmt（シェルスクリプトの整形。ci.yml の「シェルスクリプトの整形を検査」）が読む設定。
-# shfmt 専用の設定ファイルは無く、整形の指定は .editorconfig に書くか実行時のフラグで渡すかの二択で、
-# 「整形フラグを1つでも渡すと .editorconfig を一切読まなくなる」（v3.14.1 で実測）。
-# フラグ側に寄せると上の indent_size = 2 と二重管理になるため、こちらにまとめている。
-# editorconfig-checker は自分が解釈するプロパティ以外を無視するので、この節を足しても検査内容は変わらない
-# （4.0.1 で実測）。
+# shfmt の整形設定。整形フラグを1つでも渡すと .editorconfig を読まなくなる（v3.14.1 で実測）ので、フラグではなくここに書く。
+# switch_case_indent は既存スクリプトの書き方に合わせ、space_redirects は既存が混在しているため既定のままにする。
 # https://github.com/mvdan/sh/blob/master/cmd/shfmt/shfmt.1.scd
-#
-# switch_case_indent は case の各節を1段下げる。shfmt の既定は下げないが、
-# このリポジトリの既存のスクリプトは下げる書き方で揃っている（有効にすると整形の差分が
-# 713行から628行に減ることを v3.14.1 で実測）。
-#
-# space_redirects（`> file` のようにリダイレクト先の前に空白を置く）は有効にしていない。
-# 既存のコードは `> "${file}"` と `>/dev/null` が混在していて、どちらに寄せても差分が出る。
-# 有効にすると 820行、無効なら 628行（同上）なので、差分が小さい既定のままにした。
 [*.{sh,bash,bats}]
 switch_case_indent = true

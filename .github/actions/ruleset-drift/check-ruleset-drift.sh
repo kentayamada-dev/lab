@@ -1,14 +1,6 @@
 #!/usr/bin/env bash
-#
-# 定義ファイルと GitHub 上のルールセットが一致しているか検査する。
-#
-#   usage: .github/actions/ruleset-drift/check-ruleset-drift.sh [ruleset.json]
-#
-# 対象リポジトリは GITHUB_REPOSITORY から、認証は GH_TOKEN（gh が読む）から取る。
-#
-# 終了コード: 0 = 一致 / 1 = 差分あり / 2 = 検査自体が実行できなかった
-# 結果は unified diff で標準出力に書く（ワークフローがそのまま issue 本文に使う）。
-#
+# 定義ファイルと GitHub 上のルールセットの一致を検査する。対象は GITHUB_REPOSITORY、認証は GH_TOKEN（gh が読む）。
+# 終了コード: 0 = 一致 / 1 = 差分あり / 2 = 検査不能。stdout の unified diff はワークフローが issue 本文に使う。
 set -euo pipefail
 
 RULESET_FILE="${1:-.github/rulesets/main.json}"
@@ -24,15 +16,15 @@ done
 
 [[ -n "${GITHUB_REPOSITORY:-}" ]] || die "GITHUB_REPOSITORY が未設定"
 
-# GITHUB_TOKEN には bypass_actors を読む権限を与えられないため、専用のトークンを必須にする。
-# 未設定のまま動かしても gh は公開リポジトリなら応答を返してしまい、差分の誤検知になる。
-# 発行と登録の手順は README の「ruleset-drift の事前準備」。
+# bypass_actors は ruleset への write 権限が要るが、GITHUB_TOKEN には administration 権限を付けられないため専用トークンを必須にする
+# （write 権限と administration の対応は推測。未設定でも公開リポジトリは応答が返り誤検知になる点は未検証）。手順は README。
+# https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions
 [[ -n "${GH_TOKEN:-}" ]] || die "GH_TOKEN が未設定。secret RULESET_READ_TOKEN を設定する（手順は README）"
 
 [[ -f "${RULESET_FILE}" ]] || die "${RULESET_FILE} が存在しない"
 jq empty "${RULESET_FILE}" 2>/dev/null || die "${RULESET_FILE} が JSON として不正"
 
-# 作業ディレクトリは TMPDIR 配下に明示して作る（既定の一時領域に書けない実行環境があるため）
+# 作業ディレクトリは TMPDIR 配下に明示して作る（既定の一時領域に書けない実行環境への対処。推測）
 work="$(mktemp -d "${TMPDIR:-/tmp}/ruleset-drift.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
@@ -50,9 +42,7 @@ fi
 
 gh api "repos/${GITHUB_REPOSITORY}/rulesets/${id}" >"${work}/raw.json" || die "ルールセット(id=${id})を取得できない"
 
-# bypass_actors は「ルールセットへの write 権限がある要求元にだけ返す」仕様で、権限が無いと
-# キーごとレスポンスから消える。APIはエラーを返さないため、そのまま比較すると権限不足が
-# 「差分あり」として通知され続ける（#11）。drift ではなく検査自体の失敗として切り分ける。
+# bypass_actors は write 権限の無い要求元にはエラーなしでキーごと省かれるため、drift ではなく検査失敗にする（#11）。
 # https://docs.github.com/en/rest/repos/rules
 jq -e 'has("bypass_actors")' "${work}/raw.json" >/dev/null ||
   die "APIレスポンスに bypass_actors がない。GH_TOKEN の権限不足または期限切れの可能性がある"

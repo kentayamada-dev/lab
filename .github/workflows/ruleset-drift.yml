@@ -36,15 +36,8 @@ jobs:
         with:
           persist-credentials: false
 
-      # 検査ロジックは、ローカルでも同じ結果を再現できるように .github/actions/ruleset-drift の
-      # スクリプトに置き、その action が終了コードを出力 drift（true / false）に写す。
-      # 検査自体の失敗（トークンの権限不足・API取得失敗など、終了コード2）は action 側で即失敗させる。
-      #
-      # GITHUB_TOKEN ではなく専用のトークンを渡す。bypass_actors は「ルールセットへの write 権限が
-      # ある要求元にだけ返す」仕様で、権限が無いとキーごとレスポンスから消えるが、GITHUB_TOKEN には
-      # その権限を与えられない（permissions に administration スコープが無い）。
-      # 未設定のまま動かすと、実際は一致していても差分として通知され続ける（#11）。
-      # 発行と登録の手順は README の「ruleset-drift の事前準備」。
+      # bypass_actors は write 権限が無いと応答から消え、GITHUB_TOKEN にはその権限を付けられないため専用トークンを渡す
+      # （未設定だと一致していても差分として通知され続ける。#11）。発行と登録の手順は README の「ruleset-drift の事前準備」
       # https://docs.github.com/en/rest/repos/rules
       # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#permissions
       - name: GitHub上のルールセットと定義ファイルを比較

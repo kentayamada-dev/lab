@@ -1,51 +1,25 @@
 ---
-# zizmor（GitHub Actions のセキュリティ静的解析）の設定。
+# zizmor の設定。persona は ci.yml で auditor を指定している。自動検出名を避け ci.yml から --config で渡す。
+# 自動検出だと改名・移動で設定が外れても、無効化したはずの指摘として現れ原因が分からないため（1.30.1 で実測）
 # https://docs.zizmor.sh/configuration/
-#
-# .github/ 直下のCI用の設定と同じく ci. を付け、ci.yml から --config で明示的に渡している。
-# zizmor は引数なしなら .github/zizmor.yml → .github/zizmor.yaml → zizmor.yml → zizmor.yaml の順に
-# 探すが、その名前は使っていない。自動検出に頼ると、このファイルを改名・移動したときに
-# 「設定が読めない」ではなく、下で無効化しているはずのルールの指摘として現れ、原因が分からない
-# （設定を外して exit 14 になることを 1.30.1 で実測）。
-# 明示的に渡してあれば exit 1 で I/O エラーになる（同上）。
-# 手元で同じ検査をするときは ci.yml の「ワークフローのセキュリティを静的解析」のコマンド。
-#
-# persona は CI 側で pedantic を指定している（理由は .github/workflows/ci.yml のコメント）。
-# ここに書いていない検査は既定のまま有効。
 
 rules:
-  # self-repository は、リポジトリ内のアクション参照を `uses: ./...` から
-  # GitHub が 2026-07-30 に追加した `uses: $/...` に変えるよう求める指摘。
+  # actionlint が `uses: $/...` を知らず該当箇所を全て落とすため無効化（1.7.12 で実測）。
+  # actionlint が対応したら、この設定を消して `uses: $/...` へ移行する
   # https://github.blog/changelog/2026-07-30-reference-same-repository-actions-with-self-repository-syntax/
-  #
-  # 無効にしているのは actionlint がこの構文をまだ知らないため。`$/` に直すと
-  # actionlint が「ref is missing」として該当箇所を全て落とす（1.7.12 で実測）。
-  # 対応 PR は未マージ（2026-09-16 時点）。
   # https://github.com/rhysd/actionlint/pull/732
-  #
-  # actionlint が対応したら、この設定を消して `uses: $/...` へ移行する。
   self-repository:
     disable: true
 
-  # excessive-permissions は regular でも有効な検査だが、ここで出る「ワークフロー冒頭の
-  # issues: write は、ジョブ側にも同じものがあるなら広すぎる」という形の指摘は pedantic でしか出ない
-  # （regular では出ないことを 1.30.1 で実測）。
-  #
-  # この2つのワークフローでは、冒頭の permissions を新しいジョブが書き忘れたときの下限として
-  # 意図的に置いているため、指摘を受け入れない（方針は .github/workflows/ci.yml のコメント）。
-  #
-  # ルール全体は無効にせず対象ファイルだけ外す。今後追加するワークフローで、
-  # 本物の過剰な権限を見逃さないようにするため。
+  # 冒頭の permissions は、新しいジョブが書き忘れたときの下限として意図的に置いている（方針は ci.yml）。
+  # pedantic 以上でのみ出る指摘（1.30.1 で実測）で、本物の過剰権限を見逃さないようルールは残し対象だけ外す
   excessive-permissions:
     ignore:
       - ruleset-drift.yml
       - settings-drift.yml
 
-  # auditor persona でのみ出る指摘（pedantic では出ないことを 1.30.1 で実測）。
-  # 「シークレットを専用の environment 経由で参照していない」という内容だが、environment の値打ちは
-  # 承認者・待機時間・ブランチ制限といった保護ルールを挟めることにあり、ここで渡しているのは
-  # Renovate とルールセット読み取りのトークンで、実行のたびに人手の承認を挟む理由が無い。
-  # environment を作ると scripts/apply-repo-settings.sh の管理対象も増える。
+  # environment の価値は承認などの保護ルールにあり、Renovate とルールセット読み取りのトークンには
+  # 実行のたびに人手の承認を挟む理由が無いため外す（auditor persona でのみ出る指摘。1.30.1 で実測）
   # https://docs.zizmor.sh/audits/#secrets-outside-env
   secrets-outside-env:
     ignore:

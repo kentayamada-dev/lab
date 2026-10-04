@@ -1,22 +1,10 @@
-# devcontainer を開くためのターゲット。vscli が devcontainer.json を読んで VS Code の dev container 用の
-# URI を組み立て、`code --folder-uri <URI>` を呼ぶ。コンテナの起動と VS Code の接続はその先の
-# Dev Containers 拡張が行うため、ここで docker compose を直接叩く必要はない。
+# vscli が devcontainer.json から URI を組み立てて VS Code を開き、起動は Dev Containers 拡張が行うので compose は直接叩かない。
 # https://github.com/michidk/vscli
 
-# 同名のファイルが出来てもターゲットが動かなくならないよう、実体を持たないターゲットとして宣言する
 .PHONY: dev-api
 
-# api コンテナ（.devcontainer/api-container）を VS Code で開く。
-#
-# --config を絶対パスにしているのは、vscli 1.3.3 が相対パスを正しく URI に載せられないため。
-# `--config .devcontainer/api-container/devcontainer.json` を渡すと、URI の中の configFile が
-# authority ".devcontainer" と path "/api-container/devcontainer.json" に分解され、
-# 先頭のディレクトリ名が authority に吸われてパスが壊れる（--dry-run で実測。絶対パスを渡した場合は
-# scheme "file" と完全なパスになることも同じく実測）。
-#
-# 開く対象のパス（第1引数）も CURDIR で渡す。相対パスでも vscli が絶対パスに直すが、
-# make をどのディレクトリから呼んでも同じリポジトリを開くようにするため揃えている。
-# CURDIR は make がカレントディレクトリの絶対パスを入れる変数で、-C で呼んだ場合も
-# 移動後のディレクトリを指す（GNU Make 3.81 で実測）。
+# --config を絶対パスにするのは、vscli 1.3.3 が相対パスだと先頭ディレクトリを URI の authority に取り込んで壊すため
+# （--dry-run で実測。上流の issue は未検証）。
+# 第1引数も CURDIR にして、-C を含めどこから呼んでも同じリポジトリを開く。
 dev-api:
 	vscli open "$(CURDIR)" --config "$(CURDIR)/.devcontainer/api-container/devcontainer.json"

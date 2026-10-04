@@ -1,17 +1,6 @@
 #!/usr/bin/env bash
-#
-# .claude/settings.json のキーが公式ドキュメントから乖離（drift）していないか検査する。
-#
-#   usage: .github/actions/settings-drift/check-settings-drift.sh [settings.json]
-#
-# 検査内容:
-#   1. 使っている各キーが settings-reference の設定索引に載っているか
-#   2. そのキーのスコープが "Any file" のままか（それ以外はプロジェクトの settings.json から効かない）
-#   3. 公開JSONスキーマで型・enum・書式が妥当か
-#
-# 終了コード: 0 = 問題なし / 1 = drift あり / 2 = 検査自体が実行できなかった
-# 結果は Markdown で標準出力に書く（ワークフローがそのまま issue 本文に使う）。
-#
+# .claude/settings.json のキーを公式の設定索引（存在・スコープ）と公開JSONスキーマ（型・enum・書式）で検査する。
+# 終了コード: 0 = 問題なし / 1 = drift あり / 2 = 検査不能。stdout の Markdown はワークフローが issue 本文に使う。
 set -euo pipefail
 
 SETTINGS_FILE="${1:-.claude/settings.json}"
@@ -36,7 +25,7 @@ done
 [[ -f "${SETTINGS_FILE}" ]] || die "${SETTINGS_FILE} が存在しない"
 jq empty "${SETTINGS_FILE}" 2>/dev/null || die "${SETTINGS_FILE} が JSON として不正"
 
-# 作業ディレクトリは TMPDIR 配下に明示して作る（既定の一時領域に書けない実行環境があるため）
+# 作業ディレクトリは TMPDIR 配下に明示して作る（既定の一時領域に書けない実行環境への対処。推測）
 work="$(mktemp -d "${TMPDIR:-/tmp}/settings-drift.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
@@ -77,7 +66,7 @@ notes=()
 while IFS= read -r key; do
   scope="$(index_scope "${key}")"
   if [[ -n "${scope}" ]]; then
-    # プロジェクトの settings.json から設定できるのは "Any file" だけ
+    # .claude/settings.json を含むスコープは "Any file" だけ（DOCS_URL の Settings index 冒頭の Scope の説明）
     if [[ "${scope}" != "Any file" ]]; then
       problems+=("\`${key}\`: スコープが「${scope}」になっている。プロジェクトの settings.json からは効かない")
     fi
@@ -85,8 +74,7 @@ while IFS= read -r key; do
   fi
 
   parent="${key%.*}"
-  # index_has_children は awk の終了コードで真偽を返す関数なので、if 条件で呼ぶのが正しい使い方。
-  # set -e が効かないという指摘は、失敗をエラーとして扱いたい呼び出しに向けたもの。
+  # 真偽を終了コードで返す関数なので、if 条件で呼んで set -e を効かせないのが意図どおり
   # shellcheck disable=SC2310
   if [[ "${parent}" = "${key}" ]] || index_has_children "${parent}"; then
     # トップレベル、または索引が兄弟キーを列挙している階層なのに載っていない → 削除・改名された可能性
@@ -100,15 +88,11 @@ while IFS= read -r key; do
 done <"${work}/keys.txt"
 
 # ---- 3. JSONスキーマで型・enum・書式を検証する --------------------------------------------
-# 以前は ajv-cli を npx で取得して使っていたが、npx の失敗（レジストリ障害・キャッシュ権限など）と
-# 「エラー0件」がどちらも終了コード1で返り、検査が空振りしても「問題なし」になっていたためやめた。
-# jq だけで検証すれば、失敗は jq の終了コードとしてそのまま扱える。
-#
-# 検証できるのは type / enum / pattern / additionalProperties に限られる。
-# anyOf・oneOf・allOf はどの枝を適用すべきか決められないため、誤検知を避けて検査しない。
+# ajv-cli は検証エラーを終了コード1で返し、npx の取得失敗と見分けられず空振りするため jq だけで検証する（npx 側は未検証）
+# https://github.com/ajv-validator/ajv-cli
+# 対象は type/enum/pattern/additionalProperties のみ。anyOf/oneOf/allOf は枝を決められず誤検知になるため飛ばす。
 cat >"${work}/validate.jq" <<'JQ'
-# パイプや条件式の縦位置を揃えるため、インデント幅が .editorconfig の indent_size(2) の倍数にならない。
-# jq では # がコメントなので、この行は editorconfig-checker への指示としてだけ働き、実行には影響しない。
+# 縦位置を揃えたインデントが indent_size の倍数にならないため editorconfig-checker の検査から外す（jq には無害なコメント）
 # https://github.com/editorconfig-checker/editorconfig-checker#excluding-blocks
 # editorconfig-checker-disable
 # このスキーマの $ref は "#/$defs/x" 形式しかないので、1段だけ解決すれば足りる

@@ -1,22 +1,8 @@
-# lychee（リンク切れ検査）の設定。
-# 読み手は2つある。link-check.yml（定期実行。.github/actions/link-check/check-links.sh 経由）と、
-# ci.yml の --offline の検査（PRごと。ローカルのファイル参照だけを見る）。
-# どちらも -c / --config で明示的に渡す。
-# キー名の一覧: https://github.com/lycheeverse/lychee/blob/master/lychee.example.toml
-#
-# 他のCI用の設定（ci.yamllint.yml / ci.markdownlint-cli2.yaml）と同じく .github/ 直下に置いている。
-# ファイル名に ci. を付けているのは、lychee が -c を省略したときに読む名前（カレントディレクトリの
-# lychee.toml。--help の default で確認）とわざと一致させないため。
-# .github/lychee.toml にすると .github/ で実行したときだけ黙って拾われ、設定が効く経路が2つになる。
-#
-# 検査対象と除外という実行環境によらない設定だけをここに置き、出力形式などの実行時の指定は呼び出し側で渡す。
-# 手元で同じ検査をするときは `.github/actions/link-check/check-links.sh`。
-# パスの解釈は設定ファイルの位置ではなく実行ディレクトリ基準なので、リポジトリ直下から実行する。
+# lychee の設定。ci.yml の --offline の検査とも共有するため .github/ 直下に置き、-c 省略時に読まれる lychee.toml と
+# 名前を変えて呼び出し側から明示的に渡す。パスは実行ディレクトリ基準なので、リポジトリ直下から実行する
+# キー一覧: https://github.com/lycheeverse/lychee/blob/master/lychee.example.toml
 
-# 既定の extensions は md,markdown,mdx,qmd,rmd,mkd,mkdn,mdwn,mdown,mkdown,html,htm,css,txt,xml で、
-# .yml と .sh を含まない。このリポジトリのURLは大半がワークフローのコメントとシェルスクリプトの中にあり、
-# 既定のままだと Markdown 以外がまるごと対象から外れる。
-# lychee は Markdown・HTML 以外を「プレーンテキスト」として扱い、linkify でURLを拾う。
+# 既定の extensions は .yml / .sh を含まず、URLの大半があるワークフローのコメントとスクリプトが対象外になるため広げる
 # https://github.com/lycheeverse/lychee#supported-file-formats
 extensions = ["md", "yml", "yaml", "sh", "bash", "bats", "json", "json5", "txt"]
 
@@ -33,21 +19,15 @@ exclude = [
   # https://www.rfc-editor.org/rfc/rfc6761#section-6.2
   '^https?://([^/]*\.)?example\.test(/|$)',
 
-  # JSON Schema の識別子。Draft-07 の $schema の値は仕様が
-  # http://json-schema.org/draft-07/schema# と定めており、https に置き換えると別の識別子になる。
-  # リンクとして参照しているわけではないので require_https の対象から外す。
-  # .github/actions/settings-drift/test/helper.bash が、検証するスキーマの $schema として使っている。
+  # Draft-07 の $schema 識別子は仕様上 http:// で、リンクではないため require_https から外す（settings-drift のテストで使用）
+  # https://json-schema.org/draft-07/draft-handrews-json-schema-validation-01
   '^http://json-schema\.org/',
 
-  # ルールセット API の応答を模したテストフィクスチャのダミーURL。
-  # .github/actions/ruleset-drift/test/helper.bash で _links.self.href に入れているだけで、
-  # 到達しないのが正しい。
+  # ruleset-drift のテストフィクスチャ（test/helper.bash）のダミーURLで、到達しないのが正しい
   '^https://api\.github\.com/x$',
 ]
 
-# URL のフラグメントの存在も確かめる。既定は無効で、#section のようなアンカーが参照先に
-# 存在しなくてもリンク切れとして扱われない。full はアンカー（#section）とテキストフラグメント
-# （#:~:text=）の両方を対象にする。
+# 既定では #アンカーが参照先に無くても通るため、アンカーとテキストフラグメント（#:~:text=）も検査する
 include_fragments = "full"
 
 # HTTPS で到達できる URL に http:// でリンクしている箇所を失敗にする。既定は false。

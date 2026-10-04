@@ -19,9 +19,6 @@ services:
     volumes:
       - .:/workspace
 
-    # compose を使う devcontainer では overrideCommand の既定が false で、コンテナ自身の command が
-    # そのまま使われる（イメージや Dockerfile を直接指定する場合の既定は true で、
-    # そちらは devcontainer 側が待機用のコマンドに差し替える）。golang イメージの既定の command は
-    # すぐ終了するため、明示しないとコンテナが立ち上がった直後に落ちる。
+    # compose 構成の devcontainer は overrideCommand の既定が false で、golang イメージの既定 command はすぐ終わるため待機させる。
     # https://containers.dev/implementors/json_reference/
     command: sleep infinity

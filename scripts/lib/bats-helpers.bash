@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
-# bats は各 @test を subshell で実行するため、テスト間で変数を引き継ぐ書き方が SC2030/SC2031 として、
-# bats 本体（BATS_TEST_DIRNAME など）と load 先が設定する変数が SC2154 として指摘される。
-# 期待値の文字列に含まれる $ は展開させたくないので SC2016 も、コマンドの失敗は run で受けるので
-# SC2312 も外す。いずれも bats の書き方に由来するもので、コードの不備ではない。
+# bats の書き方由来の誤検出を外す: SC2030/SC2031（@test ごとの subshell）、SC2154（bats・load 先が設定する変数）、
+# SC2016（期待値の $ を展開しない）、SC2312（失敗は run で受ける）
 # shellcheck disable=SC2030,SC2031,SC2016,SC2154,SC2312
 #
 # bats テスト共通のヘルパ。
 #
-# scripts/test と .github/actions/*/test の各 helper.bash から load して読む。
-# テスト専用だが scripts/test/ ではなく scripts/lib/ に置いている。scripts/test/ は
-# apply-repo-settings.sh のテストそのものの置き場で、そこに共通の道具を混ぜると
-# 「.github/actions/* のテストが apply-repo-settings.sh のテストに依存している」ように見えるため。
-# load のパスは .bats のあるディレクトリ基準で解決されるため、実行時のカレントディレクトリや
-# bats に渡した引数の書き方（相対・絶対）に依存しない（bats 1.14.0 で実測）。
+# テスト専用だが scripts/lib/ に置く。scripts/test/ は apply-repo-settings.sh のテストの置き場で、
+# そこに混ぜると他のテストが apply-repo-settings.sh のテストに依存しているように見えるため。
+#
+# load の相対パスは .bats のあるディレクトリ基準で解決され、実行時のカレントディレクトリに依存しない。
+# https://bats-core.readthedocs.io/en/stable/writing-tests.html
 #
 # ここに置くのは、検査対象が違っても同じ意味で使える道具だけ。
 # gh・curl・lychee といった対象ごとのスタブとフィクスチャは、各 helper.bash に残している。
@@ -24,8 +21,6 @@ bats_require_minimum_version 1.5.0
 
 # ---- スタブの置き場 ---------------------------------------------------------------------------
 
-# スタブを置くディレクトリを PATH の先頭に差し込む。
-# フィクスチャ（外部が返したことにするデータ）の置き場もここに作る。
 setup_stubs() {
   STUB_BIN="${BATS_TEST_TMPDIR}/bin"
   STUB_FIXTURES="${BATS_TEST_TMPDIR}/fixtures"
@@ -34,11 +29,8 @@ setup_stubs() {
   export PATH STUB_BIN STUB_FIXTURES
 }
 
-# 指定したコマンドだけが見つかる PATH 用ディレクトリを作り、そのパスを出力する。
-# 「前提のコマンドが無いときに、検査対象が前提チェックで落ちるか」の検証に使う。
-#
-# env と bash は常に含める。検査対象のスクリプトは #!/usr/bin/env bash で起動するため、
-# これを外すとスクリプトが実行されず、前提チェックの結果ではなく 127 を見ることになる。
+# 指定したコマンドだけが見える PATH 用ディレクトリを作る。env と bash は常に含める。
+# 検査対象は #!/usr/bin/env bash で起動するため、外すと前提チェックではなく 127 で落ちる。
 only_commands() {
   local dir="${BATS_TEST_TMPDIR}/only-bin"
   rm -rf "${dir}"
@@ -59,10 +51,10 @@ only_commands() {
 
 # ---- 判定 -----------------------------------------------------------------------------------
 
-# 出力の照合には [[ ]] を使わない。
-# bash 3.2 の set -e は [[ ]] の偽を検知せず、bats もテスト失敗として扱わないため、
-# 偽の判定が黙って通り過ぎてしまう（テストが何も検証しない状態になる）。
-# 関数の return 1 なら bats が失敗として拾う。
+# 照合は関数の return 1 か `[[ ]] || false` で失敗させる。bash 4.1 未満（macOS の 3.2）では
+# テストの途中の [[ ]] 単独が偽でも止まらず、照合が黙って素通りするため。
+# [ ] は shellcheck の SC2292（-o all）に掛かるので使わない。
+# https://bats-core.readthedocs.io/en/stable/gotchas.html
 
 assert_contains() {
   case "$1" in
