@@ -14,3 +14,7 @@ rules:
   # https://yamllint.readthedocs.io/en/stable/rules.html#module-yamllint.rules.truthy
   truthy:
     check-keys: false
+
+# pnpm が生成し手で直せないため外す。ci.yml が引数で渡しても除外されることは 1.38.0 で実測。editorconfig-checker も既定で外している
+ignore: |
+  pnpm-lock.yaml
