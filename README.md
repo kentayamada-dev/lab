@@ -37,8 +37,10 @@ make dev-web
   ホストの `web/node_modules` は空のまま。`pnpm install` はコンテナの中で実行する。
   `docker compose down -v` を使うと、この2つの volume も消える
 - `web/` ディレクトリはまだリポジトリに無い。中身は別途追加する
-- Node.js は公式イメージ `node:26.10.0-trixie` を digest で固定して使う。npm はイメージ同梱のもの。
+- Node.js は公式イメージ `node:26.10.0-trixie` を digest で固定して使う。
   公式イメージにある `node` ユーザー（UID/GID 1000）を `dev` に改名して、api と同じユーザー名にしている
+- パッケージマネージャーは pnpm を使う。イメージ同梱の npm から公式の手順（[get-pnpm](https://pnpm.io/installation#using-npm)）で導入している。
+  版は [.devcontainer/web-container/Dockerfile](.devcontainer/web-container/Dockerfile) の `ARG` に固定してあり、Renovate が更新を追う
 
 ## リポジトリ設定の適用
 
