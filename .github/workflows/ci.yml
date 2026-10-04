@@ -53,7 +53,7 @@ jobs:
       # https://docs.renovatebot.com/modules/versioning/docker/
       #
       # mise の版は同梱の aqua レジストリの新しさも決め、古いと新しいツールが "no asset found" で入らない（2026.8.10 で実測）。
-      image: ghcr.io/jdx/mise:2026.10.1-debian@sha256:3daa20e31600afa0b4182736b1d46ba87d47dccb41db55880e657d4290f47574
+      image: ghcr.io/jdx/mise:2026.10.2-debian@sha256:f349d8fe8c0da612d9d0132f83c1d779a72a49ee110248091cbbbd5caea2f0dd
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -297,7 +297,7 @@ jobs:
       contents: read
 
     container:
-      image: ghcr.io/jdx/mise:2026.10.1-debian@sha256:3daa20e31600afa0b4182736b1d46ba87d47dccb41db55880e657d4290f47574
+      image: ghcr.io/jdx/mise:2026.10.2-debian@sha256:f349d8fe8c0da612d9d0132f83c1d779a72a49ee110248091cbbbd5caea2f0dd
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
