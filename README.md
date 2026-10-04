@@ -33,6 +33,9 @@ make dev-web
 ```
 
 - 前提・マウント・ユーザー（`dev`、UID/GID 1000）・`shutdownAction` は api と同じ。作業ディレクトリは `/workspace/web`
+- 上のマウントに加えて、pnpm のストアと `web/node_modules` を named volume（`pnpm-store`、`web-node-modules`）に置く。
+  ホストの `web/node_modules` は空のまま。`pnpm install` はコンテナの中で実行する。
+  `docker compose down -v` を使うと、この2つの volume も消える
 - `web/` ディレクトリはまだリポジトリに無い。中身は別途追加する
 - Node.js は公式イメージ `node:26.10.0-trixie` を digest で固定して使う。npm はイメージ同梱のもの。
   公式イメージにある `node` ユーザー（UID/GID 1000）を `dev` に改名して、api と同じユーザー名にしている

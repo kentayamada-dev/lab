@@ -12,6 +12,11 @@ RUN test "$(id -u node):$(id -g node)" = "1000:1000" \
   && groupmod --new-name $DEV_USER node \
   && usermod --login $DEV_USER --home /home/$DEV_USER --move-home node
 
+# compose が node_modules にマウントする空の named volume は、イメージに無いパスだと root 所有になり dev が書き込めない。
+# パスは compose の volumes と揃える
+RUN mkdir -p /workspace/web/node_modules \
+  && chown $DEV_USER:$DEV_USER /workspace/web/node_modules
+
 USER $DEV_USER
 
 # 版は customManagers:dockerfileVersions が次行の注記で追う。<名前>_VERSION の形から変数名を変えない。
@@ -28,3 +33,8 @@ ENV PATH=$PNPM_HOME/bin:$PATH
 # SHELL が無いと pnpm setup が ERR_PNPM_UNKNOWN_SHELL で止まる。https://pnpm.io/installation#using-npm
 RUN SHELL=/bin/bash npx --yes "get-pnpm@${GET_PNPM_VERSION}" "${PNPM_VERSION}" \
   && rm -rf ~/.npm
+
+# 明示しないと、ホームとファイルシステムが違う /workspace の直下にストア（.pnpm-store）が作られる。https://pnpm.io/settings/store#storedir
+# 先に作っておくのは、compose がマウントする空の named volume にこのディレクトリの所有者（dev）を引き継がせるため
+RUN mkdir -p "$PNPM_HOME/store" \
+  && pnpm config set --location=global storeDir "$PNPM_HOME/store"

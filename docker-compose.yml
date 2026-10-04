@@ -30,4 +30,12 @@ services:
       context: .devcontainer/web-container
     volumes:
       - .:/workspace
+      # コンテナを作り直してもダウンロード済みのパッケージを残す。パスは web-container の Dockerfile で設定した storeDir と揃える
+      - pnpm-store:/home/dev/.local/share/pnpm/store
+      # バインドマウント上より install やファイル走査が速い。中身は linux 向けのバイナリでホストでは使えないため、ホストと共有しない
+      - web-node-modules:/workspace/web/node_modules
     command: sleep infinity
+
+volumes:
+  pnpm-store:
+  web-node-modules:
