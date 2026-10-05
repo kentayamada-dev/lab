@@ -36,7 +36,9 @@ make dev-web
 - 上のマウントに加えて、pnpm のストアと `web/node_modules` を named volume（`pnpm-store`、`web-node-modules`）に置く。
   ホストの `web/node_modules` は空のまま。`pnpm install` はコンテナの中で実行する。
   `docker compose down -v` を使うと、この2つの volume も消える
-- `web/` には Next.js と React の依存だけを入れてある。アプリのコードはまだ無い
+- `web/` は Next.js（App Router）・Tailwind CSS・Storybook の構成。コンテナの中で次を実行する
+  - `pnpm dev`: Next.js の開発サーバー
+  - `pnpm storybook`: Storybook（ポート 6006）
 - Node.js は公式イメージ `node:26.10.0-trixie` を digest で固定して使う。
   公式イメージにある `node` ユーザー（UID/GID 1000）を `dev` に改名して、api と同じユーザー名にしている
 - パッケージマネージャーは pnpm を使う。イメージ同梱の npm から公式の手順（[get-pnpm](https://pnpm.io/installation#using-npm)）で導入している。

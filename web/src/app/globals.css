@@ -1,0 +1,10 @@
+@import 'tailwindcss';
+
+/* Storybook の withThemeByClassName が html に付ける .dark で切り替えるため、OS 設定ではなく class 基準にする */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    @apply bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+  }
+}

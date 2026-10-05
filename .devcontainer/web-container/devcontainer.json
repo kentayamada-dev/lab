@@ -9,5 +9,23 @@
   ],
   "shutdownAction": "none",
   "workspaceFolder": "/workspace/web",
-  "remoteUser": "dev"
+  "remoteUser": "dev",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "js/ts.experimental.useTsgo": true,
+        "js/ts.tsdk.path": "./node_modules/typescript",
+        "files.associations": {
+          "*.css": "tailwindcss"
+        },
+        "editor.quickSuggestions": {
+          "strings": "on"
+        }
+      },
+      "extensions": [
+        "TypeScriptTeam.native-preview",
+        "bradlc.vscode-tailwindcss"
+      ]
+    }
+  }
 }

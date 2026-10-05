@@ -1,0 +1,14 @@
+---
+engineStrict: true
+
+minimumReleaseAge: 1440
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  # Babel 7が依存する版。provenance付きの7.5.4より後にprovenanceなしで公開されたため誤検知される
+  # https://registry.npmjs.org/semver
+  - 'semver@6.3.1'
+
+registries:
+  default: https://npm.flatt.tech/
+allowBuilds:
+  esbuild: true
