@@ -26,4 +26,7 @@ ARG GOPLS_VERSION=v0.23.0
 RUN go install "golang.org/x/tools/gopls@${GOPLS_VERSION}" \
   && go clean -cache -modcache
 
+# 理由は web-container の Dockerfile と同じ（compose で同じく /workspace にマウントする）
+RUN git config --system --add safe.directory /workspace
+
 USER $DEV_USER

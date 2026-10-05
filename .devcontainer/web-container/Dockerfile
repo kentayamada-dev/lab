@@ -17,6 +17,12 @@ RUN test "$(id -u node):$(id -g node)" = "1000:1000" \
 RUN mkdir -p /workspace/web/node_modules \
   && chown $DEV_USER:$DEV_USER /workspace/web/node_modules
 
+# Docker Desktop for Mac ではマウント直下の /workspace が一時的に root 所有に見え、git が dubious ownership で止まる。
+# https://github.com/docker/desktop-feedback/issues/628
+# ~/.gitconfig は Dev Containers がホストから持ち込むため system に書く。
+# https://code.visualstudio.com/remote/advancedcontainers/sharing-git-credentials
+RUN git config --system --add safe.directory /workspace
+
 USER $DEV_USER
 
 # 版は customManagers:dockerfileVersions が次行の注記で追う。<名前>_VERSION の形から変数名を変えない。
