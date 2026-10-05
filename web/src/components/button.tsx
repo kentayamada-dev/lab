@@ -2,8 +2,10 @@ import type { ComponentProps } from 'react';
 
 const variantClasses = {
   primary: 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800',
-  secondary:
-    'border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 active:bg-gray-100 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800 dark:active:bg-gray-700',
+  secondary: [
+    'border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 active:bg-gray-100',
+    'dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800 dark:active:bg-gray-700',
+  ].join(' '),
 } as const;
 
 const sizeClasses = {
@@ -32,7 +34,8 @@ export const Button = ({
       type={type}
       className={[
         'inline-flex cursor-pointer items-center justify-center rounded-md font-medium transition-colors',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:focus-visible:outline-blue-400',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600',
+        'dark:focus-visible:outline-blue-400',
         'disabled:pointer-events-none disabled:opacity-50',
         variantClasses[variant],
         sizeClasses[size],
