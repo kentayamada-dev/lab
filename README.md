@@ -44,9 +44,11 @@ make dev-web
   - `make install`: 依存の導入（`pnpm install`）
   - `make dev`: Next.js の開発サーバー
   - `make build` / `make start`: 本番ビルドとその起動。`make build` のときに公開先の URL を環境変数 `SITE_URL`（例: `https://example.com`）で渡す。
-    hreflang などの絶対 URL に使い、未設定だと `make build` が失敗する（手元で試すなら `SITE_URL=http://localhost:3000 make build`）。値はビルド時にコードへ埋め込まれるため、`make start` のときに渡しても反映されない（変えるときはビルドし直す）。
+    hreflang などの絶対 URL に使い、未設定だと `make build` が失敗する（手元で試すなら `SITE_URL=http://localhost:3000 make build`）。
+    値はビルド時にコードへ埋め込まれるため、`make start` のときに渡しても反映されない（変えるときはビルドし直す）。
     `make dev` では [web/.env.development](web/.env.development) の `http://localhost:3000` を使う（`next build` はこのファイルを読まない）
-  - `make storybook`: Storybook（ポート 6006）。`make build-storybook` で `storybook-static/` に静的ビルドし、`make preview-storybook` でそれを配信する（ポート 6006）
+  - `make storybook`: Storybook（ポート 6006）。
+    `make build-storybook` で `storybook-static/` に静的ビルドし、`make preview-storybook` でそれを配信する（ポート 6006）
   - `make typecheck`: 型チェック（`next typegen` でルートの型を生成してから `tsc --noEmit`）
 - Node.js は公式イメージ `node:26.10.0-trixie` を digest で固定して使う。
   公式イメージにある `node` ユーザー（UID/GID 1000）を `dev` に改名して、api と同じユーザー名にしている

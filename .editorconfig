@@ -16,6 +16,11 @@ max_line_length = 120
 [*.md]
 indent_size = unset
 
+# 起動コマンドは JSON の文字列で折り返せず、JSON にはコメントも書けないため disable-next-line も使えない。
+# スクリプトに出すと、プレビューが起動したプロセスからリポジトリ内のファイルを読めず失敗する（Claude デスクトップアプリで実測）。
+[.claude/launch.json]
+max_line_length = off
+
 # Make のレシピ行はタブ必須。この節が無いと editorconfig-checker がタブを指摘する（4.0.1 で実測）。
 # https://www.gnu.org/software/make/manual/make.html
 [Makefile]

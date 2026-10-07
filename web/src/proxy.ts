@@ -13,6 +13,7 @@ function getLocale(request: NextRequest) {
     return match(languages, locales, defaultLocale)
   } catch {
     // `*` や不正な言語タグで match が RangeError を投げる（内部の Intl.getCanonicalLocales）ため、既定のロケールに倒す
+    // editorconfig-checker-disable-next-line
     // https://github.com/formatjs/formatjs/blob/@formatjs/intl-localematcher@0.9.0/packages/intl-localematcher/abstract/CanonicalizeLocaleList.ts
     return defaultLocale
   }
