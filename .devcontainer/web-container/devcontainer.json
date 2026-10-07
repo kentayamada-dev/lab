@@ -13,6 +13,7 @@
   "customizations": {
     "vscode": {
       "settings": {
+        "remote.restoreForwardedPorts": false,
         "js/ts.experimental.useTsgo": true,
         "js/ts.tsdk.path": "./node_modules/typescript",
         "files.associations": {

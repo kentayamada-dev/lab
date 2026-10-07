@@ -16,8 +16,11 @@ make dev-api
 - 前提: Docker が動いていること、VS Code に Dev Containers 拡張が入っていること、`vscli` が PATH にあること
   （`brew install michidk/tools/vscli`）
 - リポジトリ全体が `/workspace` にマウントされ、`/workspace/api` が作業ディレクトリになる
-- コンテナの中では `go run .` で HTTP サーバーが起動する（既定のポートは 8080、環境変数 `PORT` で変更できる）。
-  `GET /healthz` が `{"status":"ok"}` を返す。テストは `go test ./...`
+- コンテナの中で [api/Makefile](api/Makefile) のターゲットを実行する
+  - `make run`: HTTP サーバーの起動（既定のポートは 8080、環境変数 `PORT` で変更できる）。`GET /healthz` が `{"status":"ok"}` を返す
+  - `make test`: テスト（CI と同じく `-race` 付き）
+  - `make build`: `bin/api` にバイナリを出力する
+  - `make fmt` / `make vet` / `make tidy`: `gofmt -w`・`go vet`・`go mod tidy`
 - コンテナは `dev` ユーザー（UID/GID 1000）で動く。root では動かさない
 - Go の language server（gopls）はイメージに同梱している。整形（gofumpt）と静的解析（staticcheck）は
   gopls が内蔵しているものを使い、`devcontainer.json` の `gopls` 設定で有効にしている。
@@ -36,9 +39,15 @@ make dev-web
 - 上のマウントに加えて、pnpm のストアと `web/node_modules` を named volume（`pnpm-store`、`web-node-modules`）に置く。
   ホストの `web/node_modules` は空のまま。`pnpm install` はコンテナの中で実行する。
   `docker compose down -v` を使うと、この2つの volume も消える
-- `web/` は Next.js（App Router）・Tailwind CSS・Storybook の構成。コンテナの中で次を実行する
-  - `pnpm dev`: Next.js の開発サーバー
-  - `pnpm storybook`: Storybook（ポート 6006）
+- `web/` は Next.js（App Router）・Tailwind CSS・Storybook の構成。コンテナの中で
+  [web/Makefile](web/Makefile) のターゲットを実行する
+  - `make install`: 依存の導入（`pnpm install`）
+  - `make dev`: Next.js の開発サーバー
+  - `make build` / `make start`: 本番ビルドとその起動。`make build` のときに公開先の URL を環境変数 `SITE_URL`（例: `https://example.com`）で渡す。
+    hreflang などの絶対 URL に使い、未設定だと `make build` が失敗する（手元で試すなら `SITE_URL=http://localhost:3000 make build`）。値はビルド時にコードへ埋め込まれるため、`make start` のときに渡しても反映されない（変えるときはビルドし直す）。
+    `make dev` では [web/.env.development](web/.env.development) の `http://localhost:3000` を使う（`next build` はこのファイルを読まない）
+  - `make storybook`: Storybook（ポート 6006）。`make build-storybook` で `storybook-static/` に静的ビルドし、`make preview-storybook` でそれを配信する（ポート 6006）
+  - `make typecheck`: 型チェック（`next typegen` でルートの型を生成してから `tsc --noEmit`）
 - Node.js は公式イメージ `node:26.10.0-trixie` を digest で固定して使う。
   公式イメージにある `node` ユーザー（UID/GID 1000）を `dev` に改名して、api と同じユーザー名にしている
 - パッケージマネージャーは pnpm を使う。イメージ同梱の npm から公式の手順（[get-pnpm](https://pnpm.io/installation#using-npm)）で導入している。

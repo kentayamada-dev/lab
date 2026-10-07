@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "description": "A starter app built with Next.js, Tailwind CSS, and Storybook."
+  },
+  "home": {
+    "title": "Welcome to Next.js!",
+    "button": "Click Me"
+  },
+  "theme": {
+    "label": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "back": "Back to home"
+  }
+}
