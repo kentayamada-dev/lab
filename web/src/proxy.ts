@@ -27,11 +27,18 @@ export function proxy(request: NextRequest) {
 
   if (pathnameHasLocale) return
 
+  // 拡張子付きのパス（favicon.ico など public/ や app/ のメタデータファイル）はロケールを付けると404になるため振り分けない。
+  // ただし先頭がロケールの大文字小文字違い（/JA/x.txt）だと、next.config の rewrite は照合で大文字小文字を区別せず拾えないため振り分ける
+  // https://github.com/vercel/next.js/blob/v16.3.8/packages/next/src/shared/lib/router/utils/path-match.ts#L23
+  const firstSegment = pathname.split('/')[1].toLowerCase()
+  const startsWithLocaleIgnoringCase = locales.some((locale) => locale.toLowerCase() === firstSegment)
+  if (pathname.includes('.') && !startsWithLocaleIgnoringCase) return
+
   request.nextUrl.pathname = `/${getLocale(request)}${pathname}`
   return NextResponse.redirect(request.nextUrl)
 }
 
 export const config = {
-  // 拡張子付きのパス（favicon.ico など public/ や app/ のメタデータファイル）はロケールを付けると404になるため振り分けない
-  matcher: ['/((?!_next|.*\\..*).*)'],
+  // _next/static などの Next.js 自身のファイルはロケールを付けると壊れるため、proxy を通さない
+  matcher: ['/((?!_next).*)'],
 }

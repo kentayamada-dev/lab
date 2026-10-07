@@ -14,9 +14,6 @@ export async function generateStaticParams() {
   return locales.map((locale) => ({ lang: locale }))
 }
 
-// 未知のロケールが下の notFound() に届くと Next.js 既定の 404 になるため、ルート不一致として global-not-found.tsx に回す
-export const dynamicParams = false
-
 export async function generateMetadata(): Promise<Metadata> {
   const { metadata } = await getDictionary()
   return {

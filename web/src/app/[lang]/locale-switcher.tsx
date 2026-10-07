@@ -8,6 +8,9 @@ import { type Locale, localeCookie, localeNames, locales } from '../../i18n'
 export function LocaleSwitcher({ locale }: { locale: Locale }) {
   const pathname = usePathname()
   const target = locales.find((l) => l !== locale) ?? locale
+  const prefix = `/${locale}`
+  // next.config の rewrite で 404 に回したパスでは、usePathname がロケールの付かない元の URL を返すため
+  const rest = pathname === prefix || pathname.startsWith(`${prefix}/`) ? pathname.slice(prefix.length) : pathname
 
   // # はサーバーで読めず、クエリも描画時に読むと useSearchParams の Suspense 境界が要るため、押す直前の URL から取り込む
   const [captured, setCaptured] = useState({ pathname, suffix: '' })
@@ -22,7 +25,7 @@ export function LocaleSwitcher({ locale }: { locale: Locale }) {
 
   return (
     <Link
-      href={`/${target}${pathname.slice(`/${locale}`.length)}${suffix}`}
+      href={`/${target}${rest}${suffix}`}
       hrefLang={target}
       lang={target}
       onPointerDown={capture}

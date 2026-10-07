@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 // https://github.com/vercel/next.js/issues/68392
 export { generateMetadata } from '../not-found'
 
-// どのルートにも一致しない URL は言語を持たない global-not-found.tsx になるため、ロケール付きのパスは残りを受けて [lang] の not-found.tsx に回す
+// どのルートにも一致しない URL はレイアウトを通らない Next.js 既定の 404 になるため、ロケール付きのパスは残りを受けて [lang] の not-found.tsx に回す
 // https://nextjs.org/docs/app/api-reference/file-conventions/not-found
 export default function Page() {
   notFound()

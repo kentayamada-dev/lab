@@ -7,7 +7,7 @@ const dictionaries = {
   en: () => import('./dictionaries/en.json').then((module) => module.default),
 } satisfies Record<Locale, unknown>
 
-export const loadDictionary = (locale: Locale) => dictionaries[locale]()
+const loadDictionary = (locale: Locale) => dictionaries[locale]()
 
 export const getDictionary = async () => {
   const locale = await lang()
