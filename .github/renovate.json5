@@ -51,6 +51,14 @@
       matchUpdateTypes: ['minor', 'patch', 'digest', 'pinDigest'],
       automerge: true,
     },
+    // web は公開しないアプリなので、devDependencies（:pinDevDependencies）と同じく dependencies も固定する。
+    // 対象を npm に絞るため、全 manager に効く :pinAllExceptPeerDependencies は使わない。
+    // https://docs.renovatebot.com/dependency-pinning/
+    {
+      matchManagers: ['npm'],
+      matchDepTypes: ['dependencies'],
+      rangeStrategy: 'pin',
+    },
     // github-actions manager は uses-with の入力に digest を書けず、pin のブランチ全体が失敗するため無効にする
     // （dry-run で実測。書けないことの上流の根拠は未検証）。https://docs.renovatebot.com/modules/manager/github-actions/
     {
