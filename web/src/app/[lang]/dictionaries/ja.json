@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "description": "Next.js・Tailwind CSS・Storybook で作るアプリの土台です。"
+  },
+  "home": {
+    "title": "Next.js へようこそ！",
+    "button": "クリック"
+  },
+  "theme": {
+    "label": "テーマ",
+    "system": "システム",
+    "light": "ライト",
+    "dark": "ダーク"
+  },
+  "notFound": {
+    "title": "ページが見つかりません",
+    "back": "トップへ戻る"
+  }
+}

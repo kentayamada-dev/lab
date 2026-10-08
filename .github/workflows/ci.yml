@@ -186,11 +186,15 @@ jobs:
       #
       # 引数なしだと .github/ が隠しディレクトリとして外れ、--hidden では .git/ 内を誤検出するため git ls-files で渡す（v1.50.2 で実測）。
       #
+      # --file-list で渡したパスは明示指定として扱われ、バイナリも中身を検査される（v1.50.3 で favicon.ico の誤検出を実測）。
+      # --force-exclude で明示指定の扱いを外し、バイナリを読み飛ばさせる。
+      # https://github.com/crate-ci/typos/blob/v1.50.3/crates/typos-cli/src/file.rs#L953
+      #
       # 綴り以外の理由で指摘される語が出たら、_typos.toml で除外する。
       # https://github.com/crate-ci/typos/blob/master/docs/reference.md
       - name: 綴りを検査
         if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
-        run: git ls-files | typos --file-list - --color never --sort
+        run: git ls-files | typos --file-list - --force-exclude --color never --sort
 
       # markdownlint は見出しの飛びやテーブルの列数など、Markdown 固有の書式を見る。
       # https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md

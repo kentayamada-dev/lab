@@ -1,0 +1,45 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-dev",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "N=lab-web-preview; docker rm -f $N >/dev/null 2>&1; trap 'docker rm -f $N >/dev/null 2>&1; exit 143' INT TERM HUP; docker compose run --rm -T --name $N -p \"127.0.0.1:${PORT:-3100}:3000\" -w /workspace/web web sh -c 'make install && make dev' & wait $!"
+      ],
+      "port": 3100,
+      "autoPort": false
+    },
+    {
+      "name": "web-prod",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "N=lab-web-prod-preview; docker rm -f $N >/dev/null 2>&1; trap 'docker rm -f $N >/dev/null 2>&1; exit 143' INT TERM HUP; docker compose run --rm -T --name $N -p \"127.0.0.1:${PORT:-3101}:3000\" -e SITE_URL -w /workspace/web web sh -c 'make install && make build && make start' & wait $!"
+      ],
+      "port": 3101,
+      "autoPort": false
+    },
+    {
+      "name": "storybook-dev",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "N=lab-storybook-dev-preview; docker rm -f $N >/dev/null 2>&1; trap 'docker rm -f $N >/dev/null 2>&1; exit 143' INT TERM HUP; docker compose run --rm -T --name $N -p \"127.0.0.1:${PORT:-6106}:6006\" -e \"HMR_CLIENT_PORT=${PORT:-6106}\" -w /workspace/web web sh -c 'make install && make storybook' & wait $!"
+      ],
+      "port": 6106,
+      "autoPort": false
+    },
+    {
+      "name": "storybook-prod",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [
+        "-c",
+        "N=lab-storybook-prod-preview; docker rm -f $N >/dev/null 2>&1; trap 'docker rm -f $N >/dev/null 2>&1; exit 143' INT TERM HUP; docker compose run --rm -T --name $N -p \"127.0.0.1:${PORT:-6107}:6006\" -w /workspace/web web sh -c 'make install && make build-storybook && make preview-storybook' & wait $!"
+      ],
+      "port": 6107,
+      "autoPort": false
+    }
+  ]
+}

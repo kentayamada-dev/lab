@@ -13,6 +13,7 @@
   "customizations": {
     "vscode": {
       "settings": {
+        "remote.restoreForwardedPorts": false,
         "gopls": {
           "formatting.gofumpt": true,
           "ui.diagnostic.staticcheck": true
