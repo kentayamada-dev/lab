@@ -427,3 +427,25 @@ jobs:
       - name: Storybookをビルド
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: make build-storybook
+
+  # devcontainer の Dockerfile は Renovate が版を上げて自動マージするが、ほかでビルドされず壊れても気づけないため、ここで確かめる。
+  # devcontainer.json が docker-compose.yml を指し features も無いため、compose のビルドが devcontainer のイメージと同じになる。
+  devcontainer-build:
+    name: Devcontainer build
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: apiのイメージをビルド
+        run: docker compose build api
+
+      - name: webのイメージをビルド
+        if: ${{ !cancelled() }}
+        run: docker compose build web
