@@ -6,10 +6,28 @@
   // dockerfileVersions は Dockerfile の # renovate: 付き <名前>_VERSION を追う。標準の dockerfile manager は
   // ARG を依存にしない（44.95.0 の --dry-run=extract で実測）。
   // https://docs.renovatebot.com/presets-customManagers/#custommanagersdockerfileversions
-  extends: ['config:best-practices', 'customManagers:dockerfileVersions'],
+  // githubActionsVersions は同じ形の注記をワークフローの env で追う（ci.yml の web-build が Dockerfile と揃える pnpm の版）。
+  extends: ['config:best-practices', 'customManagers:dockerfileVersions', 'customManagers:githubActionsVersions'],
 
   // :maintainLockFilesWeekly など、プリセット内のスケジュールを評価する基準時刻
   timezone: 'Asia/Tokyo',
+
+  // 実行は1日1回の定期実行が中心で、既定の 2 件/時では新しい PR が1日2件ほどに絞られ更新が溜まるため外す。
+  // 同時に開く PR の上限（prConcurrentLimit）は既定のまま残す。https://docs.renovatebot.com/configuration-options/#prhourlylimit
+  prHourlyLimit: 0,
+
+  // :maintainLockFilesWeekly の既定（月曜 0〜3 時）は定期実行の時刻と重ならず作られないため、月曜の終日に広げる。
+  lockFileMaintenance: {
+    schedule: ['* * * * 1'],
+  },
+
+  // Renovate は既定で go mod tidy を実行せず、CI の go mod tidy -diff で落ちるため有効にする。
+  // https://docs.renovatebot.com/golang/#module-tidying
+  postUpdateOptions: ['gomodTidy'],
+
+  // GitHub の Dependabot アラートに加え、OSV の脆弱性情報でも直接依存の修正 PR を作る（悪意あるパッケージの検出は試験的）。
+  // https://docs.renovatebot.com/configuration-options/#osvvulnerabilityalerts
+  osvVulnerabilityAlerts: true,
 
   // ラベルは scripts/apply-repo-settings.sh が管理しているものを使う
   labels: ['dependencies'],
@@ -47,8 +65,9 @@
   packageRules: [
     // major 以外は CI が通れば自動マージする（pinDigest は実行されるイメージを変えないため含める）。
     // GitHub の auto-merge と必須チェックが前提（apply-repo-settings.sh / rulesets/main.json）。
+    // lockFileMaintenance は推移的な依存をまとめて上げるが、web のビルドを CI（Web build）で確かめるため含める。
     {
-      matchUpdateTypes: ['minor', 'patch', 'digest', 'pinDigest'],
+      matchUpdateTypes: ['minor', 'patch', 'digest', 'pinDigest', 'lockFileMaintenance'],
       automerge: true,
     },
     // web は公開しないアプリなので、devDependencies（:pinDevDependencies）と同じく dependencies も固定する。
