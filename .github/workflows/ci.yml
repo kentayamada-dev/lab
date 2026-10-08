@@ -366,3 +366,64 @@ jobs:
       - name: テスト
         if: ${{ !cancelled() }}
         run: go test -race ./...
+
+  # web の依存更新（minor・patch・lockfile）は自動マージされるため、壊れていないかをここで確かめる。
+  # go-test と同じく devcontainer と同じ node イメージ・pnpm の版を使い、手元と揃える。
+  web-build:
+    name: Web build
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    container:
+      image: node:26.10.0-trixie@sha256:9965105b7a4e201d7f07268402bb4971670592b46c9b9058cc643961199a1ab6
+
+    defaults:
+      run:
+        working-directory: web
+
+    env:
+      # next build が利用状況を送らないようにする（docker-compose.yml と同じ）。https://nextjs.org/telemetry
+      NEXT_TELEMETRY_DISABLED: "1"
+      PNPM_HOME: /opt/pnpm
+      # 版は customManagers:githubActionsVersions が次行の注記で追う。web-container の Dockerfile と揃える。
+      # renovate: datasource=npm depName=get-pnpm
+      GET_PNPM_VERSION: 0.0.5
+      # renovate: datasource=npm depName=pnpm
+      PNPM_VERSION: 12.8.2
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      # web-container の Dockerfile と同じ手順（get-pnpm が npm の署名でダウンロードを検証する）。
+      # SHELL が無いと pnpm setup が ERR_PNPM_UNKNOWN_SHELL で止まる。https://pnpm.io/installation#using-npm
+      # web で動かすと package.json の devEngines（pnpm 指定）で npx が止まる（npm 11.19.1 で実測）ため、直下で動かす。
+      - name: pnpmを導入
+        working-directory: .
+        run: |
+          SHELL=/bin/bash npx --yes "get-pnpm@${GET_PNPM_VERSION}" "${PNPM_VERSION}"
+          echo "${PNPM_HOME}/bin" >> "$GITHUB_PATH"
+
+      - name: 依存を導入
+        id: install
+        run: pnpm install --frozen-lockfile
+
+      # 以降は互いに独立しているため、前の検査が落ちても残りを実行する
+      - name: 型を検査
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: make typecheck
+
+      # SITE_URL はビルドで必須（src/site.ts）。公開しない検証用のビルドのため仮の URL を渡す
+      - name: ビルド
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        env:
+          SITE_URL: https://example.com
+        run: make build
+
+      - name: Storybookをビルド
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: make build-storybook
