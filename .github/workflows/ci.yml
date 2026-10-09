@@ -281,7 +281,7 @@ jobs:
 
     container:
       # editorconfig-checker-disable-next-line
-      image: ghcr.io/renovatebot/renovate:44.133.0@sha256:05c512c35c764ef6a179e69c3b30567eca254d67f13a0143479fe3c84852c67a
+      image: ghcr.io/renovatebot/renovate:44.148.3@sha256:69e3c20b19f901ca7b02f609216d5ccf0fa700387001f099817852da3dfb617c
       options: --user root
 
     steps:
