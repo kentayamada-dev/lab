@@ -29,7 +29,7 @@ USER $DEV_USER
 # renovate: datasource=npm depName=get-pnpm
 ARG GET_PNPM_VERSION=0.0.5
 # renovate: datasource=npm depName=pnpm
-ARG PNPM_VERSION=12.8.2
+ARG PNPM_VERSION=12.9.1
 
 # pnpm setup は PATH を .bashrc にしか書かず、非対話シェル（docker compose exec など）で pnpm が見つからないため ENV でも通す
 ENV PNPM_HOME=/home/$DEV_USER/.local/share/pnpm

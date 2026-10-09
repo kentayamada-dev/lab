@@ -392,7 +392,7 @@ jobs:
       # renovate: datasource=npm depName=get-pnpm
       GET_PNPM_VERSION: 0.0.5
       # renovate: datasource=npm depName=pnpm
-      PNPM_VERSION: 12.8.2
+      PNPM_VERSION: 12.9.1
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
