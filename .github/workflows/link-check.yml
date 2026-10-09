@@ -33,7 +33,7 @@ jobs:
 
     container:
       # ci.yml の lint ジョブと同じ mise の公式イメージ（選定理由はそちらのコメント）
-      image: ghcr.io/jdx/mise:2026.10.2-debian@sha256:f349d8fe8c0da612d9d0132f83c1d779a72a49ee110248091cbbbd5caea2f0dd
+      image: ghcr.io/jdx/mise:2026.10.5-debian@sha256:ac140bcb5d4a989d3f66eb651263915154c33fa65134d63db4f7edf110ce87cc
 
     outputs:
       drift: ${{ steps.check.outputs.drift }}
