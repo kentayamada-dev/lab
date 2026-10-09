@@ -1,6 +1,6 @@
 # タグは中身が変わりうるため digest で固定する（タグは読みやすさのため残す）。https://docs.renovatebot.com/docker/
 # digest は amd64・arm64 を含む manifest list のもの。アーキテクチャ別の digest だと片方でしか動かない。
-FROM golang:1.27.1-trixie@sha256:8f58fd67ea075142d947a60e0caa4317746a55118d312f027793d382c7741734
+FROM golang:1.27.2-trixie@sha256:e58d6f83b3416618d8bcac2b3dde1b7f7e3c4a77d25e88637f8bbae81536c48d
 
 # USERNAME にしないのは、hadolint DL3064 が username を機密値の疑いとして検出し CI が落ちるため。
 # https://github.com/hadolint/hadolint/blob/master/src/Hadolint/Rule/DL3064.hs
