@@ -39,7 +39,7 @@
 # https://mise.jdx.dev/dev-tools/backends/pipx.html
 # pypi ではなく pipx と書く。古い mise は pypi を解釈せずこの行を黙って無視するため（2026.8.10 で実測）。
 # https://mise.jdx.dev/dev-tools/backends/pypi.html
-"aqua:astral-sh/uv" = "0.12.24"
+"aqua:astral-sh/uv" = "0.13.0"
 "pipx:yamllint" = "1.38.0"
 
 # TOML（mise.toml・.github/ci.lychee.toml）の構文と整形の検査。ci.lychee.toml の誤りは定期実行まで気づけないため。
