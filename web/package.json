@@ -9,24 +9,24 @@
     "preview-storybook": "vite preview --outDir storybook-static --host --port 6006"
   },
   "dependencies": {
-    "@formatjs/intl-localematcher": "^0.9.0",
-    "negotiator": "^1.1.0",
-    "next": "^16.4.0",
-    "next-themes": "^0.4.6",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "@formatjs/intl-localematcher": "0.9.0",
+    "negotiator": "1.1.0",
+    "next": "16.4.0",
+    "next-themes": "0.4.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@storybook/addon-themes": "^10.6.1",
-    "@storybook/nextjs-vite": "^10.6.1",
-    "@tailwindcss/postcss": "^4.3.3",
-    "@types/negotiator": "^0.6.5",
-    "@types/node": "^26.6.4",
+    "@storybook/addon-themes": "10.6.1",
+    "@storybook/nextjs-vite": "10.6.1",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/negotiator": "0.6.5",
+    "@types/node": "26.6.4",
     "@types/react": "^19.3.0",
-    "storybook": "^10.6.1",
-    "tailwindcss": "^4.3.3",
-    "typescript": "^7.0.2",
-    "vite": "^8.3.2"
+    "storybook": "10.6.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vite": "8.3.2"
   },
   "devEngines": {
     "packageManager": {
